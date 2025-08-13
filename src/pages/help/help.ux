@@ -1,0 +1,122 @@
+<template>
+	<div class="page" style="flex-direction: column;">
+        <scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 0px 6px;">
+            <div style="height:86px;"></div>
+            <text class="itemtext2">JSLab是一款用于编写和运行JS的快应用</text>
+            <text class="itemtext2">你可以通过console.log在虚拟console上进行输出</text>
+            <text class="itemtext2">你可以像在快应用内部一样调用系统API</text>
+            <text class="itemtext2">具体API支持情况取决于设备，参见小米官方文档</text>
+            <text class="itemtext2" style="color:#ff0000">由于实现方案的缺陷，目前在回调函数中的输出可能无法显示，我们会加紧修改</text>
+
+
+            <div class="item" style="">
+                <div class="item-content">
+                    <text class="itemtext">系统API文档：</text>
+                    <qrcode value="https://iot.mi.com/vela/quickapp/zh/features/basic/app.html" style="color: #000000;background-color: #ffffff"></qrcode>
+                </div>
+            </div>
+        </scroll>
+    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
+    <img static src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
+    <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
+      {{nowTime}}
+    </text>
+    <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
+      帮助
+    </text>
+    </div>
+</template>
+
+<script>
+import router from '@system.router';
+import app from '@system.app';
+
+
+export default {
+  private: {
+    nowTime: "00:00",
+    timer: null
+  },
+  exit(){
+	  app.terminate();
+  },
+  updateTime() {
+    const date = new Date();
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+
+    // 格式化小时和分钟为两位数
+    hours = hours < 10 ? '0' + hours : hours;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+
+    this.nowTime = `${hours}:${minutes}`;
+  },
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000);
+  },
+  onDestroy(){
+	  clearInterval(this.timer);
+  },
+  onShow() {
+  },
+  routerTo(page) {
+    router.push({
+      uri: `/pages/${page}`
+    });
+  },
+  back(){
+  	router.back();
+  }
+};
+
+</script>
+
+<style>
+.page {
+	width: 336px;
+	height: 480px;
+	background-color: #000000;
+}
+
+.item {
+	width: 100%;
+	height: 360px;
+	padding: 14px 20px;
+	margin-bottom: 8px;
+	background-color: #262626;
+	border-radius: 36px;
+	/* flex-direction: column; */
+	align-items: center;
+  justify-content: space-between;
+}
+
+.itemtext {
+	font-size: 32px;
+	line-height:40px;
+	width: 100%;
+	font-weight: bold;
+	color: white;
+	text-overflow: ellipsis;
+	lines: -1;
+}
+
+.itemtext2 {
+	font-size: 24px;
+	line-height:40px;
+	width: 100%;
+	font-weight: bold;
+	color: white;
+	text-overflow: ellipsis;
+	lines: -1;
+}
+
+.item-content {
+	height: 100%;
+	flex:1;
+	flex-direction: column;
+	justify-content: space-between;
+}
+</style>

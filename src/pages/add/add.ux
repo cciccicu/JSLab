@@ -1,0 +1,317 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+<template>
+    <div class="page" style="flex-direction: column;">
+    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
+    <img static src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
+    <img if="{{hideInputMethod}}" static src="/common/images/conform.png" @click="confirmAdd" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
+    <img if="{{!hideInputMethod}}" static src="/common/images/down.png" @click="changeFocus" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
+    <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
+      {{nowTime}}
+    </text>
+    <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
+      新建JS
+    </text>
+    
+    <!-- 文件名输入区域 -->
+    <text class="label">文件名:</text>
+    <div class="input-container">
+      <div class="input-box" @click="changeFocus">
+        <text class="input-text">{{fileName + "_" || '请输入文件名'}}</text>
+      </div>
+    </div>
+    
+    <!-- 模板选择区域 -->
+    <text class="label">选择模板:</text>
+    <div class="picker-container">
+      <picker class="picker" 
+              type="text"
+              selected="{{selectedTemplateIndex}}" 
+              range="{{templateOptions}}" 
+              @change="onTemplateChange">
+      </picker>
+    </div>
+    
+    <!-- 第三方输入法组件 -->
+    <input-method
+      hide="{{hideInputMethod}}"
+      keyboardtype="{{keyboardType}}"
+      maxlength="5"
+      vibratemode="{{vibrateMode}}"
+      screentype="{{screenType}}"
+      @visibility-change="onInputMethodVisibilityChange"
+      @key-down="onInputMethodKeyDown"
+      @delete="onInputMethodDelete"
+      @complete="onInputMethodComplete"
+      >
+    </input-method>
+
+    </div>
+</template>
+
+<script>
+import router from '@system.router';
+import app from '@system.app';
+import prompt from '@system.prompt';
+import vibrator from '@system.vibrator';
+import device from '@system.device';
+
+
+export default {
+  private: {
+    nowTime: "00:00",
+    timer: null,
+    
+    // 输入法相关
+    hideInputMethod: true,      // 是否隐藏输入法
+    keyboardType: "QWERTY",            // 键盘类型
+    vibrateMode: "short",             // 震动模式
+    screenType: "rect",              // 屏幕类型
+    
+    // 文件相关
+    fileName: "",               // 文件名
+    selectedTemplateIndex: 0,   // 选中的模板索引
+    templateOptions: ['空白文件', 'Hello World', 'fetch示例'], // 模板选项
+    
+    // 模板内容
+    templateContents: [
+      "",  // 空白文件
+      `console.log("Hello World!");`,  // Hello World
+      `  fetch.fetch({
+    // 设置请求的 URL
+    url: 'https://www.baidu.com',
+    
+    // 可选：设置请求方法，默认是 GET
+    method: 'GET',
+    
+    // 可选：设置请求头
+    header: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      // 可以添加其他 header
+    },
+    
+    // 可选：设置超时时间（毫秒）
+    timeout: 5000,
+    
+    // 可选：设置响应数据类型
+    // 'text': 返回文本字符串
+    // 'arraybuffer': 返回 ArrayBuffer
+    // 'json': 返回 JSON 对象（会自动解析）
+    responseType: 'text',
+    
+    // 成功回调函数
+    success: function(response) {
+      console.log('请求成功！');
+
+      // response 对象包含服务器的响应信息
+      console.log('状态码:', response.code); // 例如 200
+      console.log('响应数据:', response.data); // 百度首页的 HTML 源码
+      console.log('响应头:', JSON.stringify(response.headers));
+    },
+    
+    // 失败回调函数
+    fail: function(data, code) {
+      console.log('请求失败！');
+
+      // data 通常是错误信息字符串
+      // code 是错误码
+      console.log('错误信息:', data);
+      console.log('错误码:', code);
+
+      // 根据通用错误码进行处理
+      switch (code) {
+        case 202:
+          console.log('参数错误');
+          break;
+        case 204:
+          console.log('请求超时');
+          break;
+        default:
+          console.log('其他错误');
+      }
+    },
+    
+    // 可选：无论成功或失败都会执行的回调
+    complete: function() {
+      console.log('请求结束');
+    }
+  });`  // fetch
+    ]
+  },
+  
+  exit(){
+      app.terminate();
+  },
+  
+  updateTime() {
+    const date = new Date();
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+
+    // 格式化小时和分钟为两位数
+    hours = hours < 10 ? '0' + hours : hours;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+
+    this.nowTime = `${hours}:${minutes}`;
+  },
+  
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000);
+  },
+  
+  onDestroy(){
+      clearInterval(this.timer);
+  },
+  
+  onShow() {
+  },
+  
+  routerTo(page) {
+    router.push({
+      uri: `/pages/${page}`
+    });
+  },
+  
+  back(){
+      router.back();
+  },
+  
+  // 聚焦文件名输入框
+  changeFocus() {
+    if(this.hideInputMethod){
+      this.hideInputMethod = false;
+    }
+    else{
+      this.hideInputMethod = true;
+    }
+  },
+  
+  onVisibilityChange(evt) {
+    console.log("键盘显示状态变更:" + JSON.stringify(evt))
+  },
+    
+  onKeyDown(evt) {
+    console.log("按下按键:" + JSON.stringify(evt))
+  },
+  
+  // 输入法删除事件
+  onInputMethodDelete() {
+    if (this.fileName.length > 0) {
+      this.fileName = this.fileName.slice(0, -1);
+    }
+  },
+  onInputMethodComplete(evt) {
+    if (evt && evt.detail && evt.detail.content) {
+        this.fileName += evt.detail.content;
+    }
+  },
+  onTemplateChange(e) {
+    this.selectedTemplateIndex = e.newSelected;
+  },
+  confirmAdd() {
+    // 检查文件名是否为空
+    if (!this.fileName || this.fileName.trim() === "") {
+      prompt.showToast({
+        message: "请输入文件名"
+      });
+      return;
+    }
+    
+    // 检查文件名是否以.js结尾，如果不是则自动添加
+    let fileName = this.fileName.trim();
+    if (!fileName.endsWith('.js')) {
+      fileName += '.js';
+    }
+    
+    // 获取选中的模板内容
+    const templateContent = this.templateContents[this.selectedTemplateIndex];
+    
+    // 保存文件
+    this.$app.$def.savejs(fileName, templateContent)
+      .then(() => {
+        prompt.showToast({
+          message: `文件 ${fileName} 创建成功`
+        });
+        
+        // 设置全局代码和文件名
+        this.$app.$def.jsName = fileName;
+        this.$app.$def.jsCode = templateContent;
+        this.$app.$def.codeBefore = templateContent;
+        this.$app.$def.codeAfter = templateContent;
+
+        
+        // 跳转到编辑页面
+        router.push({
+          uri: '/pages/edit'
+        });
+      })
+      .catch(error => {
+        console.error(`创建文件 ${fileName} 失败:`, error.message);
+        prompt.showToast({
+          message: `创建文件失败: ${error.message}`
+        });
+      });
+  }
+};
+
+</script>
+
+<style>
+.page {
+    width: 336px;
+    height: 480px;
+    background-color: #000000;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 120px;
+}
+
+.input-container {
+  width: 300px;
+  margin-bottom: 40px;
+}
+
+.label {
+  font-size: 28px;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.input-box {
+  width: 100%;
+  height: 60px;
+  background-color: #262626;
+  border-radius: 16px;
+  padding: 0 20px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.input-text {
+  font-size: 28px;
+  color: white;
+  flex: 1;
+}
+
+.picker-container {
+  width: 300px;
+  margin-bottom: 40px;
+}
+
+.picker {
+  width: 100%;
+  height: 60px;
+  background-color: #262626;
+  border-radius: 16px;
+  padding: 0 20px;
+}
+
+.picker-text {
+  font-size: 28px;
+  color: white;
+}
+
+</style>

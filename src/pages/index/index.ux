@@ -1,0 +1,423 @@
+<template>
+  <div class="page" style="flex-direction: column;">
+
+    <img if="{{fileList.length == 0}}" src="/common/images/empty.png"
+        style="position: absolute;left: 104px;top: 146px;width: 128px;height: 128px;" />
+
+    <text if="{{fileList.length == 0}}" style="position: absolute;left: 0px;top: 298px;width: 336px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">啥也没有</text>
+
+    <list class="list">
+        <list-item for="{{(index, file) in fileList}}" class="item {{selectedFileIndex === index ? 'item2' : ''}}" 
+               @click="selectFile(index)" type="nook">
+            <text class="itemtext">{{file.name}}</text>
+      <div class="itemtext" style="justify-content: space-between;width: 100%; ">
+          <text class="itemtext2" style="flex:1">文件大小</text>
+          <text class="itemtext2">{{file.size}}B</text>
+      </div>
+        </list-item>
+    </list>
+
+  <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
+  <img static src="/common/images/back.png" @click="exit" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
+  <img static src="/common/images/more.png" @click="routerTo('setting')" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
+  <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
+    {{nowTime}}
+  </text>
+  <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
+    JSLab
+  </text>
+  
+  <!-- 底部按钮根据选择状态显示 -->
+  <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" 
+    style="position: absolute;left: 6px;top: 402px;width: 72px;height: 72px;" @click="routerTo('market')"/>
+  <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" 
+    style="position: absolute;left: 258px;top: 402px;width: 72px;height: 72px;" @click="routerTo('add')"/>
+  <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" 
+    style="position: absolute;left: 6px;top: 402px;width: 72px;height: 72px;" @click="runcode"/>
+  <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" 
+    style="position: absolute;left: 132px;top: 402px;width: 72px;height: 72px;" @click="editcode"/>
+  <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" 
+    style="position: absolute;left: 258px;top: 402px;width: 72px;height: 72px;" 
+    @click="handleDeleteClick" @longpress="handleDeleteLongPress"/>
+    
+  </div>
+</template>
+
+<script>
+import router from '@system.router';
+import app from '@system.app';
+import prompt from '@system.prompt';
+
+export default {
+private: {
+  fileList: [], // 初始化为空数组
+  selectedFileIndex: -1, // -1表示未选择任何文件
+  nowTime: "00:00",
+  timer: null,
+  
+  // 删除验证状态
+  deleteState: 0,       // 删除状态：0-等待第一次长按, 1-已长按等待短按, 2-已短按等待第二次长按
+  deleteTimeout: null,  // 超时计时器
+  initialActionTime: 0  // 初始操作时间
+},
+
+exit(){
+    app.terminate();
+},
+
+updateTime() {
+  const date = new Date();
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+
+  // 格式化小时和分钟为两位数
+  hours = hours < 10 ? '0' + hours : hours;
+  minutes = minutes < 10 ? '0' + minutes : minutes;
+
+  this.nowTime = `${hours}:${minutes}`;
+},
+
+onInit() {
+  this.updateTime();
+  this.timer = setInterval(() => {
+    this.updateTime();
+  }, 1000);
+},
+
+onDestroy(){
+    clearInterval(this.timer);
+  if (this.deleteTimeout) {
+    clearTimeout(this.deleteTimeout);
+  }
+},
+
+onShow() {
+  this.loadFileList();
+},
+
+loadFileList() {
+  this.$app.$def.listjs().then(fileList => {
+    this.fileList = fileList;
+    // 重置选择状态
+    this.selectedFileIndex = -1;
+  }).catch(error => {
+    console.error("获取文件列表失败:", error);
+    prompt.showToast({
+      message: "获取文件列表失败"
+    });
+  });
+},
+
+selectFile(index) {
+  // 如果当前已选中该文件，则取消选择
+  if(this.selectedFileIndex === index) {
+    this.selectedFileIndex = -1;
+  } else {
+    // 否则选择该文件
+    this.selectedFileIndex = index;
+  }
+  
+  // 如果在删除验证过程中点击了文件，取消删除操作
+  if (this.deleteState > 0) {
+    this.resetDeleteState();
+    prompt.showToast({
+      message: "操作已取消"
+    });
+  }
+},
+
+routerTo(page) {
+  router.push({
+    uri: `/pages/${page}`
+  });
+},
+
+runcode(){
+  // 检查是否选择了文件
+  if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
+    prompt.showToast({
+      message: "请先选择一个文件"
+    });
+    return;
+  }
+  
+ // 读取JS文件内容
+  const fileName = this.fileList[this.selectedFileIndex].name;
+  this.$app.$def.getjs(fileName)
+    .then(content => {      
+      this.$app.$def.jsName = fileName;
+      this.$app.$def.jsCode = content;
+      this.routerTo('run');
+    })
+    .catch(error => {
+      console.error(`读取文件 ${fileName} 失败:`, error.message);
+      if (error.message.includes('301')) {
+        prompt.showToast({
+          message: `文件 ${fileName} 不存在`
+        });
+      } else {
+        prompt.showToast({
+          message: `读取文件失败: ${error.message}`
+        });
+      }
+    });
+},
+
+editcode(){
+  // 检查是否选择了文件
+  if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
+    prompt.showToast({
+      message: "请先选择一个文件"
+    });
+    return;
+  }
+  
+  // 读取JS文件内容
+  const fileName = this.fileList[this.selectedFileIndex].name;
+  this.$app.$def.getjs(fileName)
+    .then(content => {      
+      this.$app.$def.jsName = fileName;
+      this.$app.$def.jsCode = content;
+      this.$app.$def.codeBefore = content;
+      this.$app.$def.codeAfter = "";
+
+      this.routerTo('edit');
+    })
+    .catch(error => {
+      console.error(`读取文件 ${fileName} 失败:`, error.message);
+      if (error.message.includes('301')) {
+        prompt.showToast({
+          message: `文件 ${fileName} 不存在`
+        });
+      } else {
+        prompt.showToast({
+          message: `读取文件失败: ${error.message}`
+        });
+      }
+    });
+},
+
+// 处理删除按钮点击事件
+handleDeleteClick() {
+  // 检查是否选择了文件
+  if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
+    prompt.showToast({
+      message: "请先选择一个文件"
+    });
+    return;
+  }
+  
+  // 触发删除验证（点击事件）
+  this.deletecode("click");
+},
+
+// 处理删除按钮长按事件
+handleDeleteLongPress() {
+  // 检查是否选择了文件
+  if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
+    prompt.showToast({
+      message: "请先选择一个文件"
+    });
+    return;
+  }
+  
+  // 触发删除验证（长按事件）
+  this.deletecode("longpress");
+},
+
+// 删除验证主逻辑
+deletecode(eventType) {
+  const currentTime = Date.now();
+  const fileIndex = this.selectedFileIndex;
+  
+  // 检查是否选择了文件
+  if (fileIndex === -1 || !this.fileList[fileIndex]) {
+    prompt.showToast({
+      message: "请先选择要删除的文件"
+    });
+    return;
+  }
+  
+  const fileName = this.fileList[fileIndex].name;
+  
+  // 重置超时计时器
+  this.resetDeleteTimeout();
+
+  // 处理不同状态
+  switch (this.deleteState) {
+    case 0: // 等待第一次长按
+      if (eventType === "longpress") {
+        this.deleteState = 1;
+        this.initialActionTime = currentTime;
+        prompt.showToast({
+          message: "第一步：长按成功，请点击确认"
+        });
+      } else {
+        // 点击不应该在此状态发生
+        this.resetDeleteState();
+        prompt.showToast({
+          message: "删除操作：请先长按"
+        });
+      }
+      break;
+      
+    case 1: // 已长按，等待点击
+      if (eventType === "click") {
+        // 检查时间间隔
+        if (currentTime - this.initialActionTime > 5000) {
+          this.resetDeleteState();
+          prompt.showToast({
+            message: "操作超时，请重新开始"
+          });
+          return;
+        }
+        
+        this.deleteState = 2;
+        prompt.showToast({
+          message: "第二步：点击成功，请再次长按确认删除"
+        });
+      } else if (eventType === "longpress") {
+        // 连续长按是错误操作
+        this.resetDeleteState();
+        prompt.showToast({
+          message: "操作错误：请点击，而非长按"
+        });
+      }
+      break;
+      
+    case 2: // 已点击，等待第二次长按
+      if (eventType === "longpress") {
+        // 检查总时间是否超时
+        if (currentTime - this.initialActionTime > 5000) {
+          this.resetDeleteState();
+          prompt.showToast({
+            message: "总操作时间超时，请重新开始"
+          });
+          return;
+        }
+        
+        // 执行删除
+        this.$app.$def.deletejs(fileName)
+          .then(() => {
+            prompt.showToast({
+              message: `文件 ${fileName} 已删除`
+            });
+            
+            // 重新加载文件列表
+            return this.loadFileList();
+          })
+          .catch(error => {
+            console.error(`删除文件 ${fileName} 失败:`, error.message);
+            prompt.showToast({
+              message: `删除失败: ${error.message}`
+            });
+          })
+          .finally(() => {
+            this.resetDeleteState();
+          });
+      } else {
+        // 点击不应该在此状态发生
+        this.resetDeleteState();
+        prompt.showToast({
+          message: "操作错误：请长按完成删除"
+        });
+      }
+      break;
+  }
+  
+  // 设置新的超时
+  this.startDeleteTimeout();
+},
+
+// 重置删除状态
+resetDeleteState() {
+  this.deleteState = 0;
+  this.initialActionTime = 0;
+  
+  if (this.deleteTimeout) {
+    clearTimeout(this.deleteTimeout);
+    this.deleteTimeout = null;
+  }
+},
+
+// 重置超时计时器
+resetDeleteTimeout() {
+  if (this.deleteTimeout) {
+    clearTimeout(this.deleteTimeout);
+    this.deleteTimeout = null;
+  }
+},
+
+// 启动删除操作超时计时器
+startDeleteTimeout() {
+  this.resetDeleteTimeout();
+  this.deleteTimeout = setTimeout(() => {
+    this.resetDeleteState();
+    prompt.showToast({
+      message: "删除操作超时，请重新开始三步验证"
+    });
+  }, 5000);
+}
+};
+
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+}
+
+/* 更多信息样式 */
+
+.list {
+  width: 336px;
+  height: 480px;
+  position: absolute;
+  top:0px;
+  left:0px;
+padding: 86px 6px;
+  /* background-color: red; */
+}
+
+.item {
+  width: 100%;
+  height: 112px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  background-color: #262626;
+  border-radius: 36px;
+  flex-direction: column;
+justify-content: space-between;
+}
+
+.item2 {
+  background-color: #0D6EFF;
+}
+
+.itemtext {
+  font-size: 32px;
+  line-height:40px;
+  width: 100%;
+  font-weight: bold;
+  color: white;
+  text-overflow: ellipsis;
+  lines: 1;
+  /* padding-left:12px; */
+  /* padding-right:12px; */
+  /* padding-top:12px; */
+}
+
+.itemtext2 {
+  font-size: 28px;
+  line-height: 37px;
+  /* width: 100%; */
+  font-weight: bold;
+  color: rgba(255,255,255,0.6);
+  text-overflow: ellipsis;
+  lines: 1;
+  /* padding-right:12px; */
+}
+
+</style>

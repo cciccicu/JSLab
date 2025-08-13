@@ -1,0 +1,70 @@
+<template>
+	<div class="page" style="flex-direction: column;">
+    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
+    <img static src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
+    <img static src="/common/images/upload.png" @click="$app.$def.showToste('敬请期待')" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
+    <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
+      {{nowTime}}
+    </text>
+    <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
+      JS市场
+    </text>
+    <text style="position: absolute;left: 0px;top: 250px;width: 336px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">敬请期待</text>
+    </div>
+</template>
+
+<script>
+import router from '@system.router';
+import app from '@system.app';
+
+
+export default {
+  private: {
+    nowTime: "00:00",
+    timer: null
+  },
+  exit(){
+	  app.terminate();
+  },
+  updateTime() {
+    const date = new Date();
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+
+    // 格式化小时和分钟为两位数
+    hours = hours < 10 ? '0' + hours : hours;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+
+    this.nowTime = `${hours}:${minutes}`;
+  },
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000);
+  },
+  onDestroy(){
+	  clearInterval(this.timer);
+  },
+  onShow() {
+  },
+  routerTo(page) {
+    router.push({
+      uri: `/pages/${page}`
+    });
+  },
+  back(){
+  	router.back();
+  },
+};
+
+</script>
+
+<style>
+.page {
+	width: 336px;
+	height: 480px;
+	background-color: #000000;
+}
+
+</style>

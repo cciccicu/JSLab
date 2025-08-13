@@ -1,0 +1,74 @@
+{
+  "package": "icu.ccicc.jslab",
+  "name": "JSLab",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "minPlatformVersion": 1000,
+  "icon": "/common/logo.png",
+  "deviceTypeList": [
+    "watch"
+  ],
+  "features": [
+    { "name": "system.app" },
+    { "name": "system.device" },
+    { "name": "system.router" },
+    { "name": "system.configuration" },
+    { "name": "system.storage" },
+    { "name": "system.file" },
+    { "name": "system.network" },
+    { "name": "system.brightness" },
+    { "name": "system.battery" },
+    { "name": "system.geolocation" },
+    { "name": "system.vibrator" },
+    { "name": "system.event" },
+    { "name": "system.sensor" },
+    { "name": "system.record" },
+    { "name": "system.fetch" },
+    { "name": "system.interconnect" },
+    { "name": "system.uploadtask" },
+    { "name": "system.request" },
+    { "name": "system.crypto" },
+    { "name": "system.prompt" },
+    { "name": "system.audio" }
+  ],
+  "permissions": [
+    { "name": "hapjs.permission.LOCATION" },
+    { "name": "hapjs.permission.DEVICE_INFO" }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": 336
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index"
+      },
+      "pages/edit": {
+        "component": "edit"
+      },
+      "pages/run": {
+        "component": "run"
+      },
+      "pages/setting": {
+        "component": "setting"
+      },
+      "pages/about": {
+        "component": "about"
+      },
+      "pages/add": {
+        "component": "add"
+      },
+      "pages/market": {
+        "component": "market"
+      },
+      "pages/money": {
+        "component": "money"
+      },
+      "pages/help": {
+        "component": "help"
+      }
+    }
+  }
+}

@@ -1,0 +1,248 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+<template>
+	<div class="page" style="flex-direction: column;">
+		<scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;top:{{hideTopbar?'20px':'86px;'}}left:0px;height:{{hideTopbar?'460px':'394px;'}};width:100%;flex-direction: column;padding: 0px 6px;">
+			<text class="code" @click="changeToollbar" style="font-size:20px;">{{codeShow}}</text>
+			<div style="height:240px;"></div>
+		</scroll>
+		<!-- 第三方输入法组件 -->
+		<input-method if="{{!hideInputMethod}}" 
+			hide="{{hideInputMethod}}"
+			keyboardtype="{{keyboardType}}"
+			maxlength="{{maxlength}}" 
+			vibratemode="{{vibrateMode}}"
+			screentype="{{screenType}}"
+			@delete="onInputMethodDelete"
+			@complete="onInputMethodCompleteSelf" 
+		>
+		</input-method>
+    
+    <!-- 光标移动控制区域 -->
+	<div if="{{showCursorControls}}" class="cursormove"
+      style="position: absolute; left: 0px; top: 300px; width: 100%; height: 100px; background-color: #333; flex-direction: row; justify-content: space-around; align-items: center;">
+      <text @click="move('up')" style="color: white;">↑</text>
+      <text @click="move('left')" style="color: white;">←</text>
+      <text @click="move('right')" style="color: white;">→</text>
+      <text @click="move('down')" style="color: white;">↓</text>
+    </div>
+
+		<!-- 底部工具栏 -->
+	<img if="{{!hideToolbar}}" src="/common/images/save.png"
+      style="position: absolute;left: 6px;top: 402px;width: 72px;height: 72px;" @click="savecode" />
+    <img if="{{!hideToolbar}}" src="/common/images/run.png"
+      style="position: absolute;left: 90px;top: 402px;width: 72px;height: 72px;" @click="runcode" />
+    <img if="{{!hideToolbar}}" src="/common/images/move.png"
+      style="position: absolute;left: 174px;top: 402px;width: 72px;height: 72px;" @click="changeMoveCursor" />
+    <img if="{{!hideToolbar}}" src="/common/images/edit.png"
+      style="position: absolute;left: 258px;top: 402px;width: 72px;height: 72px;" @click="changeKeybord" />
+
+	<!-- 顶栏 -->
+	<img static if="{{!hideTopbar}}" src="/common/images/hd.png"
+		style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
+	<img static if="{{!hideTopbar}}" src="/common/images/back.png" @click="back"
+		style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;" />
+	<img static if="{{!hideTopbar}}" src="/common/images/more.png" @click="routerTo('more')"
+		style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;" />
+	<img static if="{{!hideInputMethod}}" src="/common/images/down.png" @click="changeKeybord"
+		style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;" />
+	<text
+      if="{{!hideTopbar}}" style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
+			{{nowTime}}
+	</text>
+	<text
+      if="{{!hideTopbar}}" style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
+			编辑JS
+	</text>
+
+	</div>
+</template>
+
+<script>
+import router from '@system.router';
+import app from '@system.app';
+import prompt from '@system.prompt';
+
+export default {
+	private: {
+		nowTime: "00:00",
+		timer: null,
+		hideTopbar: false,
+		hideToolbar: false, // 控制底部按钮显示
+		codeShow: "", // 显示包含光标的代码
+		showCursorControls: false, // 控制光标移动区域显示
+		hideInputMethod: true, // 默认隐藏输入法
+		keyboardType: "QWERTY", // 默认键盘类型
+		maxlength: 5, // 默认最大长度（可以设置为更大或根据需要调整）
+		vibrateMode: "short", // 默认震动模式
+		screenType: "rect", // 默认屏幕类型
+	},
+
+	onInit() {
+		this.updateTime();
+		this.timer = setInterval(() => {
+			this.updateTime();
+		}, 1000);
+		// 初始化时更新代码显示
+		this.updateCodeDisplay();
+	},
+	onDestroy() {
+		if (this.timer) {
+			clearInterval(this.timer);
+		}
+	},
+	onShow() {
+		this.updateCodeDisplay(); // 如果需要在页面每次显示时刷新，可以启用
+	},
+	routerTo(page) {
+		router.push({
+			uri: `/pages/${page}`
+		});
+	},
+	back() {
+		router.back();
+	},
+	changeToollbar() {
+		this.hideTopbar = !this.hideTopbar;
+	},
+    changeKeybord() {
+		this.hideInputMethod = !this.hideInputMethod;
+    	this.hideToolbar = !this.hideInputMethod;
+		if(this.showCursorControls) {
+			this.showCursorControls = false;
+		}
+	},
+    changeMoveCursor() {
+		this.showCursorControls = !this.showCursorControls;
+	},
+	onInputMethodDelete() {
+		this.del();
+	},
+	onInputMethodCompleteSelf(evt) {
+		if (evt && evt.detail && evt.detail.content) {
+			this.add(evt.detail.content);
+		}
+	},
+	updateCodeDisplay() {
+		this.codeShow = this.$app.$def.codeBefore + "|" + this.$app.$def.codeAfter;
+		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+	},
+	add(str) {
+		this.$app.$def.codeBefore += str;
+		this.updateCodeDisplay();
+	},
+	del() {
+		if (this.$app.$def.codeBefore.length > 0) {
+			this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
+			this.updateCodeDisplay();
+		}
+	},
+	move(direction) {
+		switch (direction) {
+			case "left":
+				if (this.$app.$def.codeBefore.length > 0) {
+					const charToMove = this.$app.$def.codeBefore.slice(-1);
+					this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
+					this.$app.$def.codeAfter = charToMove + this.$app.$def.codeAfter;
+					this.updateCodeDisplay();
+				}
+				break;
+			case "right":
+				if (this.$app.$def.codeAfter.length > 0) {
+					// 将 codeAfter 的第一个字符移到 codeBefore 的末尾
+					const charToMove = this.$app.$def.codeAfter.charAt(0);
+					this.$app.$def.codeAfter = this.$app.$def.codeAfter.slice(1);
+					this.$app.$def.codeBefore += charToMove;
+					this.updateCodeDisplay();
+				}
+				break;
+			case "up":
+				this.moveVertical(-1);
+				break;
+			case "down":
+				this.moveVertical(1);
+				break;
+		}
+	},
+	// 垂直移动光标
+	moveVertical(direction) {
+		const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+		const lines = allText.split('\n');
+		if (lines.length <= 1) return;
+		const beforeLines = this.$app.$def.codeBefore.split('\n');
+		const currentLineIndex = beforeLines.length - 1;
+		const currentColumnIndex = beforeLines[currentLineIndex].length; // 光标在当前行的位置
+		const targetLineIndex = currentLineIndex + direction;
+
+		// 检查是否可以移动
+		if (targetLineIndex < 0 || targetLineIndex >= lines.length) {
+			return; // 无法移动到目标行
+		}
+
+		// 计算目标列位置（不超过目标行的长度）
+		const targetLine = lines[targetLineIndex];
+		// 尽量保持在同一列，但如果目标行较短，则移动到行尾
+		const targetColumnIndex = Math.min(currentColumnIndex, targetLine.length);
+
+		// 重新计算 codeBefore 和 codeAfter
+		let newCodeBefore = "";
+		let newCodeAfter = "";
+
+		// 构建新的 codeBefore
+		for (let i = 0; i < targetLineIndex; i++) {
+			newCodeBefore += lines[i] + '\n';
+		}
+		// 添加目标行光标前的部分
+		newCodeBefore += targetLine.substring(0, targetColumnIndex);
+
+		// 构建新的 codeAfter (从目标行光标后开始)
+		newCodeAfter = targetLine.substring(targetColumnIndex);
+		// 添加后续所有行
+		for (let i = targetLineIndex + 1; i < lines.length; i++) {
+			newCodeAfter += '\n' + lines[i];
+		}
+
+		this.$app.$def.codeBefore = newCodeBefore;
+		this.$app.$def.codeAfter = newCodeAfter;
+		this.updateCodeDisplay();
+	},
+	savecode() {
+    this.$app.$def.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
+    prompt.showToast({"message":"代码已保存"})
+	},
+	runcode() {
+		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+		router.push({
+			uri: '/pages/run'
+		});
+	},
+	updateTime() {
+		const date = new Date();
+		let hours = date.getHours();
+		let minutes = date.getMinutes();
+
+		// 格式化小时和分钟为两位数
+		hours = hours < 10 ? '0' + hours : hours;
+		minutes = minutes < 10 ? '0' + minutes : minutes;
+
+		this.nowTime = `${hours}:${minutes}`;
+	},
+	exit() {
+		app.terminate();
+	},
+};
+
+</script>
+
+<style>
+	.page {
+		width: 336px;
+		height: 480px;
+		background-color: #000000;
+		position: relative; 
+	}
+
+  .code{
+    color: #ffffff
+  }
+
+</style>

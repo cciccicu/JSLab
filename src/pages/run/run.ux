@@ -1,0 +1,237 @@
+<template>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 0px 6px;">
+      <div style="height:86px;"></div>
+      <div style="flex-direction: column;padding: 14px 20px;margin-bottom: 8px;border-radius: 36px;background-color: #262626;">
+        <text class="result-title" style="color:rgba(255, 255, 255, 0.6);">console：</text>
+        <div class="result-box">
+          <text class="result" if="{{!hasError}}">{{result}}</text>
+          <text class="error" >{{error}}</text>
+        </div>
+      </div>
+    </scroll>
+    <!-- 顶部工具栏 -->
+    <img static src="/common/images/hd.png"
+      style="position: absolute; left: 0px; top: 0px; width: 336px; height: 102px;" />
+    <img static src="/common/images/back.png" @click="onBack"
+      style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+    <img static src="/common/images/rerun.png" @click="onRerun"
+      style="position: absolute; left: 258px; top: 6px; width: 72px; height: 72px;" />
+    <text
+      style="position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-weight: bold; font-size: 24px; color: rgba(255,255,255,0.6); text-align: center;">
+      {{nowTime}}
+    </text>
+    <text
+      style="position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-weight: bold; font-size: 32px; color: white; text-align: center;">
+      运行JS
+    </text>
+
+  </div>
+</template>
+
+<script>
+  // 基本功能类
+  import app from '@system.app';
+  import device from '@system.device' 
+  import router from '@system.router';
+  import configuration from '@system.configuration';
+
+  // 数据文件类
+  import storage from '@system.storage';
+  import file from '@system.file';
+
+  // 系统能力接口
+  import network from '@system.network'; // 用于获取网络状态
+  import brightness from '@system.brightness';
+  import battery from '@system.battery';
+  import geolocation from '@system.geolocation';
+  import vibrator from '@system.vibrator';
+  import event from '@system.event';
+  import sensor from '@system.sensor';
+  import record from '@system.record' ;
+
+
+  // 网络访问类 (数据请求与传输)
+  import fetch from '@system.fetch';
+  import interconnect from '@system.interconnect';
+  import uploadtask from '@system.uploadtask';
+  import request from '@system.request'; // 用于下载
+
+  // 安全与加密类
+  import crypto from '@system.crypto';
+
+  import prompt from '@system.prompt';
+  import audio from '@system.audio' ;
+
+
+  export default {
+    private: {
+      nowTime: "00:00",
+      timer: null,
+      code: "",
+      result: "",
+      error: "",
+      hasError: false
+    },
+    onInit() {
+      this.updateTime();
+      this.timer = setInterval(() => {
+        this.updateTime();
+      }, 1000);
+
+      this.code = this.$app.$def.jsCode || "console.log(\"Hello, World\");"
+      // 运行代码
+      this.runCode()
+    },
+
+    onDestroy() {
+      if (this.timer) {
+        clearInterval(this.timer);
+      }
+    },
+
+    updateTime() {
+      const date = new Date();
+      let hours = date.getHours();
+      let minutes = date.getMinutes();
+
+      // 格式化小时和分钟为两位数
+      hours = hours < 10 ? '0' + hours : hours;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+
+      this.nowTime = `${hours}:${minutes}`;
+    },
+
+    onBack() {
+      // 返回编辑页面
+      router.back();
+    },
+
+    onRerun() {
+      // 重新运行代码
+      this.runCode()
+    },
+
+    // 退出应用 (如果需要)
+    exit() {
+      app.terminate();
+    },
+
+    runCode() {
+      // 清空之前的结果
+      this.result = ""
+      this.error = ""
+      this.hasError = false
+
+      if (!this.code.trim()) {
+        this.result = "没有代码可执行"
+        return
+      }
+      const originalConsoleLog = console.log;
+      try {
+        // 重写console.log以捕获输出
+        const outputs = []
+        console.log = (...args) => {
+          const output = args.map(arg => {
+            if (typeof arg === 'object') {
+              try {
+                return JSON.stringify(arg, null, 2);
+              } catch (e) {
+                return "[object Object]";
+              }
+            }
+            return String(arg)
+          }).join(' ');
+          outputs.push(output);
+          originalConsoleLog.apply(console, args);
+        }
+
+        const exposedModules = {
+          // 基本功能类
+          app: app,
+          device: device,
+          router: router,
+          configuration: configuration,
+
+          // 数据文件类
+          storage: storage,
+          file: file,
+
+          // 系统能力接口
+          network: network,
+          brightness: brightness,
+          battery: battery,
+          geolocation: geolocation,
+          vibrator: vibrator,
+          event: event,
+          sensor: sensor,
+          record: record,
+
+          // 网络访问类
+          fetch: fetch,
+          interconnect: interconnect,
+          uploadtask: uploadtask,
+          request: request,
+
+          // 安全与加密类
+          crypto: crypto,
+
+          // 其他 UI/交互 类
+          prompt: prompt,
+          audio: audio
+        };
+        
+        // 创建函数，将暴露的模块作为参数
+        const userFunction = new Function(...Object.keys(exposedModules), `
+          try {
+            ${this.code}
+          } catch (e) {
+            console.error("用户代码错误: " + e.name + ": " + e.message);
+            if (e.stack) console.error(e.stack);
+          }
+        `);
+        
+        // 执行函数，传入暴露的模块
+        userFunction(...Object.values(exposedModules));
+
+        // 恢复原始的console.log
+        console.log = originalConsoleLog
+
+        // 显示输出结果
+        if (outputs.length > 0) {
+          this.result = outputs.join('\n')
+        } else {
+          this.result = "代码执行成功，无输出"
+        }
+      } catch (e) {
+        console.log = originalConsoleLog;
+        this.error = `${e.name}: ${e.message}`
+        this.hasError = true
+      }
+    }
+  }
+</script>
+
+<style>
+  .page {
+    width: 336px;
+    height: 480px;
+    background-color: #000000; /* 与 edit.ux 保持一致 */
+    position: relative; /* 使内部 absolute 定位元素相对此 div */
+    flex-direction: column;
+  }
+
+  .result {
+    color: #9cdcfe; 
+    font-size: 24px; 
+    white-space: pre-wrap; 
+    word-wrap: break-word; 
+  }
+
+  .error {
+    color: #f48771; 
+    font-size: 24px;
+    white-space: pre-wrap;
+    word-wrap: break-word; 
+  }
+</style>
