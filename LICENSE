@@ -1,0 +1,28 @@
+MIT License with Additional Attribution Requirements
+
+Copyright (c) 2025 ccicc.icu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software ("JSLab") and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and sell
+copies of the Software, subject to the following conditions:
+            
+1. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+2. If the Software is used in its **original form** in any commercial product,
+   service, or website, the following notice must appear **prominently on the first visible screen/view of the software** and **on the homepage of the associated website**:
+
+         "This is an open-source software. A free version is available on GitHub."
+
+3. If the Software is **modified** and used in any commercial product, service,
+   or website, the following notice must appear **prominently on the first visible screen/view of the software** and **on the homepage of the associated website**:
+
+         "This software is modified from the open-source software JSLab. 
+         The original free version is available on GitHub at github/cciccicu/JSLab, 
+         but does not include [XXX feature]."
+
+4. This Software is provided "as is", without warranty of any kind.
+
+For more information, visit: https://github/cciccicu/JSLab

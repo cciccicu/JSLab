@@ -4,6 +4,8 @@
 
 通过此快应用，你可以在手环上编写和运行JavaScript
 
+访问[米坛社区](https://www.bandbbs.cn/resources/3440/)，查看更多信息
+
 ## 全新UI 全新重构
 
 ![alt text](image.png)![alt text](image-1.png)![alt text](image-2.png)![alt text](image-3.png)
