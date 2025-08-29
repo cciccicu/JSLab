@@ -6,7 +6,7 @@
             <text class="itemtext2">你可以通过console.log在虚拟console上进行输出</text>
             <text class="itemtext2">你可以像在快应用内部一样调用系统API</text>
             <text class="itemtext2">具体API支持情况取决于设备，参见小米官方文档</text>
-            <text class="itemtext2" style="color:#ff0000">由于实现方案的缺陷，目前在回调函数中的输出可能无法显示，我们会加紧修改</text>
+            <text class="itemtext2" style="color:#ff0000">由于实现方案的缺陷，目前在回调函数中的输出可能无法显示，我们会加紧修改(可以先用system.prompt代替)</text>
 
 
             <div class="item" style="">

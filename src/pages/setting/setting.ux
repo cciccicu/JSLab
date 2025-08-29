@@ -2,7 +2,7 @@
   <div class="page" style="flex-direction: column;">
 
 	<list class="list">
-		<list-item class="item" @click="toste('用于JS市场，敬请期待')" type="item">
+		<list-item class="item" @click="toast('用于JS市场，敬请期待')" type="item">
 			<div class="item-content">
 				<text class="itemtext">登录</text>
 				<text class="itemtext2">登录你的账户</text>
@@ -102,8 +102,8 @@ export default {
   exit(){
 	app.terminate();
   },
-  toste(message){
-	prompt.showToast({"message":message});
+  toast(message){
+	prompt.showToast({message:message});
   }
 }
 </script>

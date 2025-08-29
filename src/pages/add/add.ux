@@ -70,71 +70,13 @@ export default {
     // 文件相关
     fileName: "",               // 文件名
     selectedTemplateIndex: 0,   // 选中的模板索引
-    templateOptions: ['空白文件', 'Hello World', 'fetch示例'], // 模板选项
+    templateOptions: ['空白文件', 'Hello World', 'Prompt示例'], // 模板选项
     
     // 模板内容
     templateContents: [
       "",  // 空白文件
-      `console.log("Hello World!");`,  // Hello World
-      `  fetch.fetch({
-    // 设置请求的 URL
-    url: 'https://www.baidu.com',
-    
-    // 可选：设置请求方法，默认是 GET
-    method: 'GET',
-    
-    // 可选：设置请求头
-    header: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      // 可以添加其他 header
-    },
-    
-    // 可选：设置超时时间（毫秒）
-    timeout: 5000,
-    
-    // 可选：设置响应数据类型
-    // 'text': 返回文本字符串
-    // 'arraybuffer': 返回 ArrayBuffer
-    // 'json': 返回 JSON 对象（会自动解析）
-    responseType: 'text',
-    
-    // 成功回调函数
-    success: function(response) {
-      console.log('请求成功！');
-
-      // response 对象包含服务器的响应信息
-      console.log('状态码:', response.code); // 例如 200
-      console.log('响应数据:', response.data); // 百度首页的 HTML 源码
-      console.log('响应头:', JSON.stringify(response.headers));
-    },
-    
-    // 失败回调函数
-    fail: function(data, code) {
-      console.log('请求失败！');
-
-      // data 通常是错误信息字符串
-      // code 是错误码
-      console.log('错误信息:', data);
-      console.log('错误码:', code);
-
-      // 根据通用错误码进行处理
-      switch (code) {
-        case 202:
-          console.log('参数错误');
-          break;
-        case 204:
-          console.log('请求超时');
-          break;
-        default:
-          console.log('其他错误');
-      }
-    },
-    
-    // 可选：无论成功或失败都会执行的回调
-    complete: function() {
-      console.log('请求结束');
-    }
-  });`  // fetch
+      `console.log("Hello World!");`, // Hello World
+      `prompt.showToast({message:'Hello World'})`
     ]
   },
   
@@ -239,7 +181,7 @@ export default {
         this.$app.$def.jsName = fileName;
         this.$app.$def.jsCode = templateContent;
         this.$app.$def.codeBefore = templateContent;
-        this.$app.$def.codeAfter = templateContent;
+        this.$app.$def.codeAfter = "";
 
         
         // 跳转到编辑页面
