@@ -1,139 +1,187 @@
 <template>
-	<div class="page">
-      <scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 0px 6px;">
-        <div style="height:86px;"></div>
-        <div style="flex-direction: row;height:200px;padding: 14px 20px;margin-bottom: 8px;border-radius: 36px;background-color: #262626;">
-          <div style="flex-direction: column;">
-            <text style="width: 230px;height: 48px;font-size: 36px;font-weight: bold;color: #FFFFFF;">
-              {{appName}}
-            </text>
-            <text style="width: 230px;height: 48px;font-size: 36px;font-weight: bold;color: rgba(255, 255, 255, 0.6);">
-              {{appVer}}
-            </text>
-          </div>
-        <img src="/common/logo.png" style="top:75px;width: 96px;height: 96px;"/>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true">
+      <div style="height:86px;"></div>
+
+      <!-- 应用信息 -->
+      <div class="card" style="flex-direction: row;height:200px;">
+        <div style="flex-direction: column;">
+          <text class="itemtext">{{appName}}</text>
+          <text class="itemtext" style="color:rgba(255,255,255,0.6);">{{appVer}}</text>
         </div>
-        <text class="itemtext">开发人员：</text>
-        <div style="flex-direction: column;height:65px;padding: 14px 20px;margin-bottom: 8px;border-radius: 36px;background-color: #262626;">
+        <img src="/common/logo.png" style="top:75px;width:96px;height:96px;"/>
+      </div>
+
+      <text class="itemtext">开发人员：</text>
+      <div class="card" style="height:65px;">
         <text class="itemtext">@ccicc.icu</text>
-        </div>
-        <text class="itemtext" style="font-size:20px;">同时使用了来自以下开发者的资源</text>
-        <text class="itemtext" >在此表示感谢：</text>
-        <div style="flex-direction: column;height:140px;padding: 14px 20px;margin-bottom: 8px;border-radius: 36px;background-color: #262626;">
+      </div>
+
+      <text class="itemtext" style="font-size:20px;">同时使用了来自以下开发者的资源</text>
+      <text class="itemtext">在此表示感谢：</text>
+      <div class="card" style="height:140px;">
         <text class="itemtext" style="font-size:20px;">使用: @NEORUAA 输入法</text>
         <text class="itemtext" style="font-size:20px;">参考: @NEORUAA 电子书</text>
         <text class="itemtext" style="font-size:20px;">参考: @无源流沙 UI设计</text>
-        </div>
-        <text class="itemtext" style="font-size:24px;color: #ff0000">本项目使用有附加条款的MIT</text>
-        <text class="itemtext" style="font-size:35px;color: #ff0000">免费开源，欢迎倒卖</text>
-        <div style="flex-direction: column;padding: 14px 20px;margin-bottom: 8px;border-radius: 36px;background-color: #262626;">
-          <text class="itemtext" style="font-size:15px;">MIT License with Additional Attribution Requirements
+      </div>
 
-            Copyright (c) 2025 ccicc.icu
-            
-            Permission is hereby granted, free of charge, to any person obtaining a copy
-            of this software ("JSLab") and associated documentation files (the "Software"),
-            to deal in the Software without restriction, including without limitation the
-            rights to use, copy, modify, merge, publish, distribute, sublicense, and sell
-            copies of the Software, subject to the following conditions:
-            
-            1. The above copyright notice and this permission notice shall be included in
-               all copies or substantial portions of the Software.
-            
-            2. If the Software is used in its **original form** in any commercial product,
-               service, or website, the following notice must appear **prominently on the first visible screen/view of the software** and **on the homepage of the associated website**:
-            
-                   "This is an open-source software. A free version is available on GitHub."
-            
-            3. If the Software is **modified** and used in any commercial product, service,
-               or website, the following notice must appear **prominently on the first visible screen/view of the software** and **on the homepage of the associated website**:
-            
-                   "This software is modified from the open-source software JSLab. 
-                    The original free version is available on GitHub at github/cciccicu/JSLab, 
-                    but does not include [XXX feature]."
-            
-            4. This Software is provided "as is", without warranty of any kind.
-            
-            For more information, visit: https://github/cciccicu/JSLab</text>
-        </div>
-        <div style="height:86px;"></div>
+      <text class="itemtext" style="font-size:24px;color:#ff0000;">本项目使用有附加条款的MIT</text>
+      <text class="itemtext" style="font-size:35px;color:#ff0000;">免费开源，欢迎倒卖</text>
+
+      <div class="card">
+        <text class="itemtext" style="font-size:15px;line-height:20px;">
+MIT License with Additional Attribution Requirements
+
+Copyright (c) 2025 ccicc.icu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software ("JSLab") and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and sell
+copies of the Software, subject to the following conditions:
+
+1. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+2. If the Software is used in its **original form** in any commercial product,
+   service, or website, the following notice must appear **prominently on the first visible screen/view of the software** and **on the homepage of the associated website**:
+
+       "This is an open-source software. A free version is available on GitHub."
+
+3. If the Software is **modified** and used in any commercial product, service,
+   or website, the following notice must appear **prominently on the first visible screen/view of the software** and **on the homepage of the associated website**:
+
+       "This software is modified from the open-source software JSLab. 
+        The original free version is available on GitHub at github/cciccicu/JSLab, 
+        but does not include [XXX feature]."
+
+4. This Software is provided "as is", without warranty of any kind.
+
+For more information, visit: https://github/cciccicu/JSLab
+        </text>
+      </div>
     </scroll>
-    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
-	  <img src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
-    <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
-      {{nowTime}}
-    </text>
-    <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
-      {{bigTitle}}
-    </text>
 
-	</div>
+    <!-- 顶部背景 -->
+    <img static src="/common/images/hd.png" class="header-img"/>
+    <img src="/common/images/back.png" class="btn" style="left:6px;top:6px;" @click="back"/>
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">{{bigTitle}}</text>
+  </div>
 </template>
-  
+
 <script>
-  import router from '@system.router'
-  import app from '@system.app' 
+import router from '@system.router'
+import app from '@system.app'
 
-  
-  export default {
-	private: {
-    nowTime:':',
-	  bigTitle:'关于',
-    appName:'JSLab',
-    appVer:'0.0.0',
-    timer:null
-	},
-	protected: {
-  
-	},
-	onInit() {
-    this.updateTime();
-		const that = this;
-    this.timer = setInterval(function(){
-      that.updateTime();
-    }, 60000);
-    this.appName=app.getInfo().name;
-    this.appVer=app.getInfo().versionName;
-	},
-  onShow(){
-	  this.updateTime();
+export default {
+  private: {
+    nowTime: ':',
+    bigTitle: '关于',
+    appName: 'JSLab',
+    appVer: '0.0.0',
+    timer: null
   },
-  onDestroy(){
-	  clearInterval(this.timer);
+  onInit() {
+    this.updateTime()
+    const that = this
+    this.timer = setInterval(function () {
+      that.updateTime()
+    }, 60000)
+    this.appName = app.getInfo().name
+    this.appVer = app.getInfo().versionName
   },
-	back(){
-		router.back();
-	},
+  onShow() {
+    this.updateTime()
+  },
+  onDestroy() {
+    clearInterval(this.timer)
+  },
+  back() {
+    router.back()
+  },
   updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-
-    // 格式化小时和分钟为两位数
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-
-    this.nowTime = `${hours}:${minutes}`;
+    const date = new Date()
+    let hours = date.getHours()
+    let minutes = date.getMinutes()
+    hours = hours < 10 ? '0' + hours : hours
+    minutes = minutes < 10 ? '0' + minutes : minutes
+    this.nowTime = `${hours}:${minutes}`
   }
-  
-  }
+}
 </script>
-  
-<style>
-  .page {
-	  width: 336px;
-	  height: 480px;
-	  background-color: #000000;
-  }
-  .itemtext {
-    font-size: 32px;
-    line-height:40px;
-    width: 100%;
-    font-weight: bold;
-    color: white;
-    text-overflow: ellipsis;
-    lines: -1;
-  }
 
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+}
+
+.scroll {
+  position: absolute;
+  left: 0px;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  padding: 0px 6px;
+}
+
+/* 顶部 */
+.header-img {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
+
+.btn {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  font-weight: bold;
+  font-size: 24px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
+
+/* 卡片通用 */
+.card {
+  flex-direction: column;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+}
+
+/* 文本 */
+.itemtext {
+  font-size: 32px;
+  line-height: 40px;
+  width: 100%;
+  font-weight: bold;
+  color: white;
+  text-overflow: ellipsis;
+}
 </style>
-  

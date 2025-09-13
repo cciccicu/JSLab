@@ -1,41 +1,42 @@
 <template>
 	<div class="page" style="flex-direction: column;">
-    <list class="list">
-        <list-item class="item" type="item" style="height: 150px;">
-            <div class="item-content">
-                <text class="itemtext2">你好呀，同学</text>
-                <text class="itemtext2">应用用的还开心吗？</text>
-                <text class="itemtext2">开心的话给作者买瓶水吧</text>
-            </div>
-        </list-item>
-        <list-item class="item" type="item" style="background-color: #1aad19">
-            <div class="item-content">
-                <text class="itemtext">微信</text>
-                <qrcode value="wxp://f2f0AckffT-6mnt3W3WdSmrvD82JyHqET2FeEt3qvEOqrdgLV_6fbGJ60GABwcyBZ1we" style="color: #000000;background-color: #ffffff"></qrcode>
-            </div>
-        </list-item>
-        <list-item class="item" type="item" style="background-color: #1677ff">
-            <div class="item-content">
-                <text class="itemtext">支付宝</text>
-                <qrcode value="https://qr.alipay.com/fkx161225lhz9nmrjfsnt71" style="color: #000000;background-color: #ffffff"></qrcode>
-            </div>
-        </list-item>
-    </list>
-    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
-    <img static src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
-    <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
-      {{nowTime}}
-    </text>
-    <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
-      捐助
-    </text>
+    <scroll class="scroll-container" scroll-y="true">
+      <div class="spacer"></div>
+
+      <div class="item item-small">
+        <div class="item-content">
+          <text class="itemtext2">你好呀，同学</text>
+          <text class="itemtext2">应用用的还开心吗？</text>
+          <text class="itemtext2">开心的话给作者买瓶水吧</text>
+        </div>
+      </div>
+
+      <div class="item item-wechat">
+        <div class="item-content">
+          <text class="itemtext">微信</text>
+          <qrcode value="wxp://f2f0AckffT-6mnt3W3WdSmrvD82JyHqET2FeEt3qvEOqrdgLV_6fbGJ60GABwcyBZ1we"></qrcode>
+        </div>
+      </div>
+
+      <div class="item item-alipay">
+        <div class="item-content">
+          <text class="itemtext">支付宝</text>
+          <qrcode value="https://qr.alipay.com/fkx161225lhz9nmrjfsnt71"></qrcode>
+        </div>
+      </div>
+    </scroll>
+
+    <!-- 顶栏 -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;"/>
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">捐助</text>
     </div>
 </template>
 
 <script>
 import router from '@system.router';
 import app from '@system.app';
-
 
 export default {
   private: {
@@ -50,7 +51,6 @@ export default {
     let hours = date.getHours();
     let minutes = date.getMinutes();
 
-    // 格式化小时和分钟为两位数
     hours = hours < 10 ? '0' + hours : hours;
     minutes = minutes < 10 ? '0' + minutes : minutes;
 
@@ -65,8 +65,6 @@ export default {
   onDestroy(){
 	  clearInterval(this.timer);
   },
-  onShow() {
-  },
   routerTo(page) {
     router.push({
       uri: `/pages/${page}`
@@ -76,7 +74,6 @@ export default {
   	router.back();
   }
 };
-
 </script>
 
 <style>
@@ -86,15 +83,17 @@ export default {
 	background-color: #000000;
 }
 
+.scroll-container {
+	position: absolute;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	flex-direction: column;
+	padding: 0 6px;
+}
 
-.list {
-  width: 336px;
-  height: 480px;
-  position: absolute;
-  top:0px;
-  left:0px;
-padding: 86px 6px;
-  /* background-color: red; */
+.spacer {
+	height: 86px;
 }
 
 .item {
@@ -104,9 +103,20 @@ padding: 86px 6px;
 	margin-bottom: 8px;
 	background-color: #262626;
 	border-radius: 36px;
-	/* flex-direction: column; */
 	align-items: center;
   justify-content: space-between;
+}
+
+.item-small {
+	height: 150px;
+}
+
+.item-wechat {
+	background-color: #1aad19;
+}
+
+.item-alipay {
+	background-color: #1677ff;
 }
 
 .itemtext {
@@ -129,11 +139,48 @@ padding: 86px 6px;
 	lines: 1;
 }
 
-
 .item-content {
 	height: 100%;
 	flex:1;
 	flex-direction: column;
 	justify-content: space-between;
+}
+
+.btn {
+	position: absolute;
+	width: 72px;
+	height: 72px;
+}
+
+.topbar-bg {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	width: 336px;
+	height: 102px;
+}
+
+.time-text {
+	position: absolute;
+	left: 78px;
+	top: 7px;
+	width: 180px;
+	line-height: 32px;
+	font-weight: bold;
+	font-size: 24px;
+	color: rgba(255,255,255,0.6);
+	text-align: center;
+}
+
+.title-text {
+	position: absolute;
+	left: 78px;
+	top: 35px;
+	width: 180px;
+	line-height: 42px;
+	font-weight: bold;
+	font-size: 32px;
+	color: white;
+	text-align: center;
 }
 </style>

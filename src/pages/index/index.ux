@@ -1,47 +1,40 @@
 <template>
   <div class="page" style="flex-direction: column;">
-
-    <img if="{{fileList.length == 0}}" src="/common/images/empty.png"
-        style="position: absolute;left: 104px;top: 146px;width: 128px;height: 128px;" />
-
-    <text if="{{fileList.length == 0}}" style="position: absolute;left: 0px;top: 298px;width: 336px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">啥也没有</text>
-
-    <list class="list">
-        <list-item for="{{(index, file) in fileList}}" class="item {{selectedFileIndex === index ? 'item2' : ''}}" 
-               @click="selectFile(index)" type="nook">
-            <text class="itemtext">{{file.name}}</text>
-      <div class="itemtext" style="justify-content: space-between;width: 100%; ">
-          <text class="itemtext2" style="flex:1">文件大小</text>
-          <text class="itemtext2">{{file.size}}B</text>
-      </div>
-        </list-item>
-    </list>
-
-  <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
-  <img static src="/common/images/back.png" @click="exit" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
-  <img static src="/common/images/more.png" @click="routerTo('setting')" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
-  <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
-    {{nowTime}}
-  </text>
-  <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
-    JSLab
-  </text>
+  
+  
+  <img if="{{fileList.length == 0}}" src="/common/images/empty.png" class="empty-img" />
+  <text if="{{fileList.length == 0}}" class="empty-text">啥也没有</text>
+  
+  
+  <list class="list">
+  <list-item for="{{(index, file) in fileList}}" class="item {{selectedFileIndex === index ? 'item2' : ''}}"
+  @click="selectFile(index)" type="nook">
+  <text class="itemtext">{{file.name}}</text>
+  <div class="itemtext" style="justify-content: space-between;width: 100%;">
+  <text class="itemtext2" style="flex:1">文件大小</text>
+  <text class="itemtext2">{{file.size}}B</text>
+  </div>
+  </list-item>
+  </list>
+  
+  
+  <img static src="/common/images/hd.png" class="header-img" />
+  <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="exit" />
+  <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('setting')" />
+  <text class="time-text">{{nowTime}}</text>
+  <text class="title-text">JSLab</text>
+  
   
   <!-- 底部按钮根据选择状态显示 -->
-  <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" 
-    style="position: absolute;left: 6px;top: 402px;width: 72px;height: 72px;" @click="routerTo('market')"/>
-  <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" 
-    style="position: absolute;left: 258px;top: 402px;width: 72px;height: 72px;" @click="routerTo('add')"/>
-  <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" 
-    style="position: absolute;left: 6px;top: 402px;width: 72px;height: 72px;" @click="runcode"/>
-  <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" 
-    style="position: absolute;left: 132px;top: 402px;width: 72px;height: 72px;" @click="editcode"/>
-  <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" 
-    style="position: absolute;left: 258px;top: 402px;width: 72px;height: 72px;" 
-    @click="handleDeleteClick" @longpress="handleDeleteLongPress"/>
-    
+  <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" style="left: 6px;top: 402px;" class="btn" @click="routerTo('market')"/>
+  <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('add')"/>
+  <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn" @click="runcode"/>
+  <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 132px;top: 402px;" class="btn" @click="editcode"/>
+  <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn" @click="handleDeleteClick" @longpress="handleDeleteLongPress"/>
+  
+  
   </div>
-</template>
+  </template>
 
 <script>
 import router from '@system.router';
@@ -362,62 +355,92 @@ startDeleteTimeout() {
 
 </script>
 
+
 <style>
 .page {
-  width: 336px;
-  height: 480px;
-  background-color: #000000;
+color: white;
+text-align: center;
 }
 
-/* 更多信息样式 */
+/* 顶部 */
+.header-img {
+position: absolute;
+left: 0px;
+top: 0px;
+width: 336px;
+height: 102px;
+}
+
+.time-text {
+position: absolute;
+left: 78px;
+top: 7px;
+width: 180px;
+line-height: 32px;
+font-weight: bold;
+font-size: 24px;
+color: rgba(255,255,255,0.6);
+text-align: center;
+}
+
+.title-text {
+position: absolute;
+left: 78px;
+top: 35px;
+width: 180px;
+line-height: 42px;
+font-weight: bold;
+font-size: 32px;
+color: white;
+text-align: center;
+}
+
+.btn {
+position: absolute;
+width: 72px;
+height: 72px;
+}
 
 .list {
-  width: 336px;
-  height: 480px;
-  position: absolute;
-  top:0px;
-  left:0px;
+width: 336px;
+height: 480px;
+position: absolute;
+top: 0px;
+left: 0px;
 padding: 86px 6px;
-  /* background-color: red; */
 }
 
 .item {
-  width: 100%;
-  height: 112px;
-  padding: 14px 20px;
-  margin-bottom: 8px;
-  background-color: #262626;
-  border-radius: 36px;
-  flex-direction: column;
+width: 100%;
+height: 112px;
+padding: 14px 20px;
+margin-bottom: 8px;
+background-color: #262626;
+border-radius: 36px;
+flex-direction: column;
 justify-content: space-between;
 }
 
 .item2 {
-  background-color: #0D6EFF;
+background-color: #0D6EFF;
 }
 
 .itemtext {
-  font-size: 32px;
-  line-height:40px;
-  width: 100%;
-  font-weight: bold;
-  color: white;
-  text-overflow: ellipsis;
-  lines: 1;
-  /* padding-left:12px; */
-  /* padding-right:12px; */
-  /* padding-top:12px; */
+font-size: 32px;
+line-height: 40px;
+width: 100%;
+font-weight: bold;
+color: white;
+text-overflow: ellipsis;
+lines: 1;
 }
 
 .itemtext2 {
-  font-size: 28px;
-  line-height: 37px;
-  /* width: 100%; */
-  font-weight: bold;
-  color: rgba(255,255,255,0.6);
-  text-overflow: ellipsis;
-  lines: 1;
-  /* padding-right:12px; */
+font-size: 28px;
+line-height: 37px;
+font-weight: bold;
+color: rgba(255,255,255,0.6);
+text-overflow: ellipsis;
+lines: 1;
 }
-
 </style>

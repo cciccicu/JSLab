@@ -1,22 +1,24 @@
 <template>
 	<div class="page" style="flex-direction: column;">
-    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
-    <img static src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
-    <img static src="/common/images/upload.png" @click="$app.$def.showToste('敬请期待')" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
-    <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
-      {{nowTime}}
-    </text>
-    <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
-      JS市场
-    </text>
-    <text style="position: absolute;left: 0px;top: 250px;width: 336px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">敬请期待</text>
+    <!-- 顶栏 -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;"/>
+    <img static class="btn" src="/common/images/upload.png" @click="$app.$def.showToste('敬请期待')" style="left: 258px;top: 6px;"/>
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">JS市场</text>
+
+    <!-- 内容 -->
+    <text class="center-text" style="top: 190px;font-size:30px">敬请不期待</text>
+    <text class="center-text" style="top: 235px;font-size:20px;">由于作者学业问题</text>
+    <text class="center-text" style="top: 260px;font-size:20px;">短时间内此部分可能不会上线</text>
+    <text class="center-text" style="top: 295px;font-size:20px;color:#666;">JS市场,旨在一定程度上替代部分简单快应用(如天气)的功能,允许用户上传和分享脚本,以节省快应用数量占用</text>
+
     </div>
 </template>
 
 <script>
 import router from '@system.router';
 import app from '@system.app';
-
 
 export default {
   private: {
@@ -31,7 +33,6 @@ export default {
     let hours = date.getHours();
     let minutes = date.getMinutes();
 
-    // 格式化小时和分钟为两位数
     hours = hours < 10 ? '0' + hours : hours;
     minutes = minutes < 10 ? '0' + minutes : minutes;
 
@@ -46,8 +47,6 @@ export default {
   onDestroy(){
 	  clearInterval(this.timer);
   },
-  onShow() {
-  },
   routerTo(page) {
     router.push({
       uri: `/pages/${page}`
@@ -57,7 +56,6 @@ export default {
   	router.back();
   },
 };
-
 </script>
 
 <style>
@@ -67,4 +65,50 @@ export default {
 	background-color: #000000;
 }
 
+.btn {
+	position: absolute;
+	width: 72px;
+	height: 72px;
+}
+
+.topbar-bg {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	width: 336px;
+	height: 102px;
+}
+
+.time-text {
+	position: absolute;
+	left: 78px;
+	top: 7px;
+	width: 180px;
+	line-height: 32px;
+	font-weight: bold;
+	font-size: 24px;
+	color: rgba(255,255,255,0.6);
+	text-align: center;
+}
+
+.title-text {
+	position: absolute;
+	left: 78px;
+	top: 35px;
+	width: 180px;
+	line-height: 42px;
+	font-weight: bold;
+	font-size: 32px;
+	color: white;
+	text-align: center;
+}
+
+.center-text {
+	position: absolute;
+	left: 0px;
+	width: 336px;
+	font-weight: bold;
+	color: white;
+	text-align: center;
+}
 </style>
