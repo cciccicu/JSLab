@@ -144,7 +144,7 @@
         this.runTime = endTime - startTime;
 
         // 如果没有输出，提示成功
-        if (!this.result) this.result = "代码执行成功，无输出";
+        if (!this.result) this.result = "代码执行成功，同步部分无输出，等待异步输出";
       } catch (e) {
         this.result = "";
         this.error = `${e.name}: ${e.message}`;
