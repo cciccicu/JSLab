@@ -108,6 +108,7 @@
               }
               return String(arg);
             }).join(' ');
+            this.result = (this.result === "代码执行成功，同步部分无输出，等待异步输出")? '' : this.result;
             this.result += (this.result ? '\n' : '') + output;
           },
           error: (...args) => {
