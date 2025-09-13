@@ -71,13 +71,29 @@ export default {
     // 文件相关
     fileName: "",
     selectedTemplateIndex: 0,
-    templateOptions: ['空白文件', 'Hello World', 'Prompt示例'],
+    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例'],
     
     // 模板内容
     templateContents: [
       "",
       `console.log("Hello World!");`,
-      `prompt.showToast({message:'Hello World'})`
+      `prompt.showToast({message:'Hello World'})`,
+      `fetch.fetch({
+  url: 'https://www.baidu.com',
+  responseType: 'text',
+  success: function(response) {
+    console.log(\`the status code of the response: \${response.code}\`);
+    console.log(\`the data of the response: \${response.data}\`);
+    console.log(
+      \`the headers of the response: \${JSON.stringify(response.headers)}\`
+    );
+  },
+  fail: function(data, code) {
+    console.log(\`handling fail, errMsg = \${data}\`);
+    console.log(\`handling fail, errCode = \${code}\`);
+  }
+})
+`
     ]
   },
   

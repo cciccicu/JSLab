@@ -91,53 +91,62 @@
       this.result = "";
       this.error = "";
       this.hasError = false;
+
       if (!this.code.trim()) {
         this.result = "没有代码可执行";
         return;
       }
-      const originalConsoleLog = console.log;
-      try {
-        const outputs = [];
-        console.log = (...args) => {
-          const output = args.map(arg => {
-            if (typeof arg === 'object') {
-              try {
-                return JSON.stringify(arg, null, 2);
-              } catch {
-                return "[object Object]";
+
+      // 挂到组件状态，保证异步回调也能访问
+      if (!this.vconsole) {
+        this.vconsole = {
+          log: (...args) => {
+            const output = args.map(arg => {
+              if (typeof arg === 'object') {
+                try { return JSON.stringify(arg, null, 2); } 
+                catch { return "[object Object]"; }
               }
-            }
-            return String(arg);
-          }).join(' ');
-          outputs.push(output);
-          originalConsoleLog.apply(console, args);
+              return String(arg);
+            }).join(' ');
+            this.result += (this.result ? '\n' : '') + output;
+          },
+          error: (...args) => {
+            const output = args.map(String).join(' ');
+            this.result += (this.result ? '\n' : '') + "[ERROR] " + output;
+            this.hasError = true;
+          }
         };
+      }
 
-        const exposedModules = {
-          app, device, router, configuration,
-          storage, file,
-          network, brightness, battery, geolocation, vibrator, event, sensor, record,
-          fetch, interconnect, uploadtask, request,
-          crypto,
-          prompt, audio
-        };
+      const exposedModules = {
+        app, device, router, configuration,
+        storage, file,
+        network, brightness, battery, geolocation, vibrator, event, sensor, record,
+        fetch, interconnect, uploadtask, request,
+        crypto,
+        prompt, audio,
+        console: this.vconsole  // 使用自定义 vconsole
+      };
 
+      try {
         const userFunction = new Function(...Object.keys(exposedModules), `
           try {
             ${this.code}
-          } catch (e) {
+          } catch(e) {
             console.error("用户代码错误: " + e.name + ": " + e.message);
-            if (e.stack) console.error(e.stack);
+            if(e.stack) console.error(e.stack);
           }
         `);
-        const startTime =  Date.now();
+
+        const startTime = Date.now();
         userFunction(...Object.values(exposedModules));
         const endTime = Date.now();
-        this.runTime = endTime - startTime; 
-        console.log = originalConsoleLog;
-        this.result = outputs.length > 0 ? outputs.join('\\n') : "代码执行成功，无输出";
+        this.runTime = endTime - startTime;
+
+        // 如果没有输出，提示成功
+        if (!this.result) this.result = "代码执行成功，无输出";
       } catch (e) {
-        console.log = originalConsoleLog;
+        this.result = "";
         this.error = `${e.name}: ${e.message}`;
         this.hasError = true;
       }
