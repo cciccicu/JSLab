@@ -1,7 +1,6 @@
 <template>
   <div class="page" style="flex-direction: column;">
-    <scroll class="scroll" scroll-y="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 0px 6px;">
-		<div style="height:86px;"></div>
+    <scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 0px 6px;padding: 86px 6px 36px;">
 		<div class="item" @click="toast('用于JS市场，敬请期待')">
 			<div class="item-content">
 				<text class="itemtext">登录</text>

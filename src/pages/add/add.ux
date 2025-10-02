@@ -71,15 +71,15 @@ export default {
     // 文件相关
     fileName: "",
     selectedTemplateIndex: 0,
-    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例'],
+    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例', '用户输入示例'],
     
     // 模板内容
     templateContents: [
-      "",
+      " ",
       `console.log("Hello World!");`,
       `prompt.showToast({message:'Hello World'})`,
       `fetch.fetch({
-  url: 'https://www.baidu.com',
+  url: 'http://www.exapmle.com',
   responseType: 'text',
   success: function(response) {
     console.log(\`the status code of the response: \${response.code}\`);
@@ -93,6 +93,9 @@ export default {
     console.log(\`handling fail, errCode = \${code}\`);
   }
 })
+`,`let name = await input("你好，请输入你的名字");
+let age = await input("你今年多大？");
+console.log("你好，" + name + "，你今年 " + age + " 岁。");
 `
     ]
   },

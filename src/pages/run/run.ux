@@ -1,16 +1,34 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+
 <template>
   <div class="page">
-    <scroll class="scroll-container" scroll-y="true">
-      <div class="spacer"></div>
+    <!-- 输出控制台 -->
+    <scroll bounces="true" class="scroll-container" scroll-y="true">
       <div class="console-card">
         <text class="result-title">console：</text>
         <div class="result-box">
           <text class="result" if="{{!hasError}}">{{result}}</text>
           <text class="error" if="{{hasError}}">{{error}}</text>
-          <text class="runtime" if="{{runTime}}">运行耗时: {{runTime}} ms</text>
+          <text class="runtime" if="{{runTime}}">同步运行耗时: {{runTime}} ms</text>
         </div>
       </div>
     </scroll>
+
+    <!-- Prompt 输入区域：仅在需要时渲染 -->
+    <text if="{{!hideInputMethod}}" class="prompt-message">{{promptMessage}}</text>
+    <text if="{{!hideInputMethod}}" class="input-display">{{inputBuffer}}</text>
+    <img if="{{!hideInputMethod}}" class="btn-confirm" src="/common/images/conform.png" @click="onPromptConfirm" />
+    <!-- 输入法键盘 -->
+  <input-method 
+    hide="{{inputMethodHide}}"
+    keyboardtype="QWERTY"
+    maxlength="5"
+    vibratemode="short"
+    screentype="rect"
+    @complete="onComplete"
+    @delete="onDelete"
+  >
+  </input-method>
 
     <!-- 顶部工具栏 -->
     <img static src="/common/images/hd.png" class="topbar-bg" />
@@ -43,9 +61,10 @@
   import interconnect from '@system.interconnect';
   import uploadtask from '@system.uploadtask';
   import request from '@system.request';
+  import prompt from '@system.prompt';
+
 
   import crypto from '@system.crypto';
-  import prompt from '@system.prompt';
   import audio from '@system.audio';
 
   export default {
@@ -56,8 +75,16 @@
       result: "",
       error: "",
       hasError: false,
-      runTime: ""
+      runTime: "",
+
+      // Prompt 状态
+      promptResolve: null,
+      promptMessage: "",
+      inputBuffer: "",          // 手动维护的输入内容
+      hideInputMethod: true,    // 控制 prompt 区域是否渲染
+      inputMethodHide: true,    // 控制输入法键盘显隐
     },
+
     onInit() {
       this.updateTime();
       this.timer = setInterval(() => {
@@ -67,9 +94,11 @@
       this.code = this.$app.$def.jsCode || "console.log(\"Hello, World\");";
       this.runCode();
     },
+
     onDestroy() {
       if (this.timer) clearInterval(this.timer);
     },
+
     updateTime() {
       const date = new Date();
       let hours = date.getHours();
@@ -78,16 +107,20 @@
       minutes = minutes < 10 ? '0' + minutes : minutes;
       this.nowTime = `${hours}:${minutes}`;
     },
+
     onBack() {
       router.back();
     },
+
     onRerun() {
       this.runCode();
     },
+
     exit() {
       app.terminate();
     },
-    runCode() {
+
+    async runCode() {
       this.result = "";
       this.error = "";
       this.hasError = false;
@@ -97,7 +130,6 @@
         return;
       }
 
-      // 挂到组件状态，保证异步回调也能访问
       if (!this.vconsole) {
         this.vconsole = {
           log: (...args) => {
@@ -108,7 +140,7 @@
               }
               return String(arg);
             }).join(' ');
-            this.result = (this.result === "代码执行成功，同步部分无输出，等待异步输出")? '' : this.result;
+            this.result = (this.result === "代码同步部分执行成功，无同步输出") ? '' : this.result;
             this.result += (this.result ? '\n' : '') + output;
           },
           error: (...args) => {
@@ -119,38 +151,80 @@
         };
       }
 
+      const input = (message = "请输入内容") => {
+        return new Promise((resolve) => {
+          this.promptMessage = String(message);
+          this.inputBuffer = ""; // 清空输入缓存
+          this.hideInputMethod = false;   // 渲染 prompt 区域
+          this.inputMethodHide = false;   // 显示键盘
+          this.promptResolve = resolve;
+        });
+      };
+
       const exposedModules = {
         app, device, router, configuration,
         storage, file,
         network, brightness, battery, geolocation, vibrator, event, sensor, record,
-        fetch, interconnect, uploadtask, request,
-        crypto,
-        prompt, audio,
-        console: this.vconsole  // 使用自定义 vconsole
+        fetch, interconnect, uploadtask, request, prompt,
+        crypto, audio,
+        console: this.vconsole,
+        input
       };
 
       try {
         const userFunction = new Function(...Object.keys(exposedModules), `
-          try {
-            ${this.code}
-          } catch(e) {
-            console.error("用户代码错误: " + e.name + ": " + e.message);
-            if(e.stack) console.error(e.stack);
-          }
+          (async () => {
+            try {
+              ${this.code}
+            } catch(e) {
+              console.error("用户代码错误: " + e.name + ": " + e.message);
+              if(e.stack) console.error(e.stack);
+            }
+          })()
         `);
 
         const startTime = Date.now();
-        userFunction(...Object.values(exposedModules));
+        await userFunction(...Object.values(exposedModules));
         const endTime = Date.now();
         this.runTime = endTime - startTime;
 
-        // 如果没有输出，提示成功
-        if (!this.result) this.result = "代码执行成功，同步部分无输出，等待异步输出";
+        if (!this.result) {
+          this.result = "代码同步部分执行成功，无同步输出";
+        }
       } catch (e) {
         this.result = "";
         this.error = `${e.name}: ${e.message}`;
         this.hasError = true;
       }
+    },
+
+    // 中文选词完成或英文输入完成
+    onComplete(e) {
+      this.inputBuffer += e.detail.content;
+    },
+
+
+    // 删除最后一个字符
+    onDelete() {
+      if (this.inputBuffer.length > 0) {
+        this.inputBuffer = this.inputBuffer.slice(0, -1);
+      }
+    },
+
+    // 用户点击确认按钮
+    onPromptConfirm() {
+      const finalInput = this.inputBuffer;
+
+      // 隐藏区域和键盘
+      this.hideInputMethod = true;
+      this.inputMethodHide = true;
+
+      if (this.promptResolve) {
+        this.promptResolve(finalInput);
+        this.promptResolve = null;
+      }
+
+      this.inputBuffer = "";
     }
   }
 </script>
@@ -171,11 +245,7 @@
   width: 100%;
   height: 100%;
   flex-direction: column;
-  padding: 0 6px;
-}
-
-.spacer {
-  height: 86px;
+  padding: 86px 6px 6px;
 }
 
 .console-card {
@@ -218,6 +288,39 @@
 }
 
 
+.prompt-message {
+  position: absolute;
+  bottom: 320px;
+  left: 6px;
+  color: #ffffff;
+  font-size: 24px;
+  min-height: 36px;
+  background-color: #262626a0;
+}
+
+.input-display {
+  position: absolute;
+  left: 6px;
+  bottom: 260px;
+  width: 258px;
+  color: #9cdcfe;
+  font-size: 24px;
+  min-height: 60px;
+  border-width: 3px;
+  border-color: #0d6eff;
+  border-radius: 36px;
+  background-color: #262626;
+
+}
+
+.btn-confirm {
+  position: absolute;
+  right: 6px;
+  bottom: 260px;
+  width: 60px;
+  height: 60px;
+}
+
 .topbar-bg {
   position: absolute;
   left: 0;
@@ -255,5 +358,4 @@
   color: white;
   text-align: center;
 }
-
 </style>

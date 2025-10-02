@@ -1,6 +1,6 @@
 <template>
 	<div class="page" style="flex-direction: column;">
-    <scroll class="scroll-container" scroll-y="true">
+    <scroll bounces="true" class="scroll-container" scroll-y="true">
       <div class="spacer"></div>
 
       <div class="item item-small">

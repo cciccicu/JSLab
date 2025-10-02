@@ -1,12 +1,8 @@
 <template>
 	<div class="page" style="flex-direction: column;">
-        <scroll class="scroll" scroll-y="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 0px 6px;">
-            <div style="height:86px;"></div>
-            <text class="itemtext2">JSLab是一款用于编写和运行JS的快应用</text>
-            <text class="itemtext2">你可以通过console.log在虚拟console上进行输出</text>
-            <text class="itemtext2">你可以像在快应用内部一样调用系统API</text>
-            <text class="itemtext2">具体API支持情况取决于设备，参见小米官方文档</text>
-            <text class="itemtext2" style="color:#00ff00">由于实现方案的缺陷(现在解决了)，目前在回调函数中的输出可能无法显示(能正常显示)，我们会加紧修改(已经改完了)</text>
+        <scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 86px 6px 6px;">
+            <text class="itemtext2">JSLab是一款用于编写和运行JS的快应用，你可以通过console.log在虚拟console上进行输出，你可以通过input获取用户输入，你可以像在快应用内部一样调用系统API。具体API支持情况取决于设备，参见小米官方文档。</text>
+            <text class="itemtext2" style="color:#ff0000">警告：请勿在console打印大量文本，受到vela性能和渲染方式影响，大量文本会导致OOM闪退甚至重启</text>
 
             <div class="item">
                 <div class="item-content">
