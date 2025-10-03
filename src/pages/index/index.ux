@@ -35,6 +35,7 @@
 import router from '@system.router';
 import app from '@system.app';
 import prompt from '@system.prompt';
+import vibrator from '@system.vibrator';
 
 export default {
   private: {
@@ -49,6 +50,9 @@ export default {
   },
 
   exit() {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     app.terminate();
   },
 
@@ -92,6 +96,9 @@ export default {
   },
 
   selectFile(index) {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     if (this.selectedFileIndex === index) {
       this.selectedFileIndex = -1;
     } else {
@@ -102,10 +109,18 @@ export default {
   },
 
   routerTo(page) {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     router.push({ uri: `/pages/${page}` });
   },
 
   runcode() {
+    // 在这里直接使用震动API
+    vibrator.vibrate({
+      mode: 'short'
+    });
+    
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
       prompt.showToast({ message: "请先选择一个文件" });
       return;
@@ -115,7 +130,8 @@ export default {
       .then(content => {
         this.$app.$def.jsName = fileName;
         this.$app.$def.jsCode = content;
-        this.routerTo('run');
+        // 直接调用router.push，不使用this.routerTo
+        router.push({ uri: `/pages/run` });
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -128,6 +144,11 @@ export default {
   },
 
   editcode() {
+    // 在这里直接使用震动API
+    vibrator.vibrate({
+      mode: 'short'
+    });
+    
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
       prompt.showToast({ message: "请先选择一个文件" });
       return;
@@ -139,7 +160,8 @@ export default {
         this.$app.$def.jsCode = content;
         this.$app.$def.codeBefore = content;
         this.$app.$def.codeAfter = "";
-        this.routerTo('edit');
+        // 直接调用router.push，不使用this.routerTo
+        router.push({ uri: `/pages/edit` });
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -152,6 +174,11 @@ export default {
   },
 
   handleDeleteClick() {
+    // 在这里直接使用震动API
+    vibrator.vibrate({
+      mode: 'short'
+    });
+    
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
       prompt.showToast({ message: "请先选择一个文件" });
       return;

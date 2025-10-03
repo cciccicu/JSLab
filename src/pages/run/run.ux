@@ -63,7 +63,6 @@
   import request from '@system.request';
   import prompt from '@system.prompt';
 
-
   import crypto from '@system.crypto';
   import audio from '@system.audio';
 
@@ -78,11 +77,18 @@
       runTime: "",
 
       // Prompt 状态
-      promptResolve: null,
+      currentInputCallback: null,
       promptMessage: "",
       inputBuffer: "",          // 手动维护的输入内容
       hideInputMethod: true,    // 控制 prompt 区域是否渲染
       inputMethodHide: true,    // 控制输入法键盘显隐
+      waitingForInput: false,   // 当前是否正在等待用户输入
+
+      // 全局虚拟 window
+      vwindow: null,
+
+      // input 回调队列：[{ message, callback }, ...]
+      inputQueue: [],
     },
 
     onInit() {
@@ -91,7 +97,10 @@
         this.updateTime();
       }, 1000);
 
-      this.code = this.$app.$def.jsCode || "console.log(\"Hello, World\");";
+      // 初始化 vwindow（只创建一次）
+      this.initVWindow();
+
+      this.code = this.$app.$def.jsCode;
       this.runCode();
     },
 
@@ -109,10 +118,16 @@
     },
 
     onBack() {
+      vibrator.vibrate({
+        mode: 'short'
+      });
       router.back();
     },
 
     onRerun() {
+      vibrator.vibrate({
+        mode: 'short'
+      });
       this.runCode();
     },
 
@@ -120,46 +135,75 @@
       app.terminate();
     },
 
+    initVWindow() {
+      // console 实现
+      const vconsole = {
+        log: (...args) => {
+          const output = args.map(arg => {
+            if (typeof arg === 'object') {
+              try { return JSON.stringify(arg, null, 2); } 
+              catch { return "[object Object]"; }
+            }
+            return String(arg);
+          }).join(' ');
+          this.result = (this.result === "代码同步部分执行成功，无同步输出") ? '' : this.result;
+          this.result += (this.result ? '\n' : '') + output;
+        },
+        error: (...args) => {
+          const output = args.map(String).join(' ');
+          this.result += (this.result ? '\n' : '') + "[ERROR] " + output;
+          this.hasError = true;
+        }
+      };
+
+      // input 实现：使用回调
+      const input = (message, callback) => {
+        if (typeof message === 'function') {
+          // 兼容 input(callback) 形式
+          callback = message;
+          message = "请输入内容";
+        }
+        message = String(message || "请输入内容");
+        this.inputQueue.push({ message, callback });
+        this.processInputQueue();
+      };
+
+      this.vwindow = {
+        console: vconsole,
+        input: input
+      };
+    },
+
+    processInputQueue() {
+      if (this.waitingForInput || this.inputQueue.length === 0) {
+        return;
+      }
+
+      const { message, callback } = this.inputQueue.shift();
+      this.promptMessage = message;
+      this.inputBuffer = "";
+      this.hideInputMethod = false;
+      this.inputMethodHide = false;
+      this.waitingForInput = true;
+
+      // 存储当前回调
+      this.currentInputCallback = callback;
+    },
+
     async runCode() {
       this.result = "";
       this.error = "";
       this.hasError = false;
+      this.runTime = "";
 
       if (!this.code.trim()) {
         this.result = "没有代码可执行";
         return;
       }
 
-      if (!this.vconsole) {
-        this.vconsole = {
-          log: (...args) => {
-            const output = args.map(arg => {
-              if (typeof arg === 'object') {
-                try { return JSON.stringify(arg, null, 2); } 
-                catch { return "[object Object]"; }
-              }
-              return String(arg);
-            }).join(' ');
-            this.result = (this.result === "代码同步部分执行成功，无同步输出") ? '' : this.result;
-            this.result += (this.result ? '\n' : '') + output;
-          },
-          error: (...args) => {
-            const output = args.map(String).join(' ');
-            this.result += (this.result ? '\n' : '') + "[ERROR] " + output;
-            this.hasError = true;
-          }
-        };
-      }
-
-      const input = (message = "请输入内容") => {
-        return new Promise((resolve) => {
-          this.promptMessage = String(message);
-          this.inputBuffer = ""; // 清空输入缓存
-          this.hideInputMethod = false;   // 渲染 prompt 区域
-          this.inputMethodHide = false;   // 显示键盘
-          this.promptResolve = resolve;
-        });
-      };
+      // 清空输入队列（可选：根据需求决定是否保留）
+      this.inputQueue = [];
+      this.waitingForInput = false;
 
       const exposedModules = {
         app, device, router, configuration,
@@ -167,20 +211,13 @@
         network, brightness, battery, geolocation, vibrator, event, sensor, record,
         fetch, interconnect, uploadtask, request, prompt,
         crypto, audio,
-        console: this.vconsole,
-        input
+        console: this.vwindow.console,
+        input: this.vwindow.input   // 使用全局 input
       };
 
       try {
         const userFunction = new Function(...Object.keys(exposedModules), `
-          (async () => {
-            try {
-              ${this.code}
-            } catch(e) {
-              console.error("用户代码错误: " + e.name + ": " + e.message);
-              if(e.stack) console.error(e.stack);
-            }
-          })()
+            ${this.code}
         `);
 
         const startTime = Date.now();
@@ -203,7 +240,6 @@
       this.inputBuffer += e.detail.content;
     },
 
-
     // 删除最后一个字符
     onDelete() {
       if (this.inputBuffer.length > 0) {
@@ -213,18 +249,32 @@
 
     // 用户点击确认按钮
     onPromptConfirm() {
+      vibrator.vibrate({
+        mode: 'short'
+      });
       const finalInput = this.inputBuffer;
 
       // 隐藏区域和键盘
       this.hideInputMethod = true;
       this.inputMethodHide = true;
+      this.waitingForInput = false;
 
-      if (this.promptResolve) {
-        this.promptResolve(finalInput);
-        this.promptResolve = null;
+      // 执行回调
+      if (this.currentInputCallback) {
+        try {
+          this.currentInputCallback(finalInput);
+        } catch (e) {
+          this.vwindow.console.error("Input callback error:", e);
+        }
+        this.currentInputCallback = null;
       }
 
       this.inputBuffer = "";
+
+      // 处理下一个输入请求（如果有）
+      this.$nextTick(() => {
+        this.processInputQueue();
+      });
     }
   }
 </script>

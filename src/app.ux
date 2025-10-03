@@ -100,12 +100,6 @@ export default {
         })
         .catch(error => reject(error));
     });
-  },
-  showToste(content){
-    prompt.showToast({
-      message: content,
-      duration: 2000
-    })
   }
 }
 </script>

@@ -49,11 +49,11 @@
 
 	</div>
 </template>
-
 <script>
 import router from '@system.router';
 import app from '@system.app';
 import prompt from '@system.prompt';
+import vibrator from '@system.vibrator'; // ← 新增这一行
 
 export default {
 	private: {
@@ -85,14 +85,23 @@ export default {
 		this.updateCodeDisplay();
 	},
 	routerTo(page) {
+		vibrator.vibrate({
+			mode: 'short'
+		});
 		router.push({
 			uri: `/pages/${page}`
 		});
 	},
 	back() {
+		vibrator.vibrate({
+			mode: 'short'
+		});
 		router.back();
 	},
     changeKeybord() {
+		vibrator.vibrate({
+			mode: 'short'
+		});
 		this.hideInputMethod = !this.hideInputMethod;
     	this.hideToolbar = !this.hideInputMethod;
 		if(this.showCursorControls) {
@@ -100,6 +109,9 @@ export default {
 		}
 	},
     changeMoveCursor() {
+		vibrator.vibrate({
+			mode: 'short'
+		});
 		this.showCursorControls = !this.showCursorControls;
 	},
 	onInputMethodDelete() {
@@ -125,6 +137,9 @@ export default {
 		}
 	},
 	move(direction) {
+		vibrator.vibrate({
+			mode: 'short'
+		});
 		switch (direction) {
 			case "left":
 				if (this.$app.$def.codeBefore.length > 0) {
@@ -184,10 +199,16 @@ export default {
 		this.updateCodeDisplay();
 	},
 	savecode() {
+		vibrator.vibrate({
+			mode: 'short'
+		});
     	this.$app.$def.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
     	prompt.showToast({"message":"代码已保存"})
 	},
 	runcode() {
+		vibrator.vibrate({
+			mode: 'short'
+		});
 		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
 		router.push({
 			uri: '/pages/run'

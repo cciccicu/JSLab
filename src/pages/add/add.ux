@@ -40,8 +40,6 @@
       maxlength="5"
       vibratemode="{{vibrateMode}}"
       screentype="{{screenType}}"
-      @visibility-change="onInputMethodVisibilityChange"
-      @key-down="onInputMethodKeyDown"
       @delete="onInputMethodDelete"
       @complete="onInputMethodComplete"
     >
@@ -75,7 +73,7 @@ export default {
     
     // 模板内容
     templateContents: [
-      " ",
+      "",
       `console.log("Hello World!");`,
       `prompt.showToast({message:'Hello World'})`,
       `fetch.fetch({
@@ -93,9 +91,11 @@ export default {
     console.log(\`handling fail, errCode = \${code}\`);
   }
 })
-`,`let name = await input("你好，请输入你的名字");
-let age = await input("你今年多大？");
-console.log("你好，" + name + "，你今年 " + age + " 岁。");
+`,`console.log("开始测试");
+input("请输入你的名字：", function(name) {
+  console.log("你好，" + name + "！");
+});
+console.log("等待输入完成...");
 `
     ]
   },
@@ -125,10 +125,16 @@ console.log("你好，" + name + "，你今年 " + age + " 岁。");
   },
   
   back(){
-      router.back();
+    vibrator.vibrate({
+      mode: 'short'
+    });
+    router.back();
   },
   
   changeFocus() {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     this.hideInputMethod = !this.hideInputMethod;
   },
   
@@ -146,6 +152,9 @@ console.log("你好，" + name + "，你今年 " + age + " 岁。");
     this.selectedTemplateIndex = e.newSelected;
   },
   confirmAdd() {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     if (!this.fileName || this.fileName.trim() === "") {
       prompt.showToast({
         message: "请输入文件名"

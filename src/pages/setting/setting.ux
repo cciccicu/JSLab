@@ -42,11 +42,11 @@
     </text>
   </div>
 </template>
-
 <script>
 import router from '@system.router'
 import app from '@system.app'
 import prompt from '@system.prompt'
+import vibrator from '@system.vibrator' // ← 新增
 
 export default {
 	// ÷﹢‐+-＋－×÷％
@@ -90,18 +90,27 @@ export default {
 
   },
   routerTo(url) {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     // 跳转到应用内的某个页面，router用法详见：文档->接口->页面路由
 	router.push({
       uri: '/pages/' + url
 	})
   },
   back(){
+    vibrator.vibrate({
+      mode: 'short'
+    });
   	router.back();
   },
   exit(){
 	app.terminate();
   },
   toast(message){
+    vibrator.vibrate({
+      mode: 'short'
+    });
 	prompt.showToast({message:message});
   }
 }

@@ -23,7 +23,7 @@
           <div class="item-content">
               <text class="itemtext" style="font-size: 24px">交流与反馈扫码加QQ群</text>
               <text class="itemtext" style="font-size: 24px">群号:1067265942</text>
-              <qrcode value="https://qm.qq.com/q/jiknQFvvA" style="color: #000000;background-color: #ffffff;width: 100%;"></qrcode>
+              <qrcode value="https://qm.qq.com/q/jiknQFvvA  " style="color: #000000;background-color: #ffffff;width: 100%;"></qrcode>
           </div>
         </div>
         <text class="itemtext" style="font-size:27px;color: #ff0000">本项目使用GPL3.0许可证</text>
@@ -44,6 +44,7 @@
 <script>
   import router from '@system.router'
   import app from '@system.app' 
+  import vibrator from '@system.vibrator' // ← 新增这一行
 
   
   export default {
@@ -70,6 +71,9 @@
 	  clearInterval(this.timer);
   },
 	back(){
+    vibrator.vibrate({ // ← 新增震动
+      mode: 'short'
+    });
 		router.back();
 	},
   updateTime() {

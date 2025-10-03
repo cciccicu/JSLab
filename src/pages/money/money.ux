@@ -37,6 +37,7 @@
 <script>
 import router from '@system.router';
 import app from '@system.app';
+import vibrator from '@system.vibrator'; // ← 新增
 
 export default {
   private: {
@@ -71,6 +72,9 @@ export default {
     });
   },
   back(){
+    vibrator.vibrate({
+      mode: 'short'
+    });
   	router.back();
   }
 };
