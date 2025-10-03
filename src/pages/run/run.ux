@@ -190,7 +190,7 @@
       this.currentInputCallback = callback;
     },
 
-    async runCode() {
+    runCode() {
       this.result = "";
       this.error = "";
       this.hasError = false;
@@ -221,7 +221,7 @@
         `);
 
         const startTime = Date.now();
-        await userFunction(...Object.values(exposedModules));
+        userFunction(...Object.values(exposedModules));
         const endTime = Date.now();
         this.runTime = endTime - startTime;
 
