@@ -7,8 +7,8 @@
   },
   "scripts": {
     "start": "aiot server --watch --open-nuttx",
-    "build": "aiot build --enable-jsc --enable-protobuf",
-    "release": "aiot release --enable-jsc --enable-protobuf",
+    "build": "aiot build --enable-jscf",
+    "release": "aiot release --enable-jsc",
     "watch": "aiot watch --open-nuttx",
     "lint": "eslint --format codeframe --fix --ext .ux,.js src/"
   },

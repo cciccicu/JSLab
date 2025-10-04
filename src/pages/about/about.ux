@@ -12,8 +12,13 @@
         <div class="dev-card">
         <text class="itemtext">@ccicc.icu</text>
         </div>
-        <text class="itemtext" style="font-size:20px;">同时使用了来自以下开发者的资源</text>
-        <text class="itemtext">在此表示感谢：</text>
+        <text class="itemtext">支持人员：</text>
+        <div class="dev-card">
+        <text class="itemtext">@juyinandxinyi</text>
+        </div>
+        <text style="color: #ffffff;font-size: 23px;">↑这是一个好人，ta在用爱发电</text>
+
+        <text class="itemtext">参考和使用的项目：</text>
         <div class="resource-card">
         <text class="itemtext" style="font-size:20px;">使用: @NEORUAA 输入法</text>
         <text class="itemtext" style="font-size:20px;">参考: @NEORUAA 电子书</text>
@@ -169,7 +174,7 @@
     justify-content: space-between;
   }
   .itemtext {
-    font-size: 32px;
+    font-size: 28px;
     line-height: 40px;
     width: 100%;
     font-weight: bold;
