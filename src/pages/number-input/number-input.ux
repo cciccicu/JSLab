@@ -1,0 +1,180 @@
+<template>
+    <div class="page" style="flex-direction: column;">
+      <div class="item">
+        <text style="font-size: 24px;font-weight:bold;color: rgba(255, 255, 255, 0.6);width: 100%;text-align: center;">
+          {{ dialog.message || '请输入' }}
+        </text>
+        <text style="font-size: 36px;font-weight:bold;color: white;width: 100%;text-align: center;">
+          {{ inputVal }}
+        </text>
+      </div>
+  
+      <div class="row" style="top:209px">
+        <img src="/common/images/num_pad/7.png" @click="input('7')"/>
+        <img src="/common/images/num_pad/8.png" @click="input('8')"/>
+        <img src="/common/images/num_pad/9.png" @click="input('9')"/>
+      </div>
+      <div class="row" style="top:276px">
+        <img src="/common/images/num_pad/4.png" @click="input('4')"/>
+        <img src="/common/images/num_pad/5.png" @click="input('5')"/>
+        <img src="/common/images/num_pad/6.png" @click="input('6')"/>
+      </div>
+      <div class="row" style="top:343px">
+        <img src="/common/images/num_pad/1.png" @click="input('1')"/>
+        <img src="/common/images/num_pad/2.png" @click="input('2')"/>
+        <img src="/common/images/num_pad/3.png" @click="input('3')"/>
+      </div>
+      <div class="row" style="top:410px">
+        <img src="/common/images/num_pad/0.png" @click="input('0')"/>
+        <img src="/common/images/num_pad/del.png" @click="input('del')"/>
+      </div>
+  
+      <img static src="/common/images/back.png" @click="onCancel" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
+      <img static src="/common/images/conform.png" @click="onConfirm" style="position: absolute;left: 258px;top: 6px;width: 72px;height: 72px;"/>
+      <text style="position: absolute;left: 78px;top: 7px;width: 180px;line-height: 32px;font-weight:bold;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
+        {{ nowTime }}
+      </text>
+      <text style="position: absolute;left: 78px;top: 35px;width: 180px;line-height: 42px;font-weight:bold;font-size:32px;color:white;text-align:center;">
+        {{ dialog.title }}
+      </text>
+    </div>
+  </template>
+  
+  <script>
+  import router from '@system.router';
+  
+  export default {
+    private: {
+      // 设置默认值，防止渲染错误
+      dialog: {
+        type: 'number',
+        title: '',
+        message: '',
+        callbacks: {}
+      },
+      inputVal: 0,
+      nowTime: "00:00",
+      timer: null
+    },
+    updateTime() {
+      const date = new Date();
+      let hours = date.getHours();
+      let minutes = date.getMinutes();
+      hours = hours < 10 ? '0' + hours : hours;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      this.nowTime = `${hours}:${minutes}`;
+    },
+    onInit() {
+      this.updateTime();
+      this.timer = setInterval(() => {
+        this.updateTime();
+      }, 1000);
+  
+      const globalDialog = this.$app.$def.currentDialog;
+      if (globalDialog && globalDialog.type === 'number') {
+        this.dialog = globalDialog;
+      } else {
+        console.error('dialog_number: Global dialog state is invalid or missing.');
+      }
+    },
+    onDestroy(){
+      clearInterval(this.timer);
+    },
+    onCancel() {
+      this.dialog?.callbacks?.onCancel?.();
+      this.$app.$def.currentDialog = null;
+      router.back();
+    },
+    onConfirm() {
+      const num = parseInt(this.inputVal) || 0;
+      this.dialog?.callbacks?.onConfirm?.(num);
+      this.$app.$def.currentDialog = null;
+      router.back();
+    },
+    input(key) {
+      if (key === 'del') {
+        let str = this.inputVal.toString();
+        if (str.length <= 1) {
+          this.inputVal = 0;
+        } else {
+          this.inputVal = parseInt(str.slice(0, -1));
+        }
+      } else if (key >= '0' && key <= '9') {
+        let newVal = this.inputVal.toString() + key;
+        if (newVal.length > 8) return;
+        let num = parseInt(newVal);
+        this.inputVal = num;
+      }
+    },
+    onBackPress() {
+      this.onCancel();
+      return true;
+    }
+  }
+  </script>
+  
+  <style>
+  .page {
+    width: 336px;
+    height: 480px;
+    background-color: #000000;
+  }
+  
+  /* 保持参考页面的原有样式 */
+  .more-info {
+    width: 335px;
+    background-color: rgb(0,0,0);
+  }
+  
+  .caltext {
+    width: 320px;
+    lines: 4;
+    text-overflow: clip;
+    font-size: 30px;
+    color: rgb(255,255,255);
+    text-align: left;
+    height: 160px;
+  }
+  
+  .list {
+    width: 336px;
+    height: 400px;
+    position: absolute;
+    top:72px;
+  }
+  
+  .item {
+    position: absolute;
+    left: 6px;
+    top: 86px;
+    width: 324px;
+    height: 115px;
+    border-radius: 36px;
+    flex-direction: column;
+    border: 3px solid #262626;
+    justify-content: center;
+  }
+  
+  .itemtext {
+    font-size: 36px;
+    font-weight: bold;
+    height: 68px;
+    width: 102px;
+    color: white;
+    text-align: center;
+    text-overflow: ellipsis;
+    lines: 1;
+    padding: 10px;
+    margin-right: 9px;
+    background-color: #262626;
+    border-radius:12px;
+  }
+  
+  .row {
+    position:absolute;
+    width:336px;
+    height:64px;
+    padding:0px 6px;
+    justify-content: space-between;
+  }
+  </style>

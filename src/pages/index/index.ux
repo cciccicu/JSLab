@@ -36,6 +36,8 @@ import router from '@system.router';
 import app from '@system.app';
 import prompt from '@system.prompt';
 import vibrator from '@system.vibrator';
+import configManager from '../../utils/configManager.js';
+import jsManager from '../../utils/jsManager.js';
 
 export default {
   private: {
@@ -84,7 +86,7 @@ export default {
   },
 
   loadFileList() {
-    this.$app.$def.listjs().then(fileList => {
+    jsManager.listjs().then(fileList => {
       this.fileList = fileList;
       this.selectedFileIndex = -1;
       // 重置删除状态（文件列表刷新后不应保留旧操作）
@@ -126,7 +128,7 @@ export default {
       return;
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
-    this.$app.$def.getjs(fileName)
+    jsManager.getjs(fileName)
       .then(content => {
         this.$app.$def.jsName = fileName;
         this.$app.$def.jsCode = content;
@@ -154,7 +156,7 @@ export default {
       return;
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
-    this.$app.$def.getjs(fileName)
+    jsManager.getjs(fileName)
       .then(content => {
         this.$app.$def.jsName = fileName;
         this.$app.$def.jsCode = content;
@@ -200,7 +202,7 @@ export default {
       clearTimeout(this.deleteTimer);
       this.deleteTimer = null;
 
-      this.$app.$def.deletejs(fileName)
+      jsManager.deletejs(fileName)
         .then(() => {
           prompt.showToast({ message: `文件 ${fileName} 已删除`, duration: 500 });
           return this.loadFileList();

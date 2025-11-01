@@ -2,7 +2,7 @@
 <template>
 	<div class="page" style="flex-direction: column;">
 		<scroll class="scroll" scroll-y="true" style="position:absolute;top:{{hideTopbar?'20px':'86px;'}}left:0px;height:{{hideTopbar?'460px':'394px;'}};width:100%;flex-direction: column;padding: 0px 6px;">
-			<text class="code">{{codeShow}}</text>
+			<text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px;">{{codeShow}}</text>
 			<div style="height:240px;"></div>
 		</scroll>
 		<!-- 第三方输入法组件 -->
@@ -53,7 +53,9 @@
 import router from '@system.router';
 import app from '@system.app';
 import prompt from '@system.prompt';
-import vibrator from '@system.vibrator'; // ← 新增这一行
+import vibrator from '@system.vibrator';
+import configManager from '../../utils/configManager.js';
+import jsManager from '../../utils/jsManager.js';
 
 export default {
 	private: {
@@ -67,9 +69,23 @@ export default {
 		maxlength: 5,
 		vibrateMode: "short",
 		screenType: "rect",
+		fontFamily: 'UbuntuMono',
+		fontSize: 20
 	},
 
 	onInit() {
+		configManager.get('editor.font.family', 'UbuntuMono', (error, family) => {
+			if (!error) {
+				this.fontFamily = family === 'UbuntuMono' ? 'UbuntuMono' : 'SarasaTermSCNerd';
+			}
+		});
+		
+		configManager.get('editor.font.size', 20, (error, size) => {
+			if (!error && typeof size === 'number') {
+				this.fontSize = size;
+			}
+		});
+		
 		this.updateTime();
 		this.timer = setInterval(() => {
 			this.updateTime();
@@ -202,7 +218,7 @@ export default {
 		vibrator.vibrate({
 			mode: 'short'
 		});
-    	this.$app.$def.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
+    	jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
     	prompt.showToast({"message":"代码已保存"})
 	},
 	runcode() {
@@ -231,6 +247,18 @@ export default {
 </script>
 
 <style>
+	@font-face {
+		font-family: 'SarasaTermSCNerd';
+		src: url('../../common/fonts/SarasaTermSCNerd-Regular-Lite.ttf') format('ttf');
+		font-weight: normal;
+		font-style: normal;
+	}
+	@font-face {
+		font-family: 'UbuntuMono';
+		src: url('../../common/fonts/UbuntuMono-R.ttf') format('ttf');
+		font-weight: normal;
+		font-style: normal;
+	}
 	.page {
 		width: 336px;
 		height: 480px;
@@ -240,7 +268,6 @@ export default {
 
   	.code {
     	color: #ffffff;
-		font-size:20px;
   	}
 
 	.btn {

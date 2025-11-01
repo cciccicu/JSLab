@@ -24,6 +24,8 @@
 import router from '@system.router';
 import app from '@system.app';
 import vibrator from '@system.vibrator'; // ← 新增
+import configManager from '../../utils/configManager.js';
+import jsManager from '../../utils/jsManager.js';
 
 export default {
   private: {

@@ -68,6 +68,15 @@
       },
       "pages/help": {
         "component": "help"
+      },
+      "pages/select": {
+        "component": "select"
+      },
+      "pages/confirm": {
+        "component": "confirm"
+      },
+      "pages/number-input": {
+        "component": "number-input"
       }
     }
   }

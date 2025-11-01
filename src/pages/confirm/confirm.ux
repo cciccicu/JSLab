@@ -1,0 +1,135 @@
+<template>
+  <div class="page" style="flex-direction: column;">
+    <!-- 顶栏 -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="title-text">{{ dialog.title }}</text>
+    <text class="message">{{ dialog.message }}</text>
+
+    <!-- 按钮组 -->
+    <div class="btn-group">
+      <div class="btn-item" @click="onReject">
+        <text class="btn-text">拒绝</text>
+      </div>
+      <div class="btn-item confirm" @click="onConfirm">
+        <text class="btn-text">确认</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router';
+
+export default {
+  private: {
+    // 设置默认值，防止渲染错误
+    dialog: {
+      type: 'confirm',
+      title: '',
+      message: '',
+      callbacks: {}
+    }
+  },
+  onInit() {
+    const globalDialog = this.$app.$def.currentDialog;
+    if (globalDialog && globalDialog.type === 'confirm') {
+      this.dialog = globalDialog;
+    } else {
+      console.error('dialog_confirm: Global dialog state is invalid or missing.');
+    }
+  },
+  onCancel() {
+    this.dialog?.callbacks?.onCancel?.();
+    this.$app.$def.currentDialog = null;
+    router.back();
+  },
+  onConfirm() {
+    this.dialog?.callbacks?.onConfirm?.();
+    this.$app.$def.currentDialog = null;
+    router.back();
+  },
+  onReject() {
+    this.dialog?.callbacks?.onReject?.();
+    this.$app.$def.currentDialog = null;
+    router.back();
+  },
+  onBackPress() {
+    this.onCancel();
+    return true;
+  }
+}
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+}
+
+.btn {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+}
+
+.topbar-bg {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
+
+.message {
+  position: absolute;
+  top: 120px; 
+  width: 100%;
+  text-align: center;
+  color: white;
+  font-size: 28px;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.btn-group {
+  position: absolute;
+  bottom: 20px; /* 距离底部 */
+  width: 100%;
+  padding: 0 20px;
+  box-sizing: border-box;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.btn-item {
+  width: 120px;
+  height: 60px;
+  background-color: #262626;
+  border-radius: 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-item.confirm {
+  background-color: #0D6EFF;
+}
+
+.btn-text {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+}
+</style>

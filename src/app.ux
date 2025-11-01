@@ -1,105 +1,55 @@
+<!-- app.ux -->
 <script>
-import file from '@system.file';
-import prompt from '@system.prompt';
+import app from '@system.app';
+import router from '@system.router';
+
+import jsManager from './utils/jsManager.js';
 
 export default {
   onCreate() {
-    console.log('app created')
+    console.log('app created');
   },
+
   onDestroy() {
-    console.log('app destroyed')
+    console.log('app destroyed');
   },
+
+  currentDialog: null,
+
+  showConfirmDialog(title, message, callbacks) {
+    this.currentDialog = {
+      type: 'confirm',
+      title,
+      message,
+      callbacks
+    };
+    router.push({ uri: '/pages/confirm' });
+  },
+  showSelectDialog(title, message, options, callbacks) {
+    this.currentDialog = {
+      type: 'select',
+      title,
+      message,
+      options,
+      callbacks
+    };
+    router.push({ uri: '/pages/select' });
+  },
+  showNumberInputDialog(title, message, callbacks) {
+    this.currentDialog = {
+      type: 'number',
+      title,
+      message,
+      callbacks
+    };
+    router.push({ uri: '/pages/number-input' });
+  },
+
+  // === 全局共享状态（不要删除！）===
   jsName: "",
   jsCode: "",
   codeBefore: "",
   codeAfter: "",
-  // 全局方法
-  ensureDirExists(uri) {
-    return new Promise((resolve, reject) => {
-      const dirUri = uri.endsWith('/') ? uri : uri + '/';
-      file.access({
-        uri: dirUri,
-        success: () => resolve(true),
-        fail: (data, code) => {
-          // 尝试创建目录
-          file.mkdir({
-            uri: dirUri,
-            recursive: true,  // 递归创建上级目录
-            success: () => resolve(true),
-            fail: (data, code) => reject(new Error(`Failed to create directory: ${code}`))
-          });
-        }
-      });
-    });
-  },
-  listjs() {
-    return new Promise((resolve, reject) => {
-      const dirUri = 'internal://files/js/';
-      this.ensureDirExists(dirUri)
-        .then(() => {
-          file.list({
-            uri: dirUri,
-            success: (data) => {
-              // 过滤出.js文件并格式化结果
-              const jsFiles = data.fileList
-                .filter(file => file.uri.endsWith('.js'))
-                .map(file => ({
-                  name: file.uri.substring(file.uri.lastIndexOf('/') + 1),
-                  size: file.length.toString()  // 转换为字符串符合要求
-                }));
-              resolve(jsFiles);
-            },
-            fail: (data, code) => reject(new Error(`Failed to list files: ${code}`))
-          });
-        })
-        .catch(error => reject(error));
-    });
-  },
-  getjs(name) {
-    return new Promise((resolve, reject) => {
-      const dirUri = 'internal://files/js/';
-      const fileUri = `${dirUri}${name}`;
-      this.ensureDirExists(dirUri)
-        .then(() => {
-          file.readText({
-            uri: fileUri,
-            success: (data) => resolve(data.text),
-            fail: (data, code) => reject(new Error(`Failed to read file: ${code}`))
-          });
-        })
-        .catch(error => reject(error));
-    });
-  },
-  savejs(name, content) {
-    return new Promise((resolve, reject) => {
-      const dirUri = 'internal://files/js/';
-      const fileUri = `${dirUri}${name}`;
-      this.ensureDirExists(dirUri)
-        .then(() => {
-          file.writeText({
-            uri: fileUri,
-            text: content,
-            success: () => resolve(),
-            fail: (data, code) => reject(new Error(`Failed to write file: ${code}`))
-          });
-        })
-        .catch(error => reject(error));
-    });
-  },
-  deletejs(name) {
-    return new Promise((resolve, reject) => {
-      const dirUri = 'internal://files/js/';
-      const fileUri = `${dirUri}${name}`;
-      this.ensureDirExists(dirUri)
-        .then(() => {
-          file.delete({
-            uri: fileUri,
-            success: () => resolve(),
-            fail: (data, code) => reject(new Error(`Failed to delete file: ${code}`))
-          });
-        })
-        .catch(error => reject(error));
-    });
-  }
 }
+
 </script>

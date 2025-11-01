@@ -54,6 +54,8 @@ import app from '@system.app';
 import prompt from '@system.prompt';
 import vibrator from '@system.vibrator';
 import device from '@system.device';
+import configManager from '../../utils/configManager.js';
+import jsManager from '../../utils/jsManager.js';
 
 export default {
   private: {
@@ -166,7 +168,7 @@ console.log("等待输入完成...");
       fileName += '.js';
     }
     const templateContent = this.templateContents[this.selectedTemplateIndex];
-    this.$app.$def.savejs(fileName, templateContent)
+    jsManager.savejs(fileName, templateContent)
       .then(() => {
         prompt.showToast({
           message: `文件 ${fileName} 创建成功`

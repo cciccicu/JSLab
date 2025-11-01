@@ -1,0 +1,230 @@
+<template>
+  <div class="page">
+
+    <!-- 滚动区域 -->
+    <scroll class="scroll" scroll-y="true" bounces="true">
+
+      <text class="message">{{ dialog.message }}</text>
+
+      <div
+        for="{{ dialog.options }}"
+        class="item {{ selectedIndex === $idx ? 'item-selected' : '' }}"
+        @click="onSelect($idx)"
+      >
+        <div class="item-content">
+          <text class="itemtext">{{ $item }}</text>
+        </div>
+        <img
+          static
+          src="/common/images/check.png"
+          class="check-icon"
+          if="{{ selectedIndex === $idx }}"
+        />
+      </div>
+    </scroll>
+
+    <!-- 顶栏背景 -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+
+    <!-- 返回按钮 -->
+    <img static src="/common/images/back.png" class="btn-back" @click="onCancel" />
+    
+    <!-- 确认按钮 -->
+    <img static src="/common/images/conform.png" class="btn-confirm" @click="onConfirm" />
+    
+    <!-- 时间 -->
+    <text class="time-text">{{ nowTime }}</text>
+    
+    <!-- 标题 -->
+    <text class="title-text">{{ dialog.title }}</text>
+  </div>
+</template>
+
+<script>
+import router from '@system.router';
+import vibrator from '@system.vibrator';
+
+export default {
+  private: {
+    dialog: {
+      type: 'select',
+      title: '',
+      message: '',
+      options: [],
+      callbacks: {}
+    },
+    selectedIndex: -1,
+    nowTime: "00:00",
+    timer: null
+  },
+
+  onInit() {
+    const globalDialog = this.$app.$def.currentDialog;
+    if (globalDialog && globalDialog.type === 'select' && Array.isArray(globalDialog.options)) {
+      this.dialog = globalDialog;
+    } else {
+      console.error('dialog_select: Invalid or missing global dialog');
+      this.dialog.options = [];
+    }
+
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000);
+  },
+
+  onDestroy() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  },
+
+  updateTime() {
+    const date = new Date();
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+    hours = hours < 10 ? '0' + hours : hours;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    this.nowTime = `${hours}:${minutes}`;
+  },
+
+  onCancel() {
+    vibrator.vibrate({ mode: 'short' });
+    this.dialog?.callbacks?.onCancel?.();
+    this.$app.$def.currentDialog = null;
+    router.back();
+  },
+
+  onSelect(index) {
+    this.selectedIndex = index;
+  },
+
+  onConfirm() {
+    vibrator.vibrate({ mode: 'short' });
+    if (this.selectedIndex >= 0 && this.selectedIndex < this.dialog.options.length) {
+      const selectedValue = this.dialog.options[this.selectedIndex];
+      this.dialog?.callbacks?.onSelect?.(selectedValue);
+    } else {
+      // 未选择时视为取消
+      this.dialog?.callbacks?.onCancel?.();
+    }
+    this.$app.$def.currentDialog = null;
+    router.back();
+  },
+
+  onBackPress() {
+    this.onCancel();
+    return true;
+  }
+};
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  flex-direction: column;
+}
+
+.topbar-bg {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
+
+.btn-back {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.btn-confirm {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.time-text {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
+
+.message {
+  width: 100%;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 20px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.scroll {
+  position:absolute;
+  left:0px;
+  height: 100%;
+  width:100%;
+  flex-direction: column;
+  padding: 86px 6px 36px;
+}
+
+.item {
+  width: 100%;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 8px;
+  background-color: #262626;
+  border-radius: 36px;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row;
+}
+
+.item-selected {
+  background-color: #0D6EFF;
+}
+
+.item-content {
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.itemtext {
+  font-size: 32px;
+  line-height: 40px;
+  width: 100%;
+  font-weight: bold;
+  color: white;
+  text-overflow: ellipsis;
+  lines: 2;
+}
+
+.check-icon {
+  width: 40px;
+  height: 40px;
+}
+</style>

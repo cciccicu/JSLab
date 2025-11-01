@@ -66,6 +66,9 @@
   import crypto from '@system.crypto';
   import audio from '@system.audio';
 
+  import configManager from '../../utils/configManager.js';
+  import jsManager from '../../utils/jsManager.js';
+
   export default {
     private: {
       nowTime: "00:00",
@@ -146,7 +149,7 @@
             }
             return String(arg);
           }).join(' ');
-          this.result = (this.result === "代码同步部分执行成功，无同步输出") ? '' : this.result;
+          this.result = (this.result === "暂无输出") ? '' : this.result;
           this.result += (this.result ? '\n' : '') + output;
         },
         error: (...args) => {
@@ -221,12 +224,12 @@
         `);
 
         const startTime = Date.now();
-        userFunction(...Object.values(exposedModules));
+        setTimeout(() => {userFunction(...Object.values(exposedModules))},0);
         const endTime = Date.now();
         this.runTime = endTime - startTime;
 
         if (!this.result) {
-          this.result = "代码同步部分执行成功，无同步输出";
+          this.result = "暂无输出";
         }
       } catch (e) {
         this.result = "";

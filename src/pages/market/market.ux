@@ -20,6 +20,8 @@ import router from '@system.router';
 import app from '@system.app';
 import prompt from '@system.prompt';   
 import vibrator from '@system.vibrator';
+import configManager from '../../utils/configManager.js';
+import jsManager from '../../utils/jsManager.js';
 
 export default {
   private: {
