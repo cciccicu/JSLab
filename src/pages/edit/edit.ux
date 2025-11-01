@@ -1,11 +1,29 @@
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
 <template>
 	<div class="page" style="flex-direction: column;">
-		<scroll class="scroll" scroll-y="true" style="position:absolute;top:{{hideTopbar?'20px':'86px;'}}left:0px;height:{{hideTopbar?'460px':'394px;'}};width:100%;flex-direction: column;padding: 0px 6px;">
-			<text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px;">{{codeShow}}</text>
-			<div style="height:240px;"></div>
-		</scroll>
-		<!-- 第三方输入法组件 -->
+		<!-- 代码滚动区域，绑定点击事件 -->
+		<scroll 
+		class="scroll" 
+		scroll-x="true" 
+		scroll-y="true" 
+		style="position:absolute;top:86px;left:0px;height:394px;width:100%;flex-direction: column;padding: 0px 6px;"
+	  >
+		<div @click="onCodeAreaClick" style="flex-direction: column;">
+		  <text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; width: {{codeWidth}}px;">{{codeShow}}</text>
+		</div>
+		<div if="{{showCursor}}" style="
+			position: absolute;
+			left: {{6 + cursorX}}px;
+			top: {{cursorY}}px;
+			width: {{fontSize/6}}px;
+			height: {{fontSize}}px;
+			background-color: white;
+		"></div>
+			
+		<div style="height:260px;"></div>
+	  </scroll>
+
+		<!-- 第三方输入法 -->
 		<input-method if="{{!hideInputMethod}}" 
 			hide="{{hideInputMethod}}"
 			keyboardtype="{{keyboardType}}"
@@ -14,41 +32,32 @@
 			screentype="{{screenType}}"
 			@delete="onInputMethodDelete"
 			@complete="onInputMethodCompleteSelf" 
-		>
-		</input-method>
+		></input-method>
     
-    <!-- 光标移动控制区域 -->
-	<div if="{{showCursorControls}}" class="cursormove">
-      <img src="/common/images/up.png" class="cursor-btn" @click="move('up')"></img>
-      <img src="/common/images/left.png" class="cursor-btn" @click="move('left')"></img>
-      <img src="/common/images/right.png" class="cursor-btn" @click="move('right')"></img>
-      <img src="/common/images/down.png" class="cursor-btn" @click="move('down')"></img>
-    </div>
+		<!-- 光标方向控制 -->
+		<div if="{{showCursorControls}}" class="cursormove">
+			<img src="/common/images/up.png" class="cursor-btn" @click="move('up')"></img>
+			<img src="/common/images/left.png" class="cursor-btn" @click="move('left')"></img>
+			<img src="/common/images/right.png" class="cursor-btn" @click="move('right')"></img>
+			<img src="/common/images/down.png" class="cursor-btn" @click="move('down')"></img>
+		</div>
 
 		<!-- 底部工具栏 -->
-	<img if="{{!hideToolbar}}" class="btn" src="/common/images/save.png"
-      style="left: 6px;top: 402px;" @click="savecode" />
-    <img if="{{!hideToolbar}}" class="btn" src="/common/images/run.png"
-      style="left: 90px;top: 402px;" @click="runcode" />
-    <img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png"
-      style="left: 174px;top: 402px;" @click="changeMoveCursor" />
-    <img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png"
-      style="left: 258px;top: 402px;" @click="changeKeybord" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="savecode" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="runcode" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png" style="left: 174px;top: 402px;" @click="changeMoveCursor" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png" style="left: 258px;top: 402px;" @click="changeKeybord" />
 
-	<!-- 顶栏 -->
-	<img static src="/common/images/hd.png"
-		class="topbar-bg" />
-	<img static class="btn" src="/common/images/back.png" @click="back"
-		style="left: 6px;top: 6px;" />
-	<img static class="btn" src="/common/images/more.png" @click="routerTo('more')"
-		style="left: 258px;top: 6px;" />
-	<img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="changeKeybord"
-		style="left: 258px;top: 6px;" />
-	<text class="time-text">{{nowTime}}</text>
-	<text class="title-text">编辑JS</text>
-
+		<!-- 顶栏 -->
+		<img static src="/common/images/hd.png" class="topbar-bg" />
+		<img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;" />
+		<img static class="btn" src="/common/images/more.png" @click="routerTo('more')" style="left: 258px;top: 6px;" />
+		<img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="changeKeybord" style="left: 258px;top: 6px;" />
+		<text class="time-text">{{nowTime}}</text>
+		<text class="title-text">编辑JS</text>
 	</div>
 </template>
+
 <script>
 import router from '@system.router';
 import app from '@system.app';
@@ -70,7 +79,13 @@ export default {
 		vibrateMode: "short",
 		screenType: "rect",
 		fontFamily: 'UbuntuMono',
-		fontSize: 20
+		fontSize: 20,
+		codeWidth: 336,
+		// 光标状态
+		showCursor: true,
+		cursorX: 0,
+		cursorY: 0,
+		cursorBlinkTimer: null,
 	},
 
 	onInit() {
@@ -84,6 +99,7 @@ export default {
 			if (!error && typeof size === 'number') {
 				this.fontSize = size;
 			}
+			this.updateCodeDisplay();
 		});
 		
 		this.updateTime();
@@ -91,71 +107,140 @@ export default {
 			this.updateTime();
 		}, 1000);
 		this.updateCodeDisplay();
+		this.startCursorBlink();
 	},
+
 	onDestroy() {
-		if (this.timer) {
-			clearInterval(this.timer);
-		}
+		if (this.timer) clearInterval(this.timer);
+		this.stopCursorBlink();
 	},
+
 	onShow() {
 		this.updateCodeDisplay();
 	},
-	routerTo(page) {
-		vibrator.vibrate({
-			mode: 'short'
-		});
-		router.push({
-			uri: `/pages/${page}`
-		});
+
+	startCursorBlink() {
+		if (this.cursorBlinkTimer) return;
+		this.cursorBlinkTimer = setInterval(() => {
+			this.showCursor = !this.showCursor;
+		}, 500);
 	},
-	back() {
-		vibrator.vibrate({
-			mode: 'short'
-		});
-		router.back();
-	},
-    changeKeybord() {
-		vibrator.vibrate({
-			mode: 'short'
-		});
-		this.hideInputMethod = !this.hideInputMethod;
-    	this.hideToolbar = !this.hideInputMethod;
-		if(this.showCursorControls) {
-			this.showCursorControls = false;
+
+	stopCursorBlink() {
+		if (this.cursorBlinkTimer) {
+			clearInterval(this.cursorBlinkTimer);
+			this.cursorBlinkTimer = null;
 		}
 	},
-    changeMoveCursor() {
-		vibrator.vibrate({
-			mode: 'short'
-		});
+
+	routerTo(page) {
+		vibrator.vibrate({ mode: 'short' });
+		router.push({ uri: `/pages/${page}` });
+	},
+
+	back() {
+		vibrator.vibrate({ mode: 'short' });
+		router.back();
+	},
+
+	changeKeybord() {
+		vibrator.vibrate({ mode: 'short' });
+		this.hideInputMethod = !this.hideInputMethod;
+		this.hideToolbar = !this.hideInputMethod;
+		if (this.showCursorControls) this.showCursorControls = false;
+	},
+
+	changeMoveCursor() {
+		vibrator.vibrate({ mode: 'short' });
 		this.showCursorControls = !this.showCursorControls;
 	},
+
 	onInputMethodDelete() {
 		this.del();
 	},
+
 	onInputMethodCompleteSelf(evt) {
 		if (evt && evt.detail && evt.detail.content) {
 			this.add(evt.detail.content);
 		}
 	},
-	updateCodeDisplay() {
-		this.codeShow = this.$app.$def.codeBefore + "┃" + this.$app.$def.codeAfter;
-		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+
+	// 👇 新增：点击代码区域移动光标
+	onCodeAreaClick(event) {
+		const { offsetX, offsetY } = event; // 来自 MouseEvent
+		// 减去 scroll 的 padding-left: 6px
+		const x = offsetX - 6;
+		const y = offsetY;
+
+		const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+		const lines = allText.split('\n');
+		const lineHeight = this.fontSize;
+
+		// 1. 计算目标行（不能越界）
+		let targetLineIndex = Math.floor(y / lineHeight);
+		if (targetLineIndex < 0) targetLineIndex = 0;
+		if (targetLineIndex >= lines.length) targetLineIndex = lines.length - 1;
+
+		const targetLine = lines[targetLineIndex];
+
+		// 2. 在目标行中找最接近 x 的字符位置
+		let currentWidth = 0;
+		let charIndex = 0;
+		for (let i = 0; i < targetLine.length; i++) {
+			const char = targetLine[i];
+			const charWidth = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)
+				? this.fontSize
+				: this.fontSize * 0.5;
+
+			// 判断点击位置是否更靠近当前字符的左半 or 右半
+			if (currentWidth + charWidth / 2 > x) {
+				charIndex = i;
+				break;
+			}
+			currentWidth += charWidth;
+			charIndex = i + 1; // 默认插在行尾
+		}
+
+		// 3. 重组 codeBefore / codeAfter
+		let newCodeBefore = "";
+		for (let i = 0; i < targetLineIndex; i++) {
+			newCodeBefore += lines[i] + '\n';
+		}
+		newCodeBefore += targetLine.substring(0, charIndex);
+
+		let newCodeAfter = targetLine.substring(charIndex);
+		if (targetLineIndex < lines.length - 1) {
+			newCodeAfter += '\n' + lines.slice(targetLineIndex + 1).join('\n');
+		}
+
+		this.$app.$def.codeBefore = newCodeBefore;
+		this.$app.$def.codeAfter = newCodeAfter;
+
+		this.updateCodeDisplay();
+		vibrator.vibrate({ mode: 'short' }); // 触觉反馈
 	},
+
+	updateCodeDisplay() {
+		this.codeWidth = this.getTextWidth(this.$app.$def.jsCode, this.fontSize);
+		this.codeShow = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+		this.calculateCursorPosition();
+	},
+
 	add(str) {
 		this.$app.$def.codeBefore += str;
 		this.updateCodeDisplay();
 	},
+
 	del() {
 		if (this.$app.$def.codeBefore.length > 0) {
 			this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
 			this.updateCodeDisplay();
 		}
 	},
+
 	move(direction) {
-		vibrator.vibrate({
-			mode: 'short'
-		});
+		vibrator.vibrate({ mode: 'short' });
 		switch (direction) {
 			case "left":
 				if (this.$app.$def.codeBefore.length > 0) {
@@ -181,6 +266,7 @@ export default {
 				break;
 		}
 	},
+
 	moveVertical(direction) {
 		const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
 		const lines = allText.split('\n');
@@ -190,22 +276,18 @@ export default {
 		const currentColumnIndex = beforeLines[currentLineIndex].length;
 		const targetLineIndex = currentLineIndex + direction;
 
-		if (targetLineIndex < 0 || targetLineIndex >= lines.length) {
-			return;
-		}
+		if (targetLineIndex < 0 || targetLineIndex >= lines.length) return;
 
 		const targetLine = lines[targetLineIndex];
 		const targetColumnIndex = Math.min(currentColumnIndex, targetLine.length);
 
 		let newCodeBefore = "";
-		let newCodeAfter = "";
-
 		for (let i = 0; i < targetLineIndex; i++) {
 			newCodeBefore += lines[i] + '\n';
 		}
 		newCodeBefore += targetLine.substring(0, targetColumnIndex);
 
-		newCodeAfter = targetLine.substring(targetColumnIndex);
+		let newCodeAfter = targetLine.substring(targetColumnIndex);
 		for (let i = targetLineIndex + 1; i < lines.length; i++) {
 			newCodeAfter += '\n' + lines[i];
 		}
@@ -214,32 +296,66 @@ export default {
 		this.$app.$def.codeAfter = newCodeAfter;
 		this.updateCodeDisplay();
 	},
+
+	calculateCursorPosition() {
+		const text = this.$app.$def.codeBefore;
+		const lines = text.split('\n');
+		const currentLine = lines[lines.length - 1];
+		const lineHeight = this.fontSize;
+		this.cursorY = (lines.length - 1) * lineHeight;
+
+		let x = 0;
+		for (let i = 0; i < currentLine.length; i++) {
+			const char = currentLine[i];
+			if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
+				x += this.fontSize;
+			} else {
+				x += this.fontSize * 0.5;
+			}
+		}
+		this.cursorX = x;
+	},
+
 	savecode() {
-		vibrator.vibrate({
-			mode: 'short'
-		});
-    	jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
-    	prompt.showToast({"message":"代码已保存"})
+		vibrator.vibrate({ mode: 'short' });
+		jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
+		prompt.showToast({ message: "代码已保存" });
 	},
+
 	runcode() {
-		vibrator.vibrate({
-			mode: 'short'
-		});
+		vibrator.vibrate({ mode: 'short' });
 		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-		router.push({
-			uri: '/pages/run'
-		});
+		router.push({ uri: '/pages/run' });
 	},
+
 	updateTime() {
 		const date = new Date();
 		let hours = date.getHours();
 		let minutes = date.getMinutes();
-
 		hours = hours < 10 ? '0' + hours : hours;
 		minutes = minutes < 10 ? '0' + minutes : minutes;
-
 		this.nowTime = `${hours}:${minutes}`;
 	},
+
+	getTextWidth(text, fontSize) {
+		if (typeof text !== 'string' || typeof fontSize !== 'number' || fontSize <= 0) return 0;
+		const lines = text.split(/\r?\n/);
+		let maxWidth = 0;
+		for (const line of lines) {
+			let width = 0;
+			for (let i = 0; i < line.length; i++) {
+				const char = line[i];
+				if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
+					width += fontSize;
+				} else {
+					width += fontSize * 0.5;
+				}
+			}
+			if (width > maxWidth) maxWidth = width;
+		}
+		return Math.ceil(maxWidth);
+	},
+
 	exit() {
 		app.terminate();
 	},
