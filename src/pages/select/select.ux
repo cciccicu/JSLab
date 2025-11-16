@@ -97,6 +97,9 @@ export default {
   },
 
   onSelect(index) {
+    vibrator.vibrate({
+      mode: 'short'
+    });
     this.selectedIndex = index;
   },
 

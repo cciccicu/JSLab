@@ -42,6 +42,7 @@
   
   <script>
   import router from '@system.router';
+  import vibrator from '@system.vibrator';
   
   export default {
     private: {
@@ -81,17 +82,26 @@
       clearInterval(this.timer);
     },
     onCancel() {
+      vibrator.vibrate({
+        mode: 'short'
+      });
       this.dialog?.callbacks?.onCancel?.();
       this.$app.$def.currentDialog = null;
       router.back();
     },
     onConfirm() {
+      vibrator.vibrate({
+        mode: 'short'
+      });
       const num = parseInt(this.inputVal) || 0;
       this.dialog?.callbacks?.onConfirm?.(num);
       this.$app.$def.currentDialog = null;
       router.back();
     },
     input(key) {
+      vibrator.vibrate({
+        mode: 'short'
+      });
       if (key === 'del') {
         let str = this.inputVal.toString();
         if (str.length <= 1) {

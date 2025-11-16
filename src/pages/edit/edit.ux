@@ -8,8 +8,8 @@
 		scroll-y="true" 
 		style="position:absolute;top:86px;left:0px;height:394px;width:100%;flex-direction: column;padding: 0px 6px;"
 	  >
-		<div @click="onCodeAreaClick" style="flex-direction: column;width: {{codeWidth}}px;">
-		  <text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; width: {{codeWidth}}px;">{{codeShow}}</text>
+		<div @click="onCodeAreaClick" style="flex-direction: column;width: {{codeWidth + 20}}px;">
+		  <text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; width: {{codeWidth + 10}}px;">{{codeShow}}</text>
 		</div>
 		<div if="{{showCursor}}" style="
 			position: absolute;

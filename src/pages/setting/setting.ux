@@ -141,6 +141,9 @@
 	},
 
 	setFontfamily() {
+	  vibrator.vibrate({
+        mode: 'short'
+      });
 	  this.$app.$def.showSelectDialog(
 		'选择字体',
 		'请选择编辑器字体',
@@ -179,7 +182,6 @@
 	},
   
 	toast(message) {
-	  vibrator.vibrate({ mode: 'short' });
 	  prompt.showToast({ message });
 	}
   };
