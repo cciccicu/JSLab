@@ -9,7 +9,7 @@
 		style="position:absolute;top:86px;left:0px;height:394px;width:100%;flex-direction: column;padding: 0px 6px;"
 	  >
 		<div @click="onCodeAreaClick" style="flex-direction: column;width: {{codeWidth + 20}}px;">
-		  <text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; width: {{codeWidth + 10}}px;">{{codeShow}}</text>
+		  <text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; width: {{codeWidth + 40}}px;">{{codeShow}}</text>
 		</div>
 		<div if="{{showCursor}}" style="
 			position: absolute;
@@ -307,6 +307,9 @@ export default {
 		const lineHeight = this.getFontHeight(this.fontSize);
 		this.cursorY = (lines.length - 1) * lineHeight;
 		this.cursorHeight = lineHeight; // 同步光标高度
+		console.log("cursorY:", this.cursorY);
+		console.log("cursorHeight:", this.cursorHeight);
+		console.log("fontSize:", this.fontSize);
 
 		let x = 0;
 		for (let i = 0; i < currentLine.length; i++) {
@@ -323,38 +326,10 @@ export default {
 	getFontHeight(fontSize) {
 		if (this.fontFamily !== 'SarasaTermSCNerd') {
 			return fontSize; // UbuntuMono 直接用 fontSize 作为行高
+		}else {
+			return fontSize * 1.5543 + 0.4022; // SarasaTermSCNerd 用 fontSize * 1.5543 + 0.4022 作为行高
 		}
 
-		const heightMap = {
-			"10": 13,
-			"11": 14,
-			"12": 15,
-			"13": 17,
-			"14": 18,
-			"15": 18,
-			"16": 20,
-			"17": 21,
-			"18": 22,
-			"19": 23,
-			"20": 25,
-			"21": 26,
-			"22": 27,
-			"23": 29,
-			"24": 30,
-			"25": 31,
-			"26": 32,
-			"27": 34,
-			"28": 35,
-			"29": 36,
-			"30": 38,
-			"31": 39,
-			"32": 40
-		};
-		const sizes = [10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32];
-
-		if (heightMap[fontSize] !== undefined) {
-			return heightMap[fontSize];
-		}
 
 		let closest = sizes[0];
 		let minDiff = Math.abs(fontSize - closest);
