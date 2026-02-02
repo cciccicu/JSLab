@@ -58,8 +58,8 @@
 	private: {
     nowTime:':',
 	  bigTitle:'关于',
-    appName:'NoteNext',
-    appVer:'0.0.0',
+    appName:'JSLab',
+    appVer:'1.2.1',
     timer:null
 	},
 	onInit() {
