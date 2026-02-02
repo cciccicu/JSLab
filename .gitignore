@@ -7,6 +7,7 @@ sign
 Thumbs.db
 package-lock.json
 
+*.bak
 *.log
 *.iml
 .idea/
