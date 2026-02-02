@@ -16,22 +16,22 @@
         <div class="dev-card">
         <text class="itemtext">@juyinandxinyi</text>
         </div>
-        <text style="color: #ffffff;font-size: 23px;">↑ 这是一个好人，ta在用爱发电</text>
+        <text style="color: #ffffff;font-size: 23px;">↑ 这是一个好人，Ta 在用爱发电</text>
 
         <text class="itemtext">参考和使用的项目：</text>
         <div class="resource-card">
         <text class="itemtext" style="font-size:20px;">使用: @NEORUAA 输入法</text>
         <text class="itemtext" style="font-size:20px;">参考: @NEORUAA 电子书</text>
-        <text class="itemtext" style="font-size:20px;">参考: @无源流沙 UI设计</text>
+        <text class="itemtext" style="font-size:20px;">参考: @无源流沙 UI 设计</text>
         </div>
         <div class="qrcode-card">
           <div class="item-content">
-              <text class="itemtext" style="font-size: 24px">交流与反馈扫码加QQ群</text>
-              <text class="itemtext" style="font-size: 24px">群号:1067265942</text>
+              <text class="itemtext" style="font-size: 24px">交流与反馈扫码加 QQ 群</text>
+              <text class="itemtext" style="font-size: 24px">群号: 1067265942</text>
               <qrcode value="https://qm.qq.com/q/jiknQFvvA  " style="color: #000000;background-color: #ffffff;width: 100%;"></qrcode>
           </div>
         </div>
-        <text class="itemtext" style="font-size:27px;color: #ff0000">本项目使用GPL3.0许可证</text>
+        <text class="itemtext" style="font-size:27px;color: #ff0000">本项目使用 GPLv3 许可证</text>
         <text class="itemtext" style="font-size:35px;color: #ff0000">免费开源，欢迎倒卖</text>
     </scroll>
     <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
