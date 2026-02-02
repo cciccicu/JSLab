@@ -35,7 +35,7 @@
     <img static src="/common/images/back.png" class="btn" style="left: 6px; top: 6px;" @click="onBack" />
     <img static src="/common/images/rerun.png" class="btn" style="left: 258px; top: 6px;" @click="onRerun" />
     <text class="time-text">{{nowTime}}</text>
-    <text class="title-text">运行JS</text>
+    <text class="title-text">运行 JS</text>
   </div>
 </template>
 

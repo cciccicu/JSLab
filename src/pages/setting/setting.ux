@@ -22,7 +22,7 @@
 		</div>
   
 		<!-- 原有菜单项 -->
-		<div class="item" @click="toast('用于JS市场，敬请期待')">
+		<div class="item" @click="toast('用于 JS 市场，敬请期待')">
 		  <div class="item-content">
 			<text class="itemtext">登录</text>
 			<text class="itemtext2">登录你的账户</text>
@@ -46,7 +46,7 @@
 		<div class="item" @click="routerTo('about')">
 		  <div class="item-content">
 			<text class="itemtext">关于</text>
-			<text class="itemtext2">关于JSLab</text>
+			<text class="itemtext2">关于 JSLab</text>
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
@@ -120,7 +120,7 @@
 	setFontsize() {
 	  this.$app.$def.showNumberInputDialog(
 		'设置字号',
-		'请输入编辑器字号（10-32）',
+		'请输入编辑器字号 (10-32)',
 		{
 		  onCancel: () => {},
 		  onConfirm: (num) => {
