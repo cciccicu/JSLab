@@ -1,155 +1,225 @@
 <template>
-	<div class="page" style="flex-direction: column;">
-        <scroll class="scroll" scroll-y="true" bounces="true" style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 86px 6px 6px;">
-            <text class="itemtext2">JSLab 是一款用于编写和运行 JavaScript 的快应用，你可以通过 console.log() 在虚拟 console 上进行输出，你可以通过 input() 获取用户输入，你可以像在快应用内部一样调用系统 API (具体 API 支持情况取决于设备，参见小米官方文档)。</text>
-            <text class="itemtext2" style="color:#ff0000">警告：请勿在 console 打印大量文本，受到 Vela 性能和渲染方式影响，大量文本会导致 OOM 闪退甚至重启</text>
+  <div class="page">
+    
+    <!-- 滚动内容区 -->
+    <scroll class="scroll" scroll-y="true" bounces="true">
+      
+      <!-- 1. 简介卡片 -->
+      <div class="card">
+        <text class="card-title">简介</text>
+        <text class="body-text">
+          JSLab 是一款用于编写和运行 JavaScript 的快应用。
+        </text>
+        <text class="body-text">
+          • 支持 console.log() 虚拟终端输出
+          • 支持 input() 获取用户输入
+          • 支持调用系统 Vela API
+        </text>
+      </div>
 
-            <div class="item">
-                <div class="item-content">
-                    <text class="itemtext">系统 API 文档：</text>
-                    <qrcode value="https://iot.mi.com/vela/quickapp/zh/features/basic/app.html" style="color: #000000;background-color: #ffffff"></qrcode>
-                </div>
-            </div>
-        </scroll>
+      <!-- 2. 警告卡片 (红色边框/背景) -->
+      <div class="card warning-card">
+        <text class="warning-title">⚠️ 性能警告</text>
+        <text class="warning-text">
+          请勿在 console 打印海量文本！受限于 Vela 渲染机制，缓冲区溢出将导致 OOM 闪退甚至系统重启。
+        </text>
+      </div>
 
-    <!-- 顶栏 -->
-    <img static src="/common/images/hd.png" class="topbar-bg" />
-    <img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;"/>
-    <text class="time-text">{{nowTime}}</text>
-    <text class="title-text">帮助</text>
+      <!-- 3. 文档卡片 -->
+      <div class="card center-card">
+        <text class="card-title">系统 API 文档</text>
+        <div class="qr-container">
+          <qrcode value="https://iot.mi.com/vela/quickapp/zh/features/basic/app.html" class="qr-code"></qrcode>
+        </div>
+        <text class="caption-text">扫码查看小米官方文档</text>
+      </div>
+
+      <!-- 底部垫高 -->
+      <div style="height: 40px;"></div>
+    </scroll>
+
+    <!-- 顶部导航栏 (AppBar) -->
+    <div class="navbar">
+      <img class="nav-bg" src="/common/images/hd.png" />
+      <div class="nav-back-area" @click="back">
+        <img src="/common/images/back.png" class="nav-back-icon"/>
+      </div>
+      <div class="nav-title-area">
+        <text class="nav-time">{{nowTime}}</text>
+        <text class="nav-title">帮助</text>
+      </div>
     </div>
+
+  </div>
 </template>
 
 <script>
 import router from '@system.router';
 import app from '@system.app';
-import vibrator from '@system.vibrator'; // ← 新增
-import configManager from '../../utils/configManager.js';
-import jsManager from '../../utils/jsManager.js';
+import vibrator from '@system.vibrator';
 
 export default {
   private: {
     nowTime: "00:00",
     timer: null
   },
-  exit(){
-	  app.terminate();
+  onInit() {
+    this.updateTime();
+    // 优化：每分钟刷新一次即可
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000 * 60);
+  },
+  onShow() {
+    this.updateTime(); // 每次显示时立即刷新，防止切回来时间不对
+  },
+  onDestroy(){
+    clearInterval(this.timer);
+  },
+  back(){
+    vibrator.vibrate({ mode: 'short' });
+    router.back();
   },
   updateTime() {
     const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-
-    this.nowTime = `${hours}:${minutes}`;
-  },
-  onInit() {
-    this.updateTime();
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 1000);
-  },
-  onDestroy(){
-	  clearInterval(this.timer);
-  },
-  onShow() {
-  },
-  routerTo(page) {
-    router.push({
-      uri: `/pages/${page}`
-    });
-  },
-  back(){
-    vibrator.vibrate({
-      mode: 'short'
-    });
-  	router.back();
+    let h = date.getHours().toString();
+    let m = date.getMinutes().toString();
+    if(h.length < 2) h = '0' + h;
+    if(m.length < 2) m = '0' + m;
+    this.nowTime = `${h}:${m}`;
   }
 };
 </script>
 
 <style>
-.page {
-	width: 336px;
-	height: 480px;
-	background-color: #000000;
-}
+  /* 全局重置 */
+  .page {
+    width: 336px;
+    height: 480px;
+    background-color: #000000;
+    flex-direction: column;
+  }
 
-.item {
-	width: 100%;
-	height: 360px;
-	padding: 14px 20px;
-	margin-bottom: 8px;
-	background-color: #262626;
-	border-radius: 36px;
-	align-items: center;
-  	justify-content: space-between;
-}
+  /* 滚动区域 */
+  .scroll {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    padding-top: 102px; /* 避开 AppBar */
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 20px;
+  }
 
-.itemtext {
-	font-size: 32px;
-	line-height:40px;
-	width: 100%;
-	font-weight: bold;
-	color: white;
-	text-overflow: ellipsis;
-	lines: -1;
-}
+  /* 通用卡片 */
+  .card {
+    background-color: #262626;
+    border-radius: 36px;
+    padding: 24px;
+    margin-bottom: 12px;
+    flex-direction: column;
+  }
 
-.itemtext2 {
-	font-size: 24px;
-	line-height:40px;
-	width: 100%;
-	font-weight: bold;
-	color: white;
-	text-overflow: ellipsis;
-	lines: -1;
-}
+  /* 警告卡片特别样式 */
+  .warning-card {
+    background-color: #331111; /*以此区分，暗红色背景 */
+    border: 1px solid #ff4d4d;
+  }
 
-.item-content {
-	height: 100%;
-	flex:1;
-	flex-direction: column;
-	justify-content: space-between;
-}
+  .center-card {
+    align-items: center;
+  }
 
-.btn {
-	position: absolute;
-	width: 72px;
-	height: 72px;
-}
+  /* 文本样式体系 */
+  .card-title {
+    font-size: 32px;
+    font-weight: bold;
+    color: #FFFFFF;
+    margin-bottom: 12px;
+  }
 
-.topbar-bg {
-	position: absolute;
-	left: 0px;
-	top: 0px;
-	width: 336px;
-	height: 102px;
-}
+  .body-text {
+    font-size: 26px;
+    color: #DDDDDD;
+    line-height: 40px;
+    margin-bottom: 10px;
+  }
 
-.time-text {
-	position: absolute;
-	left: 78px;
-	top: 7px;
-	width: 180px;
-	line-height: 32px;
-	font-weight: bold;
-	font-size: 24px;
-	color: rgba(255,255,255,0.6);
-	text-align: center;
-}
+  /* 警告文本 */
+  .warning-title {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ff4d4d;
+    margin-bottom: 8px;
+  }
+  .warning-text {
+    font-size: 26px;
+    color: #ffcccc; /* 浅红文字 */
+    line-height: 38px;
+  }
 
-.title-text {
-	position: absolute;
-	left: 78px;
-	top: 35px;
-	width: 180px;
-	line-height: 42px;
-	font-weight: bold;
-	font-size: 32px;
-	color: white;
-	text-align: center;
-}
+  /* 二维码 */
+  .qr-container {
+    background-color: #FFFFFF;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+  }
+  .qr-code {
+    width: 200px;
+    height: 200px;
+  }
+  .caption-text {
+    font-size: 22px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* --- AppBar (保持统一) --- */
+  .navbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 336px;
+    height: 102px;
+  }
+  .nav-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  .nav-back-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80px;
+    height: 80px;
+    justify-content: center;
+    align-items: center;
+  }
+  .nav-back-icon {
+    width: 72px;
+    height: 72px;
+  }
+  .nav-title-area {
+    position: absolute;
+    left: 78px;
+    top: 0;
+    width: 180px;
+    flex-direction: column;
+    align-items: center;
+  }
+  .nav-time {
+    margin-top: 7px;
+    font-size: 24px;
+    color: rgba(255,255,255,0.6);
+  }
+  .nav-title {
+    margin-top: -2px;
+    font-size: 32px;
+    color: #FFFFFF;
+    font-weight: bold;
+  }
 </style>
