@@ -45,7 +45,7 @@ export default {
     this.updateTime();
     this.timer = setInterval(() => {
       this.updateTime();
-    }, 1000);
+    }, 5000);
   },
   onDestroy(){
 	  clearInterval(this.timer);
@@ -94,7 +94,7 @@ export default {
 }
 
 .time-text {
-	position: absolute;。
+	position: absolute;
 	left: 78px;
 	top: 7px;
 	width: 180px;
