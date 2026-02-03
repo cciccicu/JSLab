@@ -87,44 +87,31 @@ export default {
     maxlength: 5,
     vibrateMode: "short",
     screenType: "rect",
-    
-    // 核心修改：默认字体 FiraCode
     fontFamily: 'FiraCode',
     fontSize: 20,
     codeWidth: 336,
-    
-    // 光标状态
     showCursor: true,
     cursorX: 0,
     cursorY: 0,
-    cursorHeight: 24, // 初始值，会被 getFontHeight 覆盖
+    cursorHeight: 24,
     cursorBlinkTimer: null,
   },
 
   onInit() {
     this.updateTime();
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 1000 * 60); // 优化为 60s 刷新
+    this.timer = setInterval(() => { this.updateTime(); }, 60000);
 
-    // 读取字体配置
     configManager.get('editor.font.family', 'FiraCode', (error, family) => {
-      if (!error) {
-        this.fontFamily = family;
-      }
-      this.updateCursorHeight(); // 字体变了，行高必须重算
+      if (!error) this.fontFamily = family;
+      this.updateCursorHeight();
       this.updateCodeDisplay();
     });
     
-    // 读取字号配置
     configManager.get('editor.font.size', 20, (error, size) => {
-      if (!error && typeof size === 'number') {
-        this.fontSize = size;
-      }
-      this.updateCursorHeight(); // 字号变了，行高必须重算
+      if (!error && typeof size === 'number') this.fontSize = size;
+      this.updateCursorHeight();
       this.updateCodeDisplay();
     });
-    
     this.startCursorBlink();
   },
 
@@ -133,79 +120,77 @@ export default {
     this.stopCursorBlink();
   },
 
-  onShow() {
-    this.updateCodeDisplay();
+  onShow() { this.updateCodeDisplay(); },
+
+  // 1. 定义不同字体的宽度比
+  getFontRatio() {
+    if (['FiraCode', 'JetBrainsMono', 'Hack'].includes(this.fontFamily)) {
+        return 0.62; // 现代字体较宽
+    }
+    return 0.5; // 旧字体标准半角
   },
 
-  // 新增：统一管理行高计算
+  // 2. 行高计算保持之前的修复
+  getFontHeight(fontSize) {
+    if (this.fontFamily === 'SarasaTermSCNerd') return fontSize * 1.5543 + 0.4022;
+    return Math.ceil(fontSize * 1.2);
+  },
+
+  // 3. 字体/字号变动时更新行高
   updateCursorHeight() {
     this.cursorHeight = this.getFontHeight(this.fontSize);
   },
 
-  getFontHeight(fontSize) {
-    // 兼容旧字体的奇葩行高
-    if (this.fontFamily === 'SarasaTermSCNerd') {
-      return fontSize * 1.5543 + 0.4022;
+  // 4. 重写：计算光标位置 (X, Y)
+  calculateCursorPosition() {
+    const text = this.$app.$def.codeBefore;
+    const lines = text.split('\n');
+    const currentLine = lines[lines.length - 1];
+    
+    this.cursorY = (lines.length - 1) * this.cursorHeight;
+    
+    const ratio = this.getFontRatio(); // 获取宽度比
+    let x = 0;
+    for (let i = 0; i < currentLine.length; i++) {
+        const char = currentLine[i];
+        if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
+            x += this.fontSize;
+        } else {
+            x += this.fontSize * ratio; // 修正点
+        }
     }
-    // 标准字体 (FiraCode, JB Mono, Hack) 使用 1.2 倍行高
-    // Math.ceil 保证像素对齐，防止字体发虚
-    return Math.ceil(fontSize * 1.2);
+    this.cursorX = x;
   },
 
-  startCursorBlink() {
-    if (this.cursorBlinkTimer) return;
-    this.cursorBlinkTimer = setInterval(() => {
-      this.showCursor = !this.showCursor;
-    }, 500);
-  },
-
-  stopCursorBlink() {
-    if (this.cursorBlinkTimer) {
-      clearInterval(this.cursorBlinkTimer);
-      this.cursorBlinkTimer = null;
+  // 5. 重写：计算文本总宽度
+  getTextWidth(text, fontSize) {
+    if (typeof text !== 'string' || typeof fontSize !== 'number' || fontSize <= 0) return 0;
+    const lines = text.split(/\r?\n/);
+    const ratio = this.getFontRatio(); // 获取宽度比
+    let maxWidth = 0;
+    for (const line of lines) {
+      let width = 0;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
+          width += fontSize;
+        } else {
+          width += fontSize * ratio; // 修正点
+        }
+      }
+      if (width > maxWidth) maxWidth = width;
     }
+    return Math.ceil(maxWidth);
   },
 
-  routerTo(page) {
-    vibrator.vibrate({ mode: 'short' });
-    router.push({ uri: `/pages/${page}` });
-  },
-
-  back() {
-    vibrator.vibrate({ mode: 'short' });
-    router.back();
-  },
-
-  changeKeybord() {
-    vibrator.vibrate({ mode: 'short' });
-    this.hideInputMethod = !this.hideInputMethod;
-    this.hideToolbar = !this.hideInputMethod;
-    if (this.showCursorControls) this.showCursorControls = false;
-  },
-
-  changeMoveCursor() {
-    vibrator.vibrate({ mode: 'short' });
-    this.showCursorControls = !this.showCursorControls;
-  },
-
-  onInputMethodDelete() {
-    this.del();
-  },
-
-  onInputMethodCompleteSelf(evt) {
-    if (evt && evt.detail && evt.detail.content) {
-      this.add(evt.detail.content);
-    }
-  },
-
-  // 点击代码区域定位光标逻辑
+  // 6. 重写：点击定位
   onCodeAreaClick(event) {
     const { offsetX, offsetY } = event;
     const x = offsetX - 6;
     const y = offsetY;
-
-    // 使用当前实际行高
     const lineHeight = this.cursorHeight;
+    const ratio = this.getFontRatio(); // 获取宽度比
+
     const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
     const lines = allText.split('\n');
 
@@ -214,17 +199,14 @@ export default {
     if (targetLineIndex >= lines.length) targetLineIndex = lines.length - 1;
 
     const targetLine = lines[targetLineIndex];
-
     let currentWidth = 0;
     let charIndex = 0;
     
-    // 遍历字符寻找最接近的点击位置
     for (let i = 0; i < targetLine.length; i++) {
       const char = targetLine[i];
-      // 简单判断中英文宽度
       const charWidth = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)
         ? this.fontSize
-        : this.fontSize * 0.5;
+        : this.fontSize * ratio; // 修正点
 
       if (currentWidth + charWidth / 2 > x) {
         charIndex = i;
@@ -234,71 +216,35 @@ export default {
       charIndex = i + 1;
     }
 
-    // 重构 pre/post 光标文本
     let newCodeBefore = "";
-    for (let i = 0; i < targetLineIndex; i++) {
-      newCodeBefore += lines[i] + '\n';
-    }
+    for (let i = 0; i < targetLineIndex; i++) { newCodeBefore += lines[i] + '\n'; }
     newCodeBefore += targetLine.substring(0, charIndex);
-
     let newCodeAfter = targetLine.substring(charIndex);
-    if (targetLineIndex < lines.length - 1) {
-      newCodeAfter += '\n' + lines.slice(targetLineIndex + 1).join('\n');
-    }
+    if (targetLineIndex < lines.length - 1) { newCodeAfter += '\n' + lines.slice(targetLineIndex + 1).join('\n'); }
 
     this.$app.$def.codeBefore = newCodeBefore;
     this.$app.$def.codeAfter = newCodeAfter;
-
     this.updateCodeDisplay();
     vibrator.vibrate({ mode: 'short' });
   },
 
   updateCodeDisplay() {
-    // 重新计算文本总宽，以便 scroll 组件知道是否需要横向滚动
     this.codeWidth = this.getTextWidth(this.$app.$def.jsCode, this.fontSize);
-    
     this.codeShow = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
     this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
     this.calculateCursorPosition();
   },
 
-  add(str) {
-    this.$app.$def.codeBefore += str;
-    this.updateCodeDisplay();
-  },
-
-  del() {
-    if (this.$app.$def.codeBefore.length > 0) {
-      this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
-      this.updateCodeDisplay();
-    }
-  },
-
+  add(str) { this.$app.$def.codeBefore += str; this.updateCodeDisplay(); },
+  del() { if (this.$app.$def.codeBefore.length > 0) { this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1); this.updateCodeDisplay(); } },
+  
   move(direction) {
     vibrator.vibrate({ mode: 'short' });
     switch (direction) {
-      case "left":
-        if (this.$app.$def.codeBefore.length > 0) {
-          const charToMove = this.$app.$def.codeBefore.slice(-1);
-          this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
-          this.$app.$def.codeAfter = charToMove + this.$app.$def.codeAfter;
-          this.updateCodeDisplay();
-        }
-        break;
-      case "right":
-        if (this.$app.$def.codeAfter.length > 0) {
-          const charToMove = this.$app.$def.codeAfter.charAt(0);
-          this.$app.$def.codeAfter = this.$app.$def.codeAfter.slice(1);
-          this.$app.$def.codeBefore += charToMove;
-          this.updateCodeDisplay();
-        }
-        break;
-      case "up":
-        this.moveVertical(-1);
-        break;
-      case "down":
-        this.moveVertical(1);
-        break;
+      case "left": if (this.$app.$def.codeBefore.length > 0) { const charToMove = this.$app.$def.codeBefore.slice(-1); this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1); this.$app.$def.codeAfter = charToMove + this.$app.$def.codeAfter; this.updateCodeDisplay(); } break;
+      case "right": if (this.$app.$def.codeAfter.length > 0) { const charToMove = this.$app.$def.codeAfter.charAt(0); this.$app.$def.codeAfter = this.$app.$def.codeAfter.slice(1); this.$app.$def.codeBefore += charToMove; this.updateCodeDisplay(); } break;
+      case "up": this.moveVertical(-1); break;
+      case "down": this.moveVertical(1); break;
     }
   },
 
@@ -310,61 +256,24 @@ export default {
     const currentLineIndex = beforeLines.length - 1;
     const currentColumnIndex = beforeLines[currentLineIndex].length;
     const targetLineIndex = currentLineIndex + direction;
-
     if (targetLineIndex < 0 || targetLineIndex >= lines.length) return;
-
     const targetLine = lines[targetLineIndex];
     const targetColumnIndex = Math.min(currentColumnIndex, targetLine.length);
-
     let newCodeBefore = "";
-    for (let i = 0; i < targetLineIndex; i++) {
-      newCodeBefore += lines[i] + '\n';
-    }
+    for (let i = 0; i < targetLineIndex; i++) { newCodeBefore += lines[i] + '\n'; }
     newCodeBefore += targetLine.substring(0, targetColumnIndex);
-
     let newCodeAfter = targetLine.substring(targetColumnIndex);
-    for (let i = targetLineIndex + 1; i < lines.length; i++) {
-      newCodeAfter += '\n' + lines[i];
-    }
-
+    for (let i = targetLineIndex + 1; i < lines.length; i++) { newCodeAfter += '\n' + lines[i]; }
     this.$app.$def.codeBefore = newCodeBefore;
     this.$app.$def.codeAfter = newCodeAfter;
     this.updateCodeDisplay();
   },
 
-  calculateCursorPosition() {
-    const text = this.$app.$def.codeBefore;
-    const lines = text.split('\n');
-    const currentLine = lines[lines.length - 1];
-
-    // Y 轴使用 cursorHeight (基于字体计算的行高)
-    this.cursorY = (lines.length - 1) * this.cursorHeight;
-    
-    // X 轴计算
-    let x = 0;
-    for (let i = 0; i < currentLine.length; i++) {
-      const char = currentLine[i];
-      if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
-        x += this.fontSize;
-      } else {
-        x += this.fontSize * 0.5;
-      }
-    }
-    this.cursorX = x;
-  },
-
-  savecode() {
-    vibrator.vibrate({ mode: 'short' });
-    jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
-    prompt.showToast({ message: "代码已保存" });
-  },
-
-  runcode() {
-    vibrator.vibrate({ mode: 'short' });
-    this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-    router.push({ uri: '/pages/run' });
-  },
-
+  startCursorBlink() { if (this.cursorBlinkTimer) return; this.cursorBlinkTimer = setInterval(() => { this.showCursor = !this.showCursor; }, 500); },
+  stopCursorBlink() { if (this.cursorBlinkTimer) { clearInterval(this.cursorBlinkTimer); this.cursorBlinkTimer = null; } },
+  savecode() { vibrator.vibrate({ mode: 'short' }); jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode); prompt.showToast({ message: "代码已保存" }); },
+  runcode() { vibrator.vibrate({ mode: 'short' }); this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter; router.push({ uri: '/pages/run' }); },
+  
   updateTime() {
     const date = new Date();
     let hours = date.getHours();
@@ -373,29 +282,14 @@ export default {
     minutes = minutes < 10 ? '0' + minutes : minutes;
     this.nowTime = `${hours}:${minutes}`;
   },
-
-  getTextWidth(text, fontSize) {
-    if (typeof text !== 'string' || typeof fontSize !== 'number' || fontSize <= 0) return 0;
-    const lines = text.split(/\r?\n/);
-    let maxWidth = 0;
-    for (const line of lines) {
-      let width = 0;
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
-          width += fontSize;
-        } else {
-          width += fontSize * 0.5;
-        }
-      }
-      if (width > maxWidth) maxWidth = width;
-    }
-    return Math.ceil(maxWidth);
-  },
-
-  exit() {
-    app.terminate();
-  },
+  
+  routerTo(page) { vibrator.vibrate({ mode: 'short' }); router.push({ uri: `/pages/${page}` }); },
+  back() { vibrator.vibrate({ mode: 'short' }); router.back(); },
+  changeKeybord() { vibrator.vibrate({ mode: 'short' }); this.hideInputMethod = !this.hideInputMethod; this.hideToolbar = !this.hideInputMethod; if (this.showCursorControls) this.showCursorControls = false; },
+  changeMoveCursor() { vibrator.vibrate({ mode: 'short' }); this.showCursorControls = !this.showCursorControls; },
+  onInputMethodDelete() { this.del(); },
+  onInputMethodCompleteSelf(evt) { if (evt && evt.detail && evt.detail.content) { this.add(evt.detail.content); } },
+  exit() { app.terminate(); },
 };
 </script>
 
