@@ -1,61 +1,70 @@
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+
 <template>
-	<div class="page" style="flex-direction: column;">
-		<!-- 代码滚动区域，绑定点击事件 -->
-		<scroll 
-		class="scroll" 
-		scroll-x="true" 
-		scroll-y="true" 
-		style="position:absolute;top:86px;left:0px;height:394px;width:100%;flex-direction: column;padding: 0px 6px;"
-	  >
-		<div @click="onCodeAreaClick" style="flex-direction: column;width: {{codeWidth + 20}}px;">
-		  <text class="code" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; width: {{codeWidth + 40}}px;">{{codeShow}}</text>
-		</div>
-		<div if="{{showCursor}}" style="
-			position: absolute;
-			left: {{6 + cursorX}}px;
-			top: {{cursorY}}px;
-			width: {{fontSize/6}}px;
-			height: {{cursorHeight}}px;
-			background-color: white;
-		"></div>
-			
-		<div style="height:260px;"></div>
-	  </scroll>
+  <div class="page" style="flex-direction: column;">
+    <!-- 代码滚动区域 -->
+    <scroll 
+      class="scroll" 
+      scroll-x="true" 
+      scroll-y="true" 
+      style="position:absolute;top:86px;left:0px;height:394px;width:100%;flex-direction: column;padding: 0px 6px;"
+    >
+      <!-- 代码文本容器 -->
+      <!-- 移除 width 限制，允许横向滚动 -->
+      <div @click="onCodeAreaClick" style="flex-direction: column; width: {{codeWidth + 100}}px;">
+         <!-- 核心修改：lines="-1" 关闭换行，font-family 动态绑定，line-height 动态绑定 -->
+        <text class="code" lines="-1" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px;">{{codeShow}}</text>
+      </div>
+      
+      <!-- 光标：还原为原版样式 (白色块) -->
+      <!-- width: fontSize/2 是为了模拟半角字符宽度的光标，虽然 FiraCode 不一定是半角，但为了还原手感保持原样 -->
+      <div if="{{showCursor}}" style="
+        position: absolute;
+        left: {{6 + cursorX}}px;
+        top: {{cursorY}}px;
+        width: {{fontSize/2}}px;
+        height: {{cursorHeight}}px;
+        background-color: white;
+      "></div>
+        
+      <!-- 底部垫高 -->
+      <div style="height:260px;"></div>
+    </scroll>
 
-		<!-- 第三方输入法 -->
-		<input-method if="{{!hideInputMethod}}" 
-			hide="{{hideInputMethod}}"
-			keyboardtype="{{keyboardType}}"
-			maxlength="{{maxlength}}" 
-			vibratemode="{{vibrateMode}}"
-			screentype="{{screenType}}"
-			@delete="onInputMethodDelete"
-			@complete="onInputMethodCompleteSelf" 
-		></input-method>
+    <!-- 输入法组件 -->
+    <input-method if="{{!hideInputMethod}}" 
+      hide="{{hideInputMethod}}"
+      keyboardtype="{{keyboardType}}"
+      maxlength="{{maxlength}}" 
+      vibratemode="{{vibrateMode}}"
+      screentype="{{screenType}}"
+      @delete="onInputMethodDelete"
+      @complete="onInputMethodCompleteSelf" 
+    ></input-method>
     
-		<!-- 光标方向控制 -->
-		<div if="{{showCursorControls}}" class="cursormove">
-			<img src="/common/images/up.png" class="cursor-btn" @click="move('up')"></img>
-			<img src="/common/images/left.png" class="cursor-btn" @click="move('left')"></img>
-			<img src="/common/images/right.png" class="cursor-btn" @click="move('right')"></img>
-			<img src="/common/images/down.png" class="cursor-btn" @click="move('down')"></img>
-		</div>
+    <!-- 光标移动控制区 -->
+    <div if="{{showCursorControls}}" class="cursormove">
+      <img src="/common/images/up.png" class="cursor-btn" @click="move('up')"></img>
+      <img src="/common/images/left.png" class="cursor-btn" @click="move('left')"></img>
+      <img src="/common/images/right.png" class="cursor-btn" @click="move('right')"></img>
+      <img src="/common/images/down.png" class="cursor-btn" @click="move('down')"></img>
+    </div>
 
-		<!-- 底部工具栏 -->
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="savecode" />
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="runcode" />
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png" style="left: 174px;top: 402px;" @click="changeMoveCursor" />
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png" style="left: 258px;top: 402px;" @click="changeKeybord" />
+    <!-- 底部 Toolbar -->
+    <img if="{{!hideToolbar}}" class="btn" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="savecode" />
+    <img if="{{!hideToolbar}}" class="btn" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="runcode" />
+    <img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png" style="left: 174px;top: 402px;" @click="changeMoveCursor" />
+    <img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png" style="left: 258px;top: 402px;" @click="changeKeybord" />
 
-		<!-- 顶栏 -->
-		<img static src="/common/images/hd.png" class="topbar-bg" />
-		<img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;" />
-		<img static class="btn" src="/common/images/more.png" @click="routerTo('more')" style="left: 258px;top: 6px;" />
-		<img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="changeKeybord" style="left: 258px;top: 6px;" />
-		<text class="time-text">{{nowTime}}</text>
-		<text class="title-text">编辑JS</text>
-	</div>
+    <!-- 顶栏 AppBar (完全还原原版) -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;" />
+    <img static class="btn" src="/common/images/more.png" @click="routerTo('more')" style="left: 258px;top: 6px;" />
+    <!-- 切换键盘按钮 -->
+    <img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="changeKeybord" style="left: 258px;top: 6px;" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">编辑JS</text>
+  </div>
 </template>
 
 <script>
@@ -67,405 +76,413 @@ import configManager from '../../utils/configManager.js';
 import jsManager from '../../utils/jsManager.js';
 
 export default {
-	private: {
-		nowTime: "00:00",
-		timer: null,
-		hideToolbar: false,
-		codeShow: "",
-		showCursorControls: false,
-		hideInputMethod: true,
-		keyboardType: "QWERTY",
-		maxlength: 5,
-		vibrateMode: "short",
-		screenType: "rect",
-		fontFamily: 'UbuntuMono',
-		fontSize: 20,
-		codeWidth: 336,
-		// 光标状态
-		showCursor: true,
-		cursorX: 0,
-		cursorY: 0,
-		cursorHeight: 20, // 新增：光标高度
-		cursorBlinkTimer: null,
-	},
+  private: {
+    nowTime: "00:00",
+    timer: null,
+    hideToolbar: false,
+    codeShow: "",
+    showCursorControls: false,
+    hideInputMethod: true,
+    keyboardType: "QWERTY",
+    maxlength: 5,
+    vibrateMode: "short",
+    screenType: "rect",
+    
+    // 核心修改：默认字体 FiraCode
+    fontFamily: 'FiraCode',
+    fontSize: 20,
+    codeWidth: 336,
+    
+    // 光标状态
+    showCursor: true,
+    cursorX: 0,
+    cursorY: 0,
+    cursorHeight: 24, // 初始值，会被 getFontHeight 覆盖
+    cursorBlinkTimer: null,
+  },
 
-	onInit() {
-		configManager.get('editor.font.family', 'UbuntuMono', (error, family) => {
-			if (!error) {
-				this.fontFamily = family === 'UbuntuMono' ? 'UbuntuMono' : 'SarasaTermSCNerd';
-			}
-			this.updateCodeDisplay(); // 刷新光标高度
-		});
-		
-		configManager.get('editor.font.size', 20, (error, size) => {
-			if (!error && typeof size === 'number') {
-				this.fontSize = size;
-			}
-			this.updateCodeDisplay();
-		});
-		
-		this.updateTime();
-		this.timer = setInterval(() => {
-			this.updateTime();
-		}, 1000);
-		this.updateCodeDisplay();
-		this.startCursorBlink();
-	},
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000 * 60); // 优化为 60s 刷新
 
-	onDestroy() {
-		if (this.timer) clearInterval(this.timer);
-		this.stopCursorBlink();
-	},
+    // 读取字体配置
+    configManager.get('editor.font.family', 'FiraCode', (error, family) => {
+      if (!error) {
+        this.fontFamily = family;
+      }
+      this.updateCursorHeight(); // 字体变了，行高必须重算
+      this.updateCodeDisplay();
+    });
+    
+    // 读取字号配置
+    configManager.get('editor.font.size', 20, (error, size) => {
+      if (!error && typeof size === 'number') {
+        this.fontSize = size;
+      }
+      this.updateCursorHeight(); // 字号变了，行高必须重算
+      this.updateCodeDisplay();
+    });
+    
+    this.startCursorBlink();
+  },
 
-	onShow() {
-		this.updateCodeDisplay();
-	},
+  onDestroy() {
+    if (this.timer) clearInterval(this.timer);
+    this.stopCursorBlink();
+  },
 
-	startCursorBlink() {
-		if (this.cursorBlinkTimer) return;
-		this.cursorBlinkTimer = setInterval(() => {
-			this.showCursor = !this.showCursor;
-		}, 500);
-	},
+  onShow() {
+    this.updateCodeDisplay();
+  },
 
-	stopCursorBlink() {
-		if (this.cursorBlinkTimer) {
-			clearInterval(this.cursorBlinkTimer);
-			this.cursorBlinkTimer = null;
-		}
-	},
+  // 新增：统一管理行高计算
+  updateCursorHeight() {
+    this.cursorHeight = this.getFontHeight(this.fontSize);
+  },
 
-	routerTo(page) {
-		vibrator.vibrate({ mode: 'short' });
-		router.push({ uri: `/pages/${page}` });
-	},
+  getFontHeight(fontSize) {
+    // 兼容旧字体的奇葩行高
+    if (this.fontFamily === 'SarasaTermSCNerd') {
+      return fontSize * 1.5543 + 0.4022;
+    }
+    // 标准字体 (FiraCode, JB Mono, Hack) 使用 1.2 倍行高
+    // Math.ceil 保证像素对齐，防止字体发虚
+    return Math.ceil(fontSize * 1.2);
+  },
 
-	back() {
-		vibrator.vibrate({ mode: 'short' });
-		router.back();
-	},
+  startCursorBlink() {
+    if (this.cursorBlinkTimer) return;
+    this.cursorBlinkTimer = setInterval(() => {
+      this.showCursor = !this.showCursor;
+    }, 500);
+  },
 
-	changeKeybord() {
-		vibrator.vibrate({ mode: 'short' });
-		this.hideInputMethod = !this.hideInputMethod;
-		this.hideToolbar = !this.hideInputMethod;
-		if (this.showCursorControls) this.showCursorControls = false;
-	},
+  stopCursorBlink() {
+    if (this.cursorBlinkTimer) {
+      clearInterval(this.cursorBlinkTimer);
+      this.cursorBlinkTimer = null;
+    }
+  },
 
-	changeMoveCursor() {
-		vibrator.vibrate({ mode: 'short' });
-		this.showCursorControls = !this.showCursorControls;
-	},
+  routerTo(page) {
+    vibrator.vibrate({ mode: 'short' });
+    router.push({ uri: `/pages/${page}` });
+  },
 
-	onInputMethodDelete() {
-		this.del();
-	},
+  back() {
+    vibrator.vibrate({ mode: 'short' });
+    router.back();
+  },
 
-	onInputMethodCompleteSelf(evt) {
-		if (evt && evt.detail && evt.detail.content) {
-			this.add(evt.detail.content);
-		}
-	},
+  changeKeybord() {
+    vibrator.vibrate({ mode: 'short' });
+    this.hideInputMethod = !this.hideInputMethod;
+    this.hideToolbar = !this.hideInputMethod;
+    if (this.showCursorControls) this.showCursorControls = false;
+  },
 
-	// 👇 新增：点击代码区域移动光标
-	onCodeAreaClick(event) {
-		const { offsetX, offsetY } = event;
-		const x = offsetX - 6;
-		const y = offsetY;
+  changeMoveCursor() {
+    vibrator.vibrate({ mode: 'short' });
+    this.showCursorControls = !this.showCursorControls;
+  },
 
-		// 动态获取行高
-		const lineHeight = this.getFontHeight(this.fontSize);
-		const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-		const lines = allText.split('\n');
+  onInputMethodDelete() {
+    this.del();
+  },
 
-		// 1. 计算目标行
-		let targetLineIndex = Math.floor(y / lineHeight);
-		if (targetLineIndex < 0) targetLineIndex = 0;
-		if (targetLineIndex >= lines.length) targetLineIndex = lines.length - 1;
+  onInputMethodCompleteSelf(evt) {
+    if (evt && evt.detail && evt.detail.content) {
+      this.add(evt.detail.content);
+    }
+  },
 
-		const targetLine = lines[targetLineIndex];
+  // 点击代码区域定位光标逻辑
+  onCodeAreaClick(event) {
+    const { offsetX, offsetY } = event;
+    const x = offsetX - 6;
+    const y = offsetY;
 
-		// 2. 在目标行中找最接近 x 的字符位置
-		let currentWidth = 0;
-		let charIndex = 0;
-		for (let i = 0; i < targetLine.length; i++) {
-			const char = targetLine[i];
-			const charWidth = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)
-				? this.fontSize
-				: this.fontSize * 0.5;
+    // 使用当前实际行高
+    const lineHeight = this.cursorHeight;
+    const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+    const lines = allText.split('\n');
 
-			if (currentWidth + charWidth / 2 > x) {
-				charIndex = i;
-				break;
-			}
-			currentWidth += charWidth;
-			charIndex = i + 1;
-		}
+    let targetLineIndex = Math.floor(y / lineHeight);
+    if (targetLineIndex < 0) targetLineIndex = 0;
+    if (targetLineIndex >= lines.length) targetLineIndex = lines.length - 1;
 
-		// 3. 重组 codeBefore / codeAfter
-		let newCodeBefore = "";
-		for (let i = 0; i < targetLineIndex; i++) {
-			newCodeBefore += lines[i] + '\n';
-		}
-		newCodeBefore += targetLine.substring(0, charIndex);
+    const targetLine = lines[targetLineIndex];
 
-		let newCodeAfter = targetLine.substring(charIndex);
-		if (targetLineIndex < lines.length - 1) {
-			newCodeAfter += '\n' + lines.slice(targetLineIndex + 1).join('\n');
-		}
+    let currentWidth = 0;
+    let charIndex = 0;
+    
+    // 遍历字符寻找最接近的点击位置
+    for (let i = 0; i < targetLine.length; i++) {
+      const char = targetLine[i];
+      // 简单判断中英文宽度
+      const charWidth = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)
+        ? this.fontSize
+        : this.fontSize * 0.5;
 
-		this.$app.$def.codeBefore = newCodeBefore;
-		this.$app.$def.codeAfter = newCodeAfter;
+      if (currentWidth + charWidth / 2 > x) {
+        charIndex = i;
+        break;
+      }
+      currentWidth += charWidth;
+      charIndex = i + 1;
+    }
 
-		this.updateCodeDisplay();
-		vibrator.vibrate({ mode: 'short' });
-	},
+    // 重构 pre/post 光标文本
+    let newCodeBefore = "";
+    for (let i = 0; i < targetLineIndex; i++) {
+      newCodeBefore += lines[i] + '\n';
+    }
+    newCodeBefore += targetLine.substring(0, charIndex);
 
-	updateCodeDisplay() {
-		this.codeWidth = this.getTextWidth(this.$app.$def.jsCode, this.fontSize);
-		this.codeShow = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-		this.calculateCursorPosition();
-	},
+    let newCodeAfter = targetLine.substring(charIndex);
+    if (targetLineIndex < lines.length - 1) {
+      newCodeAfter += '\n' + lines.slice(targetLineIndex + 1).join('\n');
+    }
 
-	add(str) {
-		this.$app.$def.codeBefore += str;
-		this.updateCodeDisplay();
-	},
+    this.$app.$def.codeBefore = newCodeBefore;
+    this.$app.$def.codeAfter = newCodeAfter;
 
-	del() {
-		if (this.$app.$def.codeBefore.length > 0) {
-			this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
-			this.updateCodeDisplay();
-		}
-	},
+    this.updateCodeDisplay();
+    vibrator.vibrate({ mode: 'short' });
+  },
 
-	move(direction) {
-		vibrator.vibrate({ mode: 'short' });
-		switch (direction) {
-			case "left":
-				if (this.$app.$def.codeBefore.length > 0) {
-					const charToMove = this.$app.$def.codeBefore.slice(-1);
-					this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
-					this.$app.$def.codeAfter = charToMove + this.$app.$def.codeAfter;
-					this.updateCodeDisplay();
-				}
-				break;
-			case "right":
-				if (this.$app.$def.codeAfter.length > 0) {
-					const charToMove = this.$app.$def.codeAfter.charAt(0);
-					this.$app.$def.codeAfter = this.$app.$def.codeAfter.slice(1);
-					this.$app.$def.codeBefore += charToMove;
-					this.updateCodeDisplay();
-				}
-				break;
-			case "up":
-				this.moveVertical(-1);
-				break;
-			case "down":
-				this.moveVertical(1);
-				break;
-		}
-	},
+  updateCodeDisplay() {
+    // 重新计算文本总宽，以便 scroll 组件知道是否需要横向滚动
+    this.codeWidth = this.getTextWidth(this.$app.$def.jsCode, this.fontSize);
+    
+    this.codeShow = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+    this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+    this.calculateCursorPosition();
+  },
 
-	moveVertical(direction) {
-		const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-		const lines = allText.split('\n');
-		if (lines.length <= 1) return;
-		const beforeLines = this.$app.$def.codeBefore.split('\n');
-		const currentLineIndex = beforeLines.length - 1;
-		const currentColumnIndex = beforeLines[currentLineIndex].length;
-		const targetLineIndex = currentLineIndex + direction;
+  add(str) {
+    this.$app.$def.codeBefore += str;
+    this.updateCodeDisplay();
+  },
 
-		if (targetLineIndex < 0 || targetLineIndex >= lines.length) return;
+  del() {
+    if (this.$app.$def.codeBefore.length > 0) {
+      this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
+      this.updateCodeDisplay();
+    }
+  },
 
-		const targetLine = lines[targetLineIndex];
-		const targetColumnIndex = Math.min(currentColumnIndex, targetLine.length);
+  move(direction) {
+    vibrator.vibrate({ mode: 'short' });
+    switch (direction) {
+      case "left":
+        if (this.$app.$def.codeBefore.length > 0) {
+          const charToMove = this.$app.$def.codeBefore.slice(-1);
+          this.$app.$def.codeBefore = this.$app.$def.codeBefore.slice(0, -1);
+          this.$app.$def.codeAfter = charToMove + this.$app.$def.codeAfter;
+          this.updateCodeDisplay();
+        }
+        break;
+      case "right":
+        if (this.$app.$def.codeAfter.length > 0) {
+          const charToMove = this.$app.$def.codeAfter.charAt(0);
+          this.$app.$def.codeAfter = this.$app.$def.codeAfter.slice(1);
+          this.$app.$def.codeBefore += charToMove;
+          this.updateCodeDisplay();
+        }
+        break;
+      case "up":
+        this.moveVertical(-1);
+        break;
+      case "down":
+        this.moveVertical(1);
+        break;
+    }
+  },
 
-		let newCodeBefore = "";
-		for (let i = 0; i < targetLineIndex; i++) {
-			newCodeBefore += lines[i] + '\n';
-		}
-		newCodeBefore += targetLine.substring(0, targetColumnIndex);
+  moveVertical(direction) {
+    const allText = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+    const lines = allText.split('\n');
+    if (lines.length <= 1) return;
+    const beforeLines = this.$app.$def.codeBefore.split('\n');
+    const currentLineIndex = beforeLines.length - 1;
+    const currentColumnIndex = beforeLines[currentLineIndex].length;
+    const targetLineIndex = currentLineIndex + direction;
 
-		let newCodeAfter = targetLine.substring(targetColumnIndex);
-		for (let i = targetLineIndex + 1; i < lines.length; i++) {
-			newCodeAfter += '\n' + lines[i];
-		}
+    if (targetLineIndex < 0 || targetLineIndex >= lines.length) return;
 
-		this.$app.$def.codeBefore = newCodeBefore;
-		this.$app.$def.codeAfter = newCodeAfter;
-		this.updateCodeDisplay();
-	},
+    const targetLine = lines[targetLineIndex];
+    const targetColumnIndex = Math.min(currentColumnIndex, targetLine.length);
 
-	calculateCursorPosition() {
-		const text = this.$app.$def.codeBefore;
-		const lines = text.split('\n');
-		const currentLine = lines[lines.length - 1];
+    let newCodeBefore = "";
+    for (let i = 0; i < targetLineIndex; i++) {
+      newCodeBefore += lines[i] + '\n';
+    }
+    newCodeBefore += targetLine.substring(0, targetColumnIndex);
 
-		// 使用实际字体高度
-		const lineHeight = this.getFontHeight(this.fontSize);
-		this.cursorY = (lines.length - 1) * lineHeight;
-		this.cursorHeight = lineHeight; // 同步光标高度
-		console.log("cursorY:", this.cursorY);
-		console.log("cursorHeight:", this.cursorHeight);
-		console.log("fontSize:", this.fontSize);
+    let newCodeAfter = targetLine.substring(targetColumnIndex);
+    for (let i = targetLineIndex + 1; i < lines.length; i++) {
+      newCodeAfter += '\n' + lines[i];
+    }
 
-		let x = 0;
-		for (let i = 0; i < currentLine.length; i++) {
-			const char = currentLine[i];
-			if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
-				x += this.fontSize;
-			} else {
-				x += this.fontSize * 0.5;
-			}
-		}
-		this.cursorX = x;
-	},
+    this.$app.$def.codeBefore = newCodeBefore;
+    this.$app.$def.codeAfter = newCodeAfter;
+    this.updateCodeDisplay();
+  },
 
-	getFontHeight(fontSize) {
-		if (this.fontFamily !== 'SarasaTermSCNerd') {
-			return fontSize; // UbuntuMono 直接用 fontSize 作为行高
-		}else {
-			return fontSize * 1.5543 + 0.4022; // SarasaTermSCNerd 用 fontSize * 1.5543 + 0.4022 作为行高
-		}
+  calculateCursorPosition() {
+    const text = this.$app.$def.codeBefore;
+    const lines = text.split('\n');
+    const currentLine = lines[lines.length - 1];
 
+    // Y 轴使用 cursorHeight (基于字体计算的行高)
+    this.cursorY = (lines.length - 1) * this.cursorHeight;
+    
+    // X 轴计算
+    let x = 0;
+    for (let i = 0; i < currentLine.length; i++) {
+      const char = currentLine[i];
+      if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
+        x += this.fontSize;
+      } else {
+        x += this.fontSize * 0.5;
+      }
+    }
+    this.cursorX = x;
+  },
 
-		let closest = sizes[0];
-		let minDiff = Math.abs(fontSize - closest);
-		for (let i = 1; i < sizes.length; i++) {
-			const diff = Math.abs(fontSize - sizes[i]);
-			if (diff < minDiff) {
-				minDiff = diff;
-				closest = sizes[i];
-			}
-		}
-		return heightMap[closest];
-	},
+  savecode() {
+    vibrator.vibrate({ mode: 'short' });
+    jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
+    prompt.showToast({ message: "代码已保存" });
+  },
 
-	savecode() {
-		vibrator.vibrate({ mode: 'short' });
-		jsManager.savejs(this.$app.$def.jsName, this.$app.$def.jsCode);
-		prompt.showToast({ message: "代码已保存" });
-	},
+  runcode() {
+    vibrator.vibrate({ mode: 'short' });
+    this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
+    router.push({ uri: '/pages/run' });
+  },
 
-	runcode() {
-		vibrator.vibrate({ mode: 'short' });
-		this.$app.$def.jsCode = this.$app.$def.codeBefore + this.$app.$def.codeAfter;
-		router.push({ uri: '/pages/run' });
-	},
+  updateTime() {
+    const date = new Date();
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+    hours = hours < 10 ? '0' + hours : hours;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    this.nowTime = `${hours}:${minutes}`;
+  },
 
-	updateTime() {
-		const date = new Date();
-		let hours = date.getHours();
-		let minutes = date.getMinutes();
-		hours = hours < 10 ? '0' + hours : hours;
-		minutes = minutes < 10 ? '0' + minutes : minutes;
-		this.nowTime = `${hours}:${minutes}`;
-	},
+  getTextWidth(text, fontSize) {
+    if (typeof text !== 'string' || typeof fontSize !== 'number' || fontSize <= 0) return 0;
+    const lines = text.split(/\r?\n/);
+    let maxWidth = 0;
+    for (const line of lines) {
+      let width = 0;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
+          width += fontSize;
+        } else {
+          width += fontSize * 0.5;
+        }
+      }
+      if (width > maxWidth) maxWidth = width;
+    }
+    return Math.ceil(maxWidth);
+  },
 
-	getTextWidth(text, fontSize) {
-		if (typeof text !== 'string' || typeof fontSize !== 'number' || fontSize <= 0) return 0;
-		const lines = text.split(/\r?\n/);
-		let maxWidth = 0;
-		for (const line of lines) {
-			let width = 0;
-			for (let i = 0; i < line.length; i++) {
-				const char = line[i];
-				if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/.test(char)) {
-					width += fontSize;
-				} else {
-					width += fontSize * 0.5;
-				}
-			}
-			if (width > maxWidth) maxWidth = width;
-		}
-		return Math.ceil(maxWidth);
-	},
-
-	exit() {
-		app.terminate();
-	},
+  exit() {
+    app.terminate();
+  },
 };
 </script>
 
 <style>
-	@font-face {
-		font-family: 'SarasaTermSCNerd';
-		src: url('../../common/fonts/SarasaTermSCNerd-Regular-Lite.ttf') format('ttf');
-		font-weight: normal;
-		font-style: normal;
-	}
-	@font-face {
-		font-family: 'UbuntuMono';
-		src: url('../../common/fonts/UbuntuMono-MiSans.ttf') format('ttf');
-		font-weight: normal;
-		font-style: normal;
-	}
-	.page {
-		width: 336px;
-		height: 480px;
-		background-color: #000000;
-		position: relative; 
-	}
+@font-face {
+  font-family: 'FiraCode';
+  src: url('../../common/fonts/FiraCode-Retina.ttf') format('ttf');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'JetBrainsMono';
+  src: url('../../common/fonts/JetBrainsMono-Regular.ttf') format('ttf');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Hack';
+  src: url('../../common/fonts/Hack-Regular.ttf') format('ttf');
+  font-weight: normal;
+  font-style: normal;
+}
 
-  	.code {
-    	color: #ffffff;
-  	}
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  position: relative; 
+}
 
-	.btn {
-		position: absolute;
-		width: 72px;
-		height: 72px;
-	}
+.code {
+  color: #ffffff;
+}
 
-	.topbar-bg {
-		position: absolute;
-		left: 0px;
-		top: 0px;
-		width: 336px;
-		height: 102px;
-	}
+.btn {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+}
 
-	.time-text {
-		position: absolute;
-		left: 78px;
-		top: 7px;
-		width: 180px;
-		line-height: 32px;
-		font-weight: bold;
-		font-size: 24px;
-		color: rgba(255,255,255,0.6);
-		text-align: center;
-	}
+.topbar-bg {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
 
-	.title-text {
-		position: absolute;
-		left: 78px;
-		top: 35px;
-		width: 180px;
-		line-height: 42px;
-		font-weight: bold;
-		font-size: 32px;
-		color: white;
-		text-align: center;
-	}
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  font-weight: bold;
+  font-size: 24px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
 
-	.cursormove {
-		position: absolute;
-		left: 6px;
-		top: 300px;
-		width: 324px;
-		height: 90px;
-		border-radius: 36px;
-		background-color: #333;
-		flex-direction: row;
-		justify-content: space-around;
-		align-items: center;
-	}
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
 
-	.cursor-btn {
-		width: 72px;
-		height: 72px;
-	}
+.cursormove {
+  position: absolute;
+  left: 6px;
+  top: 300px;
+  width: 324px;
+  height: 90px;
+  border-radius: 36px;
+  background-color: #333;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.cursor-btn {
+  width: 72px;
+  height: 72px;
+}
 </style>
