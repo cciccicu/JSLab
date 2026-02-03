@@ -16,7 +16,7 @@
 		<div class="item" @click="setFontfamily">
 		  <div class="item-content">
 			<text class="itemtext">字体</text>
-			<text class="itemtext2">当前：{{ currentFontFamily === 'UbuntuMono' ? 'Ubuntu Mono' : 'Sarasa Term SC' }}</text>
+			<text class="itemtext2">当前：{{ getFontDisplayName(currentFontFamily) }}</text>
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
@@ -64,128 +64,146 @@
   </template>
   
   <script>
-  import router from '@system.router';
-  import app from '@system.app';
-  import prompt from '@system.prompt';
-  import vibrator from '@system.vibrator';
-  import configManager from '../../utils/configManager.js';
-  
-  export default {
-	private: {
-	  nowTime: "00:00",
-	  timer: null,
-	  currentFontSize: 16,
-	  currentFontFamily: 'UbuntuMono'
-	},
-	protected: {
-	  cPath: '',
-	  name: ''
-	},
-  
-	updateTime() {
-	  const date = new Date();
-	  let hours = date.getHours();
-	  let minutes = date.getMinutes();
-	  hours = hours < 10 ? '0' + hours : hours;
-	  minutes = minutes < 10 ? '0' + minutes : minutes;
-	  this.nowTime = `${hours}:${minutes}`;
-	},
-  
-	onInit() {
-	  this.updateTime();
-	  this.timer = setInterval(() => this.updateTime(), 1000);
-  
-	  // 正确使用回调风格的 get 方法
-	  configManager.get('editor.font.size', 16, (error, value) => {
-		if (error) {
-		  console.error('Failed to get font size:', error);
-		} else {
-		  this.currentFontSize = value;
-		}
-	  });
-	  
-	  configManager.get('editor.font.family', 'UbuntuMono', (error, value) => {
-		if (error) {
-		  console.error('Failed to get font family:', error);
-		} else {
-		  this.currentFontFamily = value;
-		}
-	  });
-	},
-  
-	onDestroy() {
-	  clearInterval(this.timer);
-	},
-  
-	setFontsize() {
-	  this.$app.$def.showNumberInputDialog(
-		'设置字号',
-		'请输入编辑器字号 (10-32)',
-		{
-		  onCancel: () => {},
-		  onConfirm: (num) => {
-			const size = Math.min(32, Math.max(10, num || 16));
-			this.currentFontSize = size;
-			// 正确使用回调风格的 set 方法
-			configManager.set('editor.font.size', size, (error, success) => {
-			  if (error) {
-				console.error('Failed to set font size:', error);
-				this.toast('设置字号失败');
-			  } else {
-				this.toast(`字号已设为 ${size}px`);
-			  }
-			});
-		  }
-		}
-	  );
-	},
+import router from '@system.router';
+import app from '@system.app';
+import prompt from '@system.prompt';
+import vibrator from '@system.vibrator';
+import configManager from '../../utils/configManager.js';
 
-	setFontfamily() {
-	  vibrator.vibrate({
-        mode: 'short'
-      });
-	  this.$app.$def.showSelectDialog(
-		'选择字体',
-		'请选择编辑器字体',
-		['UbuntuMono', 'SarasaTermSCNerd'],
-		{
-		  onCancel: () => {},
-		  onSelect: (value) => {
-			this.currentFontFamily = value;
-			// 正确使用回调风格的 set 方法
-			configManager.set('editor.font.family', value, (error, success) => {
-			  if (error) {
-				console.error('Failed to set font family:', error);
-				this.toast('设置字体失败');
-			  } else {
-				const displayName = value === 'UbuntuMono' ? 'Ubuntu Mono' : 'Sarasa Term SC';
-				this.toast(`字体已切换为 ${displayName}`);
-			  }
-			});
-		  }
-		}
-	  );
-	},
-  
-	routerTo(url) {
-	  vibrator.vibrate({ mode: 'short' });
-	  router.push({ uri: '/pages/' + url });
-	},
-  
-	back() {
-	  vibrator.vibrate({ mode: 'short' });
-	  router.back();
-	},
-  
-	exit() {
-	  app.terminate();
-	},
-  
-	toast(message) {
-	  prompt.showToast({ message });
-	}
-  };
-  </script>
+export default {
+    private: {
+        nowTime: "00:00",
+        timer: null,
+        currentFontSize: 16,
+        currentFontFamily: 'FiraCode'
+    },
+    
+    // 显示名称映射工具，方便 Template 调用
+    getFontDisplayName(key) {
+        const map = {
+            'FiraCode': 'FiraCode Retina',
+            'JetBrainsMono': 'JetBrains Mono',
+            'Hack': 'Hack'
+        };
+        return map[key] || key;
+    },
+
+    updateTime() {
+        const date = new Date();
+        let hours = date.getHours();
+        let minutes = date.getMinutes();
+        hours = hours < 10 ? '0' + hours : hours;
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        this.nowTime = `${hours}:${minutes}`;
+    },
+
+    onInit() {
+        this.updateTime();
+        // 改为每分钟刷新一次，提升 fps (？ 玄学)
+        this.timer = setInterval(() => this.updateTime(), 1000 * 60);
+
+        // 获取字号配置
+        configManager.get('editor.font.size', 16, (error, value) => {
+            if (error) {
+                console.error('Failed to get font size:', error);
+            } else {
+                this.currentFontSize = value;
+            }
+        });
+
+        // 获取字体配置，默认 FiraCode
+        configManager.get('editor.font.family', 'FiraCode', (error, value) => {
+            if (error) {
+                console.error('Failed to get font family:', error);
+            } else {
+                this.currentFontFamily = value;
+            }
+        });
+    },
+
+    onDestroy() {
+        clearInterval(this.timer);
+    },
+
+    setFontsize() {
+        this.$app.$def.showNumberInputDialog(
+            '设置字号',
+            '请输入编辑器字号 (10-32)',
+            {
+                onCancel: () => {},
+                onConfirm: (num) => {
+                    const size = Math.min(32, Math.max(10, num || 16));
+                    this.currentFontSize = size;
+                    
+                    configManager.set('editor.font.size', size, (error, success) => {
+                        if (error) {
+                            console.error('Failed to set font size:', error);
+                            this.toast('设置字号失败');
+                        } else {
+                            this.toast(`字号已设为 ${size}px`);
+                        }
+                    });
+                }
+            }
+        );
+    },
+
+    setFontfamily() {
+        vibrator.vibrate({
+            mode: 'short'
+        });
+        
+        const fonts = ['FiraCode', 'JetBrainsMono', 'Hack'];
+
+        this.$app.$def.showSelectDialog(
+            '选择字体',
+            '请选择编辑器字体',
+            fonts,
+            {
+                onCancel: () => {},
+                onSelect: (value) => {
+                    this.currentFontFamily = value;
+                    
+                    configManager.set('editor.font.family', value, (error, success) => {
+                        if (error) {
+                            console.error('Failed to set font family:', error);
+                            this.toast('设置字体失败');
+                        } else {
+                            this.toast(`字体已切换为 ${this.getFontDisplayName(value)}`);
+                        }
+                    });
+                }
+            }
+        );
+    },
+
+    routerTo(url) {
+        vibrator.vibrate({
+            mode: 'short'
+        });
+        router.push({
+            uri: '/pages/' + url
+        });
+    },
+
+    back() {
+        vibrator.vibrate({
+            mode: 'short'
+        });
+        router.back();
+    },
+
+    exit() {
+        app.terminate();
+    },
+
+    toast(message) {
+        prompt.showToast({
+            message
+        });
+    }
+};
+</script>
   
   <style>
   .page {

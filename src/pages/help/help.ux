@@ -1,31 +1,19 @@
 <template>
   <div class="page">
-    
-    <!-- 滚动内容区 -->
     <scroll class="scroll" scroll-y="true" bounces="true">
-      
-      <!-- 1. 简介卡片 -->
       <div class="card">
         <text class="card-title">简介</text>
-        <text class="body-text">
-          JSLab 是一款用于编写和运行 JavaScript 的快应用。
-        </text>
-        <text class="body-text">
-          • 支持 console.log() 虚拟终端输出
-          • 支持 input() 获取用户输入
-          • 支持调用系统 Vela API
-        </text>
+        <text class="body-text">JSLab 是一款用于编写和运行 JavaScript 的快应用。</text>
+        <text class="body-text">• 支持 console.log() 虚拟终端输出</text>
+        <text class="body-text">• 支持 input() 获取用户输入</text>
+        <text class="body-text">• 支持调用系统 Vela API</text>
       </div>
 
-      <!-- 2. 警告卡片 (红色边框/背景) -->
       <div class="card warning-card">
         <text class="warning-title">⚠️ 性能警告</text>
-        <text class="warning-text">
-          请勿在 console 打印海量文本！受限于 Vela 渲染机制，缓冲区溢出将导致 OOM 闪退甚至系统重启。
-        </text>
+        <text class="warning-text">请勿在 console 打印海量文本！受限于 Vela 渲染机制，缓冲区溢出将导致 OOM 闪退甚至系统重启。</text>
       </div>
 
-      <!-- 3. 文档卡片 -->
       <div class="card center-card">
         <text class="card-title">系统 API 文档</text>
         <div class="qr-container">
@@ -33,53 +21,30 @@
         </div>
         <text class="caption-text">扫码查看小米官方文档</text>
       </div>
-
-      <!-- 底部垫高 -->
       <div style="height: 40px;"></div>
     </scroll>
 
-    <!-- 顶部导航栏 (AppBar) -->
-    <div class="navbar">
-      <img class="nav-bg" src="/common/images/hd.png" />
-      <div class="nav-back-area" @click="back">
-        <img src="/common/images/back.png" class="nav-back-icon"/>
-      </div>
-      <div class="nav-title-area">
-        <text class="nav-time">{{nowTime}}</text>
-        <text class="nav-title">帮助</text>
-      </div>
-    </div>
+    <!-- 原版 AppBar -->
+    <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
+    <img static class="btn" src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px; width: 72px; height: 72px;"/>
+    <text style="position: absolute;left: 78px;top: 7px;width: 180px;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">{{nowTime}}</text>
+    <text style="position: absolute;left: 78px;top: 35px;width: 180px;font-size:32px;color:white;text-align:center;font-weight:bold;">帮助</text> <!-- 标题改为帮助 -->
 
   </div>
 </template>
 
+<!-- Script 同前 -->
 <script>
 import router from '@system.router';
 import app from '@system.app';
 import vibrator from '@system.vibrator';
 
 export default {
-  private: {
-    nowTime: "00:00",
-    timer: null
-  },
-  onInit() {
-    this.updateTime();
-    // 优化：每分钟刷新一次即可
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 1000 * 60);
-  },
-  onShow() {
-    this.updateTime(); // 每次显示时立即刷新，防止切回来时间不对
-  },
-  onDestroy(){
-    clearInterval(this.timer);
-  },
-  back(){
-    vibrator.vibrate({ mode: 'short' });
-    router.back();
-  },
+  private: { nowTime: "00:00", timer: null },
+  onInit() { this.updateTime(); this.timer = setInterval(() => { this.updateTime(); }, 1000 * 60); },
+  onShow() { this.updateTime(); },
+  onDestroy(){ clearInterval(this.timer); },
+  back(){ vibrator.vibrate({ mode: 'short' }); router.back(); },
   updateTime() {
     const date = new Date();
     let h = date.getHours().toString();
@@ -92,134 +57,18 @@ export default {
 </script>
 
 <style>
-  /* 全局重置 */
-  .page {
-    width: 336px;
-    height: 480px;
-    background-color: #000000;
-    flex-direction: column;
-  }
-
-  /* 滚动区域 */
-  .scroll {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
-    padding-top: 102px; /* 避开 AppBar */
-    padding-left: 12px;
-    padding-right: 12px;
-    padding-bottom: 20px;
-  }
-
-  /* 通用卡片 */
-  .card {
-    background-color: #262626;
-    border-radius: 36px;
-    padding: 24px;
-    margin-bottom: 12px;
-    flex-direction: column;
-  }
-
-  /* 警告卡片特别样式 */
-  .warning-card {
-    background-color: #331111; /*以此区分，暗红色背景 */
-    border: 1px solid #ff4d4d;
-  }
-
-  .center-card {
-    align-items: center;
-  }
-
-  /* 文本样式体系 */
-  .card-title {
-    font-size: 32px;
-    font-weight: bold;
-    color: #FFFFFF;
-    margin-bottom: 12px;
-  }
-
-  .body-text {
-    font-size: 26px;
-    color: #DDDDDD;
-    line-height: 40px;
-    margin-bottom: 10px;
-  }
-
-  /* 警告文本 */
-  .warning-title {
-    font-size: 32px;
-    font-weight: bold;
-    color: #ff4d4d;
-    margin-bottom: 8px;
-  }
-  .warning-text {
-    font-size: 26px;
-    color: #ffcccc; /* 浅红文字 */
-    line-height: 38px;
-  }
-
-  /* 二维码 */
-  .qr-container {
-    background-color: #FFFFFF;
-    padding: 10px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-  }
-  .qr-code {
-    width: 200px;
-    height: 200px;
-  }
-  .caption-text {
-    font-size: 22px;
-    color: rgba(255,255,255,0.5);
-  }
-
-  /* --- AppBar (保持统一) --- */
-  .navbar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 336px;
-    height: 102px;
-  }
-  .nav-bg {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-  }
-  .nav-back-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80px;
-    height: 80px;
-    justify-content: center;
-    align-items: center;
-  }
-  .nav-back-icon {
-    width: 72px;
-    height: 72px;
-  }
-  .nav-title-area {
-    position: absolute;
-    left: 78px;
-    top: 0;
-    width: 180px;
-    flex-direction: column;
-    align-items: center;
-  }
-  .nav-time {
-    margin-top: 7px;
-    font-size: 24px;
-    color: rgba(255,255,255,0.6);
-  }
-  .nav-title {
-    margin-top: -2px;
-    font-size: 32px;
-    color: #FFFFFF;
-    font-weight: bold;
-  }
+  /* 样式同上，保留 card 优化，删除 .navbar */
+  .page { width: 336px; height: 480px; background-color: #000000; flex-direction: column; }
+  .scroll { position: absolute; top: 0; left: 0; width: 100%; height: 100%; flex-direction: column; padding-top: 102px; padding-left: 12px; padding-right: 12px; padding-bottom: 20px; }
+  .card { background-color: #262626; border-radius: 36px; padding: 24px; margin-bottom: 12px; flex-direction: column; }
+  .warning-card { background-color: #331111; border: 1px solid #ff4d4d; }
+  .center-card { align-items: center; }
+  .card-title { font-size: 32px; font-weight: bold; color: #FFFFFF; margin-bottom: 12px; }
+  .body-text { font-size: 26px; color: #DDDDDD; line-height: 40px; margin-bottom: 10px; }
+  .warning-title { font-size: 32px; font-weight: bold; color: #ff4d4d; margin-bottom: 8px; }
+  .warning-text { font-size: 26px; color: #ffcccc; line-height: 38px; }
+  .qr-container { background-color: #FFFFFF; padding: 10px; border-radius: 12px; margin-bottom: 10px; }
+  .qr-code { width: 200px; height: 200px; }
+  .caption-text { font-size: 22px; color: rgba(255,255,255,0.5); }
+  .btn { position: absolute; }
 </style>
