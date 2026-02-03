@@ -1,187 +1,116 @@
 <template>
-	<div class="page">
-      <scroll class="scroll" scroll-y="true" bounces="true">
-        <div class="app-card">
-          <div class="app-text-group">
-            <text class="app-name">{{appName}}</text>
-            <text class="app-version">{{appVer}}</text>
-          </div>
-        <img src="/common/logo.png" class="logo"/>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true" bounces="true">
+      <!-- 内容卡片 (保留了Flex布局优化，因为这确实比原来好) -->
+      <div class="card app-header-card">
+        <div class="app-info-col">
+          <text class="app-name">{{appName}}</text>
+          <text class="app-version">Version {{appVer}}</text>
         </div>
-        <text class="itemtext">开发人员：</text>
-        <div class="dev-card">
-        <text class="itemtext">@ccicc.icu</text>
-        </div>
-        <text class="itemtext">支持人员：</text>
-        <div class="dev-card">
-        <text class="itemtext">@juyinandxinyi</text>
-        </div>
-        <text style="color: #ffffff;font-size: 23px;">↑这是一个好人，ta在用爱发电</text>
+        <img src="/common/logo.png" class="app-logo"/>
+      </div>
 
-        <text class="itemtext">参考和使用的项目：</text>
-        <div class="resource-card">
-        <text class="itemtext" style="font-size:20px;">使用: @NEORUAA 输入法</text>
-        <text class="itemtext" style="font-size:20px;">参考: @NEORUAA 电子书</text>
-        <text class="itemtext" style="font-size:20px;">参考: @无源流沙 UI设计</text>
+      <text class="section-title">开发人员</text>
+      <div class="card row-card">
+        <text class="card-text">@ccicc.icu</text>
+      </div>
+
+      <text class="section-title">支持人员</text>
+      <div class="card col-card">
+        <text class="card-text">@juyinandxinyi</text>
+        <text class="card-subtext">↑ 这是一个好人，Ta 在用爱发电</text>
+      </div>
+
+      <text class="section-title">参考与致谢</text>
+      <div class="card col-card">
+        <text class="list-item">使用: @NEORUAA 输入法</text>
+        <text class="list-item">参考: @NEORUAA 电子书</text>
+        <text class="list-item">参考: @无源流沙 UI 设计</text>
+      </div>
+
+      <div class="card col-card center-card">
+        <text class="card-text">交流与反馈扫码加 QQ 群</text>
+        <text class="card-subtext selectable">群号: 1067265942</text>
+        <div class="qr-container">
+          <qrcode value="https://qm.qq.com/q/jiknQFvvA" class="qr-code"></qrcode>
         </div>
-        <div class="qrcode-card">
-          <div class="item-content">
-              <text class="itemtext" style="font-size: 24px">交流与反馈扫码加QQ群</text>
-              <text class="itemtext" style="font-size: 24px">群号:1067265942</text>
-              <qrcode value="https://qm.qq.com/q/jiknQFvvA  " style="color: #000000;background-color: #ffffff;width: 100%;"></qrcode>
-          </div>
-        </div>
-        <text class="itemtext" style="font-size:27px;color: #ff0000">本项目使用GPL3.0许可证</text>
-        <text class="itemtext" style="font-size:35px;color: #ff0000">免费开源，欢迎倒卖</text>
+      </div>
+
+      <div class="footer">
+        <text class="license-text">本项目使用 GPLv3 许可证</text>
+        <text class="sarcastic-text">免费开源，欢迎倒卖</text>
+      </div>
+      <div style="height: 40px;"></div>
     </scroll>
+
+    <!-- 原版 AppBar (Absolute Positioning) -->
     <img static src="/common/images/hd.png" style="position: absolute;left: 0px;top: 0px;width: 336px;height: 102px;" />
-	  <img src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
+    <img src="/common/images/back.png" @click="back" style="position: absolute;left: 6px;top: 6px;width: 72px;height: 72px;"/>
     <text style="position: absolute;left: 78px;top: 7px;width: 180px;font-size:24px;color:rgba(255,255,255,0.6);text-align:center;">
       {{nowTime}}
     </text>
-    <text style="position: absolute;left: 78px;top: 35px;width: 180px;font-size:32px;color:white;text-align:center;">
+    <text style="position: absolute;left: 78px;top: 35px;width: 180px;font-size:32px;color:white;text-align:center;font-weight:bold;">
       {{bigTitle}}
     </text>
 
-	</div>
+  </div>
 </template>
-  
+
+<!-- Script 同前，无变化 -->
 <script>
   import router from '@system.router'
   import app from '@system.app' 
-  import vibrator from '@system.vibrator' // ← 新增这一行
-  import configManager from '../../utils/configManager.js';
-  import jsManager from '../../utils/jsManager.js';
-
+  import vibrator from '@system.vibrator'
   
   export default {
-	private: {
-    nowTime:':',
-	  bigTitle:'关于',
-    appName:'NoteNext',
-    appVer:'0.0.0',
-    timer:null
-	},
-	onInit() {
-    this.updateTime();
-		const that = this;
-    this.timer = setInterval(function(){
-      that.updateTime();
-    }, 60000);
-    this.appName=app.getInfo().name;
-    this.appVer=app.getInfo().versionName;
-	},
-  onShow(){
-	  this.updateTime();
-  },
-  onDestroy(){
-	  clearInterval(this.timer);
-  },
-	back(){
-    vibrator.vibrate({ // ← 新增震动
-      mode: 'short'
-    });
-		router.back();
-	},
-  updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-
-    // 格式化小时和分钟为两位数
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-
-    this.nowTime = `${hours}:${minutes}`;
-  }
-  
+    private: {
+      nowTime: ':',
+      bigTitle: '关于',
+      appName: 'JSLab',
+      appVer: '1.3.0',
+      timer: null
+    },
+    onInit() {
+      this.updateTime();
+      this.timer = setInterval(() => {this.updateTime();}, 1000 * 60);
+      const info = app.getInfo();
+      this.appName = info.name;
+      this.appVer = info.versionName;
+    },
+    onShow() { this.updateTime(); },
+    onDestroy() { clearInterval(this.timer); },
+    back() { vibrator.vibrate({ mode: 'short' }); router.back(); },
+    updateTime() {
+      const date = new Date();
+      let h = date.getHours().toString();
+      let m = date.getMinutes().toString();
+      if(h.length < 2) h = '0' + h;
+      if(m.length < 2) m = '0' + m;
+      this.nowTime = `${h}:${m}`;
+    }
   }
 </script>
-  
-<style>
-  .page {
-	  width: 336px;
-	  height: 480px;
-	  background-color: #000000;
-  }
-  .scroll {
-    position: absolute;
-    left: 0px;
-    height: 100%;
-    width: 100%;
-    flex-direction: column;
-    padding: 86px 6px 36px;
-  }
-  .app-card {
-    flex-direction: row;
-    height: 200px;
-    padding: 14px 20px;
-    margin-bottom: 8px;
-    border-radius: 36px;
-    background-color: #262626;
-  }
-  .app-text-group {
-    flex-direction: column;
-  }
-  .app-name {
-    width: 230px;
-    height: 48px;
-    font-size: 36px;
-    font-weight: bold;
-    color: #FFFFFF;
-  }
-  .app-version {
-    width: 230px;
-    height: 48px;
-    font-size: 36px;
-    font-weight: bold;
-    color: rgba(255, 255, 255, 0.6);
-  }
-  .logo {
-    margin-top: 75px;
-    width: 96px;
-    height: 96px;
-  }
-  .dev-card {
-    flex-direction: column;
-    height: 65px;
-    padding: 14px 20px;
-    margin-bottom: 8px;
-    border-radius: 36px;
-    background-color: #262626;
-  }
-  .resource-card {
-    flex-direction: column;
-    height: 140px;
-    padding: 14px 20px;
-    margin-bottom: 8px;
-    border-radius: 36px;
-    background-color: #262626;
-  }
-  .qrcode-card {
-    width: 100%;
-    height: 360px;
-    padding: 14px 20px;
-    margin-bottom: 8px;
-    background-color: #262626;
-    border-radius: 36px;
-    align-items: center;
-    justify-content: space-between;
-  }
 
-  .item-content {
-    height: 100%;
-    flex:1;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  .itemtext {
-    font-size: 28px;
-    line-height: 40px;
-    width: 100%;
-    font-weight: bold;
-    color: white;
-    text-overflow: ellipsis;
-    lines: -1;
-  }
+<!-- Style: 只保留卡片优化，删掉 .navbar 相关 -->
+<style>
+  .page { width: 336px; height: 480px; background-color: #000000; flex-direction: column; }
+  .scroll { position: absolute; top: 0; left: 0; width: 100%; height: 100%; flex-direction: column; padding-top: 102px; padding-left: 12px; padding-right: 12px; padding-bottom: 20px; }
+  .card { background-color: #262626; border-radius: 36px; padding: 20px; margin-bottom: 12px; flex-direction: column; }
+  .app-header-card { flex-direction: row; justify-content: space-between; align-items: center; padding: 24px 30px; }
+  .app-info-col { flex-direction: column; }
+  .app-name { font-size: 40px; font-weight: bold; color: #FFFFFF; margin-bottom: 4px; }
+  .app-version { font-size: 26px; color: rgba(255, 255, 255, 0.6); }
+  .app-logo { width: 96px; height: 96px; border-radius: 20px; }
+  .row-card { justify-content: center; }
+  .col-card { flex-direction: column; justify-content: center; }
+  .center-card { align-items: center; padding-top: 30px; padding-bottom: 30px; }
+  .section-title { font-size: 24px; color: rgba(255, 255, 255, 0.5); margin-left: 10px; margin-bottom: 6px; margin-top: 10px; }
+  .card-text { font-size: 30px; font-weight: bold; color: #FFFFFF; }
+  .card-subtext { font-size: 22px; color: rgba(255, 255, 255, 0.7); margin-top: 6px; }
+  .list-item { font-size: 26px; color: #DDDDDD; margin-bottom: 8px; }
+  .qr-container { margin-top: 20px; padding: 10px; background-color: #FFFFFF; border-radius: 10px; }
+  .qr-code { width: 200px; height: 200px; color: #000000; background-color: #FFFFFF; }
+  .footer { flex-direction: column; align-items: center; margin-top: 20px; margin-bottom: 20px; }
+  .license-text { font-size: 24px; color: #ff4d4d; margin-bottom: 4px; }
+  .sarcastic-text { font-size: 32px; font-weight: bold; color: #ff0000; }
 </style>

@@ -1,7 +1,8 @@
 {
   "name": "JSLab",
-  "version": "1.2.2",
-  "description": "",
+  "version": "1.3.0",
+  "author": "cciccicu <ChenHaoyang20080117@outlook.com>",
+  "description": "A Quick App that enables you to write and run JavaScript on the Mi Band (Vela).",
   "engines": {
     "node": ">=8.10"
   },

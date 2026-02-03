@@ -4,13 +4,13 @@
     <img static src="/common/images/hd.png" class="topbar-bg" />
     <img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;"/>
     <img static class="btn" src="/common/images/upload.png" @click="showComingSoon" style="left: 258px;top: 6px;"/>    <text class="time-text">{{nowTime}}</text>
-    <text class="title-text">JS市场</text>
+    <text class="title-text">JS 市场</text>
 
     <!-- 内容 -->
     <text class="center-text" style="top: 190px;font-size:30px">敬请期待</text>
     <text class="center-text" style="top: 235px;font-size:20px;">由于作者学业问题</text>
     <text class="center-text" style="top: 260px;font-size:20px;">短时间内此部分可能不会上线</text>
-    <text class="center-text" style="top: 295px;font-size:20px;color:#666;">JS市场,旨在一定程度上替代部分简单快应用(如天气)的功能,允许用户上传和分享脚本,以节省快应用数量占用</text>
+    <text class="center-text" style="top: 295px;font-size:20px;color:#666;">JS 市场旨在一定程度上替代部分简单快应用 (如天气) 的功能，允许用户上传和分享脚本，以节省快应用数量占用。</text>
 
     </div>
 </template>
@@ -45,7 +45,7 @@ export default {
     this.updateTime();
     this.timer = setInterval(() => {
       this.updateTime();
-    }, 1000);
+    }, 5000);
   },
   onDestroy(){
 	  clearInterval(this.timer);

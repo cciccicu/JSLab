@@ -12,18 +12,18 @@
 
     <!-- 顶部文字 -->
     <text class="time-text">{{nowTime}}</text>
-    <text class="title-text">新建JS</text>
+    <text class="title-text">新建 JS</text>
 
     <!-- 文件名输入区域 -->
     <text class="label">文件名:</text>
     <div class="input-container">
       <div class="input-box" @click="changeFocus">
-        <text class="input-text">{{fileName + "_" || '请输入文件名'}}</text>
+        <text class="input-text">{{fileName + "|" || '输入文件名...'}}</text>
       </div>
     </div>
 
     <!-- 模板选择区域 -->
-    <text class="label">选择模板:</text>
+    <text class="label">选择一个模板</text>
     <div class="picker-container">
       <picker class="picker" 
               type="text"
@@ -71,7 +71,7 @@ export default {
     // 文件相关
     fileName: "",
     selectedTemplateIndex: 0,
-    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例', '用户输入示例'],
+    templateOptions: ['空白文件', 'Hello World', 'Toast 示例', 'fetch() 示例', '用户输入示例'],
     
     // 模板内容
     templateContents: [
