@@ -67,7 +67,7 @@
       nowTime: ':',
       bigTitle: '关于',
       appName: 'JSLab',
-      appVer: '1.2.1',
+      appVer: '1.3.0',
       timer: null
     },
     onInit() {
