@@ -75,7 +75,7 @@ export default {
     
     // 模板内容
     templateContents: [
-      "",
+      "\n",
       `console.log("Hello World!");`,
       `prompt.showToast({message:'Hello World'})`,
       `fetch.fetch({
