@@ -392,13 +392,13 @@ export default {
 <style>
 	@font-face {
 		font-family: 'SarasaTermSCNerd';
-		src: url('../../common/fonts/SarasaTermSCNerd-Regular-Lite.ttf') format('ttf');
+		src: url('../../common/fonts/SarasaTermSCNerd-Misans-v2.ttf') format('ttf');
 		font-weight: normal;
 		font-style: normal;
 	}
 	@font-face {
 		font-family: 'UbuntuMono';
-		src: url('../../common/fonts/UbuntuMono-MiSans.ttf') format('ttf');
+		src: url('../../common/fonts/UbuntuMono-MiSans-v2.ttf') format('ttf');
 		font-weight: normal;
 		font-style: normal;
 	}
