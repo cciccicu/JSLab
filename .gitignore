@@ -2,6 +2,7 @@ node_modules
 build
 dist
 sign
+VelaDocs
 
 .DS_Store
 Thumbs.db
@@ -16,3 +17,4 @@ package-lock.json
 /coverage
 
 /logs
+
