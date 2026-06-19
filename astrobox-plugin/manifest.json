@@ -1,0 +1,13 @@
+{
+    "name": "JSLab Watch Manager",
+    "icon": "icon.png",
+    "version": "1.0.0",
+    "description": "JSLab watch application script management plugin.",
+    "author": "ccicc",
+    "website": "https://github.com/open-vela",
+    "entry": "astrobox_jslab_plugin.wasm",
+    "wasi_version": 2,
+    "api_level": 2,
+    "permissions": ["network"],
+    "additional_files": []
+}

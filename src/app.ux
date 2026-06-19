@@ -2,16 +2,158 @@
 <script>
 import app from '@system.app';
 import router from '@system.router';
+import interconnect from '@system.interconnect';
 
 import jsManager from './utils/jsManager.js';
 
 export default {
+  conn: null,
+  onFileChange: null,
+
   onCreate() {
     console.log('app created');
+    this.initInterconnect();
   },
 
   onDestroy() {
     console.log('app destroyed');
+  },
+
+  initInterconnect() {
+    try {
+      this.conn = interconnect.instance();
+      this.conn.onmessage = (data) => {
+        let msg = data.data;
+        if (typeof msg === 'string') {
+          try {
+            msg = JSON.parse(msg);
+          } catch (e) {
+            console.error('Failed to parse interconnect message:', e);
+            return;
+          }
+        }
+        if (!msg || !msg.action) {
+          console.error('Invalid message format:', msg);
+          return;
+        }
+        this.handleInterconnectMessage(msg);
+      };
+      this.conn.onopen = () => {
+        console.log('Interconnect connection opened');
+      };
+      this.conn.onclose = (data) => {
+        console.log('Interconnect connection closed:', data.reason);
+      };
+      this.conn.onerror = (data) => {
+        console.error('Interconnect error:', data.code, data.data);
+      };
+    } catch (e) {
+      console.error('Failed to init interconnect:', e);
+    }
+  },
+
+  handleInterconnectMessage(msg) {
+    const action = msg.action;
+    const name = msg.name;
+    const content = msg.content;
+
+    if (action === 'list') {
+      jsManager.listjs()
+        .then((files) => {
+          this.sendInterconnectResponse({
+            action: 'list_res',
+            success: true,
+            files: files
+          });
+        })
+        .catch((err) => {
+          this.sendInterconnectResponse({
+            action: 'list_res',
+            success: false,
+            error: err.message
+          });
+        });
+    } else if (action === 'get') {
+      jsManager.getjs(name)
+        .then((text) => {
+          this.sendInterconnectResponse({
+            action: 'get_res',
+            success: true,
+            name: name,
+            content: text
+          });
+        })
+        .catch((err) => {
+          this.sendInterconnectResponse({
+            action: 'get_res',
+            success: false,
+            name: name,
+            error: err.message
+          });
+        });
+    } else if (action === 'save') {
+      jsManager.savejs(name, content)
+        .then(() => {
+          this.sendInterconnectResponse({
+            action: 'save_res',
+            success: true,
+            name: name
+          });
+          this.notifyFileChange();
+        })
+        .catch((err) => {
+          this.sendInterconnectResponse({
+            action: 'save_res',
+            success: false,
+            name: name,
+            error: err.message
+          });
+        });
+    } else if (action === 'delete') {
+      jsManager.deletejs(name)
+        .then(() => {
+          this.sendInterconnectResponse({
+            action: 'delete_res',
+            success: true,
+            name: name
+          });
+          this.notifyFileChange();
+        })
+        .catch((err) => {
+          this.sendInterconnectResponse({
+            action: 'delete_res',
+            success: false,
+            name: name,
+            error: err.message
+          });
+        });
+    } else {
+      console.warn('Unknown interconnect action:', action);
+    }
+  },
+
+  sendInterconnectResponse(data) {
+    if (this.conn) {
+      this.conn.send({
+        data: data,
+        success: () => {
+          console.log('Sent response successfully:', data.action);
+        },
+        fail: (errData, code) => {
+          console.error('Failed to send response:', code, errData);
+        }
+      });
+    }
+  },
+
+  notifyFileChange() {
+    if (typeof this.onFileChange === 'function') {
+      try {
+        this.onFileChange();
+      } catch (e) {
+        console.error('Failed to call onFileChange:', e);
+      }
+    }
   },
 
   currentDialog: null,

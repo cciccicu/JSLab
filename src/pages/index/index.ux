@@ -79,10 +79,18 @@ export default {
     if (this.deleteTimer) {
       clearTimeout(this.deleteTimer);
     }
+    this.$app.$def.onFileChange = null;
   },
 
   onShow() {
     this.loadFileList();
+    this.$app.$def.onFileChange = () => {
+      this.loadFileList();
+    };
+  },
+
+  onHide() {
+    this.$app.$def.onFileChange = null;
   },
 
   loadFileList() {
