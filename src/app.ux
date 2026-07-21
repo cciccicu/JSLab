@@ -1,55 +1,45 @@
-<!-- app.ux -->
 <script>
-import app from '@system.app';
-import router from '@system.router';
+import { push } from './utils/routeManager.js';
 
-import jsManager from './utils/jsManager.js';
+const DIALOG_ROUTES = {
+  confirm: 'confirm',
+  select: 'select',
+  number: 'numberInput'
+};
 
 export default {
-  onCreate() {
-    console.log('app created');
+  dialog: null,
+  editor: {
+    name: '',
+    code: '',
+    before: '',
+    after: ''
   },
 
-  onDestroy() {
-    console.log('app destroyed');
+  openDialog(type, options) {
+    const route = DIALOG_ROUTES[type];
+    if (!route) {
+      console.error('Unknown dialog type:', type);
+      return;
+    }
+
+    this.dialog = Object.assign({ type }, options);
+    push(route);
   },
 
-  currentDialog: null,
-
-  showConfirmDialog(title, message, callbacks) {
-    this.currentDialog = {
-      type: 'confirm',
-      title,
-      message,
-      callbacks
-    };
-    router.push({ uri: '/pages/confirm' });
-  },
-  showSelectDialog(title, message, options, callbacks) {
-    this.currentDialog = {
-      type: 'select',
-      title,
-      message,
-      options,
-      callbacks
-    };
-    router.push({ uri: '/pages/select' });
-  },
-  showNumberInputDialog(title, message, callbacks) {
-    this.currentDialog = {
-      type: 'number',
-      title,
-      message,
-      callbacks
-    };
-    router.push({ uri: '/pages/number-input' });
+  closeDialog() {
+    this.dialog = null;
   },
 
-  // === 全局共享状态（不要删除！）===
-  jsName: "",
-  jsCode: "",
-  codeBefore: "",
-  codeAfter: "",
-}
+  openEditor(name, code, mode) {
+    this.editor.name = name;
+    this.editor.code = mode === 'run' ? code : '';
+    this.editor.before = '';
+    this.editor.after = mode === 'run' ? '' : code;
+  },
 
+  updateEditorCode(code) {
+    this.editor.code = code;
+  }
+};
 </script>

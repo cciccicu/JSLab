@@ -2,7 +2,7 @@
 	<div class="page" style="flex-direction: column;">
 	  <scroll class="scroll" scroll-y="true" bounces="true"
 		style="position:absolute;left:0px;height: 100%;width:100%;flex-direction: column;padding: 86px 6px 36px;">
-  
+
 		<!-- 字号设置 -->
 		<div class="item" @click="setFontsize">
 		  <div class="item-content">
@@ -64,125 +64,101 @@
   </template>
   
   <script>
-  import router from '@system.router';
-  import app from '@system.app';
-  import prompt from '@system.prompt';
-  import vibrator from '@system.vibrator';
   import configManager from '../../utils/configManager.js';
-  
+  import { back, push } from '../../utils/routeManager.js';
+  import { showToast, vibrate } from '../../utils/uiFeedback.js';
+  import { getCurrentClock } from '../../utils/time.js';
+
+  const MIN_FONT_SIZE = 10;
+  const MAX_FONT_SIZE = 32;
+  const DEFAULT_FONT_SIZE = 16;
+
+  function normalizeFontSize(value, fallback) {
+	const parsed = Number(value);
+	if (isNaN(parsed)) return fallback;
+	return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(parsed)));
+  }
+
   export default {
 	private: {
-	  nowTime: "00:00",
+	  nowTime: '00:00',
 	  timer: null,
 	  currentFontSize: 16,
 	  currentFontFamily: 'UbuntuMono'
 	},
-	protected: {
-	  cPath: '',
-	  name: ''
-	},
-  
+
 	updateTime() {
-	  const date = new Date();
-	  let hours = date.getHours();
-	  let minutes = date.getMinutes();
-	  hours = hours < 10 ? '0' + hours : hours;
-	  minutes = minutes < 10 ? '0' + minutes : minutes;
-	  this.nowTime = `${hours}:${minutes}`;
+	  this.nowTime = getCurrentClock();
 	},
-  
+
 	onInit() {
 	  this.updateTime();
 	  this.timer = setInterval(() => this.updateTime(), 1000);
-  
-	  // 正确使用回调风格的 get 方法
-	  configManager.get('editor.font.size', 16, (error, value) => {
-		if (error) {
-		  console.error('Failed to get font size:', error);
-		} else {
-		  this.currentFontSize = value;
-		}
-	  });
-	  
-	  configManager.get('editor.font.family', 'UbuntuMono', (error, value) => {
-		if (error) {
-		  console.error('Failed to get font family:', error);
-		} else {
-		  this.currentFontFamily = value;
-		}
-	  });
+
+	  configManager.get('editor.font.size', DEFAULT_FONT_SIZE)
+		.then((value) => { this.currentFontSize = normalizeFontSize(value, DEFAULT_FONT_SIZE); })
+		.catch((error) => console.error('Failed to load font size:', error));
+	  configManager.get('editor.font.family', 'UbuntuMono')
+		.then((value) => { this.currentFontFamily = value; })
+		.catch((error) => console.error('Failed to load font family:', error));
 	},
-  
+
 	onDestroy() {
-	  clearInterval(this.timer);
+	  if (this.timer) clearInterval(this.timer);
 	},
-  
+
 	setFontsize() {
-	  this.$app.$def.showNumberInputDialog(
-		'设置字号',
-		'请输入编辑器字号（10-32）',
-		{
-		  onCancel: () => {},
-		  onConfirm: (num) => {
-			const size = Math.min(32, Math.max(10, num || 16));
-			this.currentFontSize = size;
-			// 正确使用回调风格的 set 方法
-			configManager.set('editor.font.size', size, (error, success) => {
-			  if (error) {
-				console.error('Failed to set font size:', error);
-				this.toast('设置字号失败');
-			  } else {
-				this.toast(`字号已设为 ${size}px`);
-			  }
-			});
-		  }
-		}
-	  );
+	  this.$app.$def.openDialog('number', {
+		title: '设置字号',
+		message: '请输入编辑器字号（10-32）',
+		initialValue: this.currentFontSize,
+		callbacks: { onConfirm: (value) => this.saveFontSize(value) }
+	  });
+	},
+
+	saveFontSize(value) {
+	  const size = normalizeFontSize(value, this.currentFontSize);
+	  this.currentFontSize = size;
+	  configManager.set('editor.font.size', size)
+		.then(() => showToast('字号已设为 ' + size + 'px'))
+		.catch((error) => {
+		  console.error('Failed to save font size:', error);
+		  showToast('设置字号失败');
+		});
 	},
 
 	setFontfamily() {
-	  vibrator.vibrate({
-        mode: 'short'
-      });
-	  this.$app.$def.showSelectDialog(
-		'选择字体',
-		'请选择编辑器字体',
-		['UbuntuMono', 'SarasaTermSCNerd'],
-		{
-		  onCancel: () => {},
-		  onSelect: (value) => {
-			this.currentFontFamily = value;
-			// 正确使用回调风格的 set 方法
-			configManager.set('editor.font.family', value, (error, success) => {
-			  if (error) {
-				console.error('Failed to set font family:', error);
-				this.toast('设置字体失败');
-			  } else {
-				const displayName = value === 'UbuntuMono' ? 'Ubuntu Mono' : 'Sarasa Term SC';
-				this.toast(`字体已切换为 ${displayName}`);
-			  }
-			});
-		  }
-		}
-	  );
+	  vibrate('short');
+	  this.$app.$def.openDialog('select', {
+		title: '选择字体',
+		message: '请选择编辑器字体',
+		options: ['UbuntuMono', 'SarasaTermSCNerd'],
+		callbacks: { onSelect: (value) => this.saveFontFamily(value) }
+	  });
 	},
-  
-	routerTo(url) {
-	  vibrator.vibrate({ mode: 'short' });
-	  router.push({ uri: '/pages/' + url });
+
+	saveFontFamily(value) {
+	  this.currentFontFamily = value;
+	  configManager.set('editor.font.family', value)
+		.then(() => showToast('字体已切换为 ' + (value === 'UbuntuMono' ? 'Ubuntu Mono' : 'Sarasa Term SC')))
+		.catch((error) => {
+		  console.error('Failed to save font family:', error);
+		  showToast('设置字体失败');
+		});
 	},
-  
+
+	routerTo(route) {
+	  vibrate('short');
+	  push(route);
+	},
+
 	back() {
-	  vibrator.vibrate({ mode: 'short' });
-	  router.back();
+	  vibrate('short');
+	  back();
 	},
-  
-	exit() {
-	  app.terminate();
-	},
-  
+
 	toast(message) {
-	  prompt.showToast({ message });
+	  showToast(message);
 	}
   };
   </script>

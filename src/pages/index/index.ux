@@ -32,12 +32,11 @@
 </template>
 
 <script>
-import router from '@system.router';
 import app from '@system.app';
-import prompt from '@system.prompt';
-import vibrator from '@system.vibrator';
-import configManager from '../../utils/configManager.js';
 import jsManager from '../../utils/jsManager.js';
+import { push } from '../../utils/routeManager.js';
+import { showToast, vibrate } from '../../utils/uiFeedback.js';
+import { getCurrentClock } from '../../utils/time.js';
 
 export default {
   private: {
@@ -52,19 +51,12 @@ export default {
   },
 
   exit() {
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     app.terminate();
   },
 
   updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-    this.nowTime = `${hours}:${minutes}`;
+    this.nowTime = getCurrentClock();
   },
 
   onInit() {
@@ -86,21 +78,19 @@ export default {
   },
 
   loadFileList() {
-    jsManager.listjs().then(fileList => {
+    jsManager.list().then(fileList => {
       this.fileList = fileList;
       this.selectedFileIndex = -1;
       // 重置删除状态（文件列表刷新后不应保留旧操作）
       this.resetDeleteClick();
     }).catch(error => {
       console.error("获取文件列表失败:", error);
-      prompt.showToast({ message: "获取文件列表失败" });
+      showToast('获取文件列表失败');
     });
   },
 
   selectFile(index) {
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     if (this.selectedFileIndex === index) {
       this.selectedFileIndex = -1;
     } else {
@@ -111,78 +101,64 @@ export default {
   },
 
   routerTo(page) {
-    vibrator.vibrate({
-      mode: 'short'
-    });
-    router.push({ uri: `/pages/${page}` });
+    vibrate('short');
+    push(page);
   },
 
   runcode() {
     // 在这里直接使用震动API
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
-      prompt.showToast({ message: "请先选择一个文件" });
+      showToast('请先选择一个文件');
       return;
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
-    jsManager.getjs(fileName)
+    jsManager.read(fileName)
       .then(content => {
-        this.$app.$def.jsName = fileName;
-        this.$app.$def.jsCode = content;
-        // 直接调用router.push，不使用this.routerTo
-        router.push({ uri: `/pages/run` });
+        this.$app.$def.openEditor(fileName, content, 'run');
+        push('run');
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
         if (error.message.includes('301')) {
-          prompt.showToast({ message: `文件 ${fileName} 不存在` });
+          showToast(`文件 ${fileName} 不存在`);
         } else {
-          prompt.showToast({ message: `读取文件失败: ${error.message}` });
+          showToast(`读取文件失败: ${error.message}`);
         }
       });
   },
 
   editcode() {
     // 在这里直接使用震动API
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
-      prompt.showToast({ message: "请先选择一个文件" });
+      showToast('请先选择一个文件');
       return;
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
-    jsManager.getjs(fileName)
+    jsManager.read(fileName)
       .then(content => {
-        this.$app.$def.jsName = fileName;
-        this.$app.$def.jsCode = content;
-        this.$app.$def.codeBefore = content;
-        this.$app.$def.codeAfter = "";
-        // 直接调用router.push，不使用this.routerTo
-        router.push({ uri: `/pages/edit` });
+        this.$app.$def.openEditor(fileName, content, 'edit');
+        push('edit');
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
         if (error.message.includes('301')) {
-          prompt.showToast({ message: `文件 ${fileName} 不存在` });
+          showToast(`文件 ${fileName} 不存在`);
         } else {
-          prompt.showToast({ message: `读取文件失败: ${error.message}` });
+          showToast(`读取文件失败: ${error.message}`);
         }
       });
   },
 
   handleDeleteClick() {
     // 在这里直接使用震动API
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
-      prompt.showToast({ message: "请先选择一个文件" });
+      showToast('请先选择一个文件');
       return;
     }
 
@@ -190,26 +166,26 @@ export default {
     this.deleteClickCount++;
 
     if (this.deleteClickCount === 1) {
-      prompt.showToast({ message: "再点两次确认删除", duration: 500 });
+      showToast('再点两次确认删除', 500);
       this.deleteTimer = setTimeout(() => {
         this.resetDeleteClick();
       }, 3000);
     } else if (this.deleteClickCount === 2) {
-      prompt.showToast({ message: "再点一次确认删除", duration: 500 });
+      showToast('再点一次确认删除', 500);
       // 不重置计时器，沿用第一次的3秒窗口
     } else if (this.deleteClickCount === 3) {
       // 清除定时器并执行删除
       clearTimeout(this.deleteTimer);
       this.deleteTimer = null;
 
-      jsManager.deletejs(fileName)
+      jsManager.remove(fileName)
         .then(() => {
-          prompt.showToast({ message: `文件 ${fileName} 已删除`, duration: 500 });
+          showToast(`文件 ${fileName} 已删除`, 500);
           return this.loadFileList();
         })
         .catch(error => {
           console.error(`删除文件 ${fileName} 失败:`, error.message);
-          prompt.showToast({ message: `删除失败: ${error.message}` });
+          showToast(`删除失败: ${error.message}`);
         })
         .finally(() => {
           this.resetDeleteClick();

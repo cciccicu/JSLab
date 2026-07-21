@@ -3,6 +3,7 @@ build
 dist
 sign
 VelaDocs
+src.bac/
 
 .DS_Store
 Thumbs.db

@@ -47,11 +47,10 @@
 </template>
   
 <script>
-  import router from '@system.router'
   import app from '@system.app' 
-  import vibrator from '@system.vibrator' // ← 新增这一行
-  import configManager from '../../utils/configManager.js';
-  import jsManager from '../../utils/jsManager.js';
+  import { back as navigateBack } from '../../utils/routeManager.js';
+  import { vibrate } from '../../utils/uiFeedback.js';
+  import { getCurrentClock } from '../../utils/time.js';
 
   
   export default {
@@ -64,10 +63,7 @@
 	},
 	onInit() {
     this.updateTime();
-		const that = this;
-    this.timer = setInterval(function(){
-      that.updateTime();
-    }, 60000);
+		this.timer = setInterval(() => this.updateTime(), 60000);
     this.appName=app.getInfo().name;
     this.appVer=app.getInfo().versionName;
 	},
@@ -75,24 +71,14 @@
 	  this.updateTime();
   },
   onDestroy(){
-	  clearInterval(this.timer);
+	  if (this.timer) clearInterval(this.timer);
   },
 	back(){
-    vibrator.vibrate({ // ← 新增震动
-      mode: 'short'
-    });
-		router.back();
+		vibrate('short');
+		navigateBack();
 	},
   updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-
-    // 格式化小时和分钟为两位数
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-
-    this.nowTime = `${hours}:${minutes}`;
+    this.nowTime = getCurrentClock();
   }
   
   }

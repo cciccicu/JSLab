@@ -36,10 +36,9 @@
     <!-- 第三方输入法组件 -->
     <input-method
       hide="{{hideInputMethod}}"
-      keyboardtype="{{keyboardType}}"
+      initial-language="en"
       maxlength="5"
       vibratemode="{{vibrateMode}}"
-      screentype="{{screenType}}"
       @delete="onInputMethodDelete"
       @complete="onInputMethodComplete"
     >
@@ -49,13 +48,14 @@
 </template>
 
 <script>
-import router from '@system.router';
 import app from '@system.app';
-import prompt from '@system.prompt';
-import vibrator from '@system.vibrator';
-import device from '@system.device';
-import configManager from '../../utils/configManager.js';
 import jsManager from '../../utils/jsManager.js';
+import { back as navigateBack, push } from '../../utils/routeManager.js';
+import { showToast, vibrate } from '../../utils/uiFeedback.js';
+import { getCurrentClock } from '../../utils/time.js';
+import createLargeFileExample from '../../utils/largeFileExample.js';
+
+const LARGE_FILE_TEMPLATE_INDEX = 5;
 
 export default {
   private: {
@@ -64,14 +64,12 @@ export default {
     
     // 输入法相关
     hideInputMethod: true,
-    keyboardType: "QWERTY",
     vibrateMode: "short",
-    screenType: "rect",
     
     // 文件相关
     fileName: "",
     selectedTemplateIndex: 0,
-    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例', '用户输入示例'],
+    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例', '用户输入示例', '500行性能测试'],
     
     // 模板内容
     templateContents: [
@@ -107,12 +105,7 @@ console.log("等待输入完成...");
   },
   
   updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-    this.nowTime = `${hours}:${minutes}`;
+    this.nowTime = getCurrentClock();
   },
   
   onInit() {
@@ -127,16 +120,12 @@ console.log("等待输入完成...");
   },
   
   back(){
-    vibrator.vibrate({
-      mode: 'short'
-    });
-    router.back();
+    vibrate('short');
+    navigateBack();
   },
   
   changeFocus() {
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     this.hideInputMethod = !this.hideInputMethod;
   },
   
@@ -153,39 +142,32 @@ console.log("等待输入完成...");
   onTemplateChange(e) {
     this.selectedTemplateIndex = e.newSelected;
   },
+  getTemplateContent() {
+    if (this.selectedTemplateIndex === LARGE_FILE_TEMPLATE_INDEX) {
+      return createLargeFileExample(500);
+    }
+    return this.templateContents[this.selectedTemplateIndex];
+  },
   confirmAdd() {
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     if (!this.fileName || this.fileName.trim() === "") {
-      prompt.showToast({
-        message: "请输入文件名"
-      });
+      showToast('请输入文件名');
       return;
     }
     let fileName = this.fileName.trim();
     if (!fileName.endsWith('.js')) {
       fileName += '.js';
     }
-    const templateContent = this.templateContents[this.selectedTemplateIndex];
-    jsManager.savejs(fileName, templateContent)
+    const templateContent = this.getTemplateContent();
+    jsManager.write(fileName, templateContent)
       .then(() => {
-        prompt.showToast({
-          message: `文件 ${fileName} 创建成功`
-        });
-        this.$app.$def.jsName = fileName;
-        this.$app.$def.jsCode = templateContent;
-        this.$app.$def.codeBefore = templateContent;
-        this.$app.$def.codeAfter = "";
-        router.push({
-          uri: '/pages/edit'
-        });
+        showToast(`文件 ${fileName} 创建成功`);
+        this.$app.$def.openEditor(fileName, templateContent);
+        push('edit');
       })
       .catch(error => {
         console.error(`创建文件 ${fileName} 失败:`, error.message);
-        prompt.showToast({
-          message: `创建文件失败: ${error.message}`
-        });
+        showToast(`创建文件失败: ${error.message}`);
       });
   }
 };

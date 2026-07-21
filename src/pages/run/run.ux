@@ -21,10 +21,9 @@
     <!-- 输入法键盘 -->
   <input-method 
     hide="{{inputMethodHide}}"
-    keyboardtype="QWERTY"
+    initial-language="cn"
     maxlength="5"
     vibratemode="short"
-    screentype="rect"
     @complete="onComplete"
     @delete="onDelete"
   >
@@ -66,8 +65,32 @@
   import crypto from '@system.crypto';
   import audio from '@system.audio';
 
-  import configManager from '../../utils/configManager.js';
-  import jsManager from '../../utils/jsManager.js';
+  import { back as navigateBack } from '../../utils/routeManager.js';
+  import { vibrate } from '../../utils/uiFeedback.js';
+  import { getCurrentClock } from '../../utils/time.js';
+
+  const MAX_CONSOLE_CHARACTERS = 6 * 1024;
+  const CONSOLE_FLUSH_DELAY = 80;
+	const MAX_PREVIEW_ITEMS = 20;
+  let consoleBuffer = '';
+  let consoleFlushTimer = null;
+  let consoleOutputTruncated = false;
+
+	function formatConsoleArgument(argument) {
+	  if (typeof argument !== 'object' || argument === null) return String(argument);
+	  try {
+		if (Array.isArray(argument)) {
+		  const preview = argument.slice(0, MAX_PREVIEW_ITEMS);
+		  return JSON.stringify(preview) + (argument.length > MAX_PREVIEW_ITEMS ? ' …(' + argument.length + ' 项)' : '');
+		}
+		const keys = Object.keys(argument);
+		const preview = {};
+		keys.slice(0, MAX_PREVIEW_ITEMS).forEach((key) => { preview[key] = argument[key]; });
+		return JSON.stringify(preview) + (keys.length > MAX_PREVIEW_ITEMS ? ' …(' + keys.length + ' 个字段)' : '');
+	  } catch (error) {
+		return '[object Object]';
+	  }
+	}
 
   export default {
     private: {
@@ -98,39 +121,41 @@
       this.updateTime();
       this.timer = setInterval(() => {
         this.updateTime();
-      }, 1000);
+      }, 60000);
 
       // 初始化 vwindow（只创建一次）
       this.initVWindow();
 
-      this.code = this.$app.$def.jsCode;
+      const editor = this.$app.$def.editor;
+      this.code = editor.code || editor.before + editor.after;
+      editor.code = '';
       this.runCode();
     },
 
     onDestroy() {
       if (this.timer) clearInterval(this.timer);
+	  if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
+	  consoleFlushTimer = null;
+	  consoleBuffer = '';
+	  consoleOutputTruncated = false;
+	  this.code = '';
+	  this.result = '';
+	  this.error = '';
+	  this.inputQueue = [];
+	  this.currentInputCallback = null;
     },
 
     updateTime() {
-      const date = new Date();
-      let hours = date.getHours();
-      let minutes = date.getMinutes();
-      hours = hours < 10 ? '0' + hours : hours;
-      minutes = minutes < 10 ? '0' + minutes : minutes;
-      this.nowTime = `${hours}:${minutes}`;
+      this.nowTime = getCurrentClock();
     },
 
     onBack() {
-      vibrator.vibrate({
-        mode: 'short'
-      });
-      router.back();
+      vibrate('short');
+      navigateBack();
     },
 
     onRerun() {
-      vibrator.vibrate({
-        mode: 'short'
-      });
+      vibrate('short');
       this.runCode();
     },
 
@@ -142,20 +167,12 @@
       // console 实现
       const vconsole = {
         log: (...args) => {
-          const output = args.map(arg => {
-            if (typeof arg === 'object') {
-              try { return JSON.stringify(arg, null, 2); } 
-              catch { return "[object Object]"; }
-            }
-            return String(arg);
-          }).join(' ');
-          this.result = (this.result === "暂无输出") ? '' : this.result;
-          this.result += (this.result ? '\n' : '') + output;
+		  const output = args.map(formatConsoleArgument).join(' ');
+		  this.appendConsoleOutput(output);
         },
         error: (...args) => {
           const output = args.map(String).join(' ');
-          this.result += (this.result ? '\n' : '') + "[ERROR] " + output;
-          this.hasError = true;
+		  this.appendConsoleOutput("[ERROR] " + output);
         }
       };
 
@@ -177,6 +194,29 @@
       };
     },
 
+	appendConsoleOutput(output) {
+	  if (consoleOutputTruncated) return;
+	  const separator = consoleBuffer ? '\n' : '';
+	  const available = MAX_CONSOLE_CHARACTERS - consoleBuffer.length - separator.length;
+	  if (available <= 0 || output.length > available) {
+		consoleBuffer += separator + output.slice(0, Math.max(0, available));
+		consoleBuffer += '\n…输出过多，已截断';
+		consoleOutputTruncated = true;
+	  } else {
+		consoleBuffer += separator + output;
+	  }
+	  if (!consoleFlushTimer) {
+		consoleFlushTimer = setTimeout(() => {
+		  consoleFlushTimer = null;
+		  this.flushConsoleOutput();
+		}, CONSOLE_FLUSH_DELAY);
+	  }
+	},
+
+	flushConsoleOutput() {
+	  this.result = consoleBuffer || '暂无输出';
+	},
+
     processInputQueue() {
       if (this.waitingForInput || this.inputQueue.length === 0) {
         return;
@@ -194,6 +234,10 @@
     },
 
     runCode() {
+	  if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
+	  consoleFlushTimer = null;
+	  consoleBuffer = '';
+	  consoleOutputTruncated = false;
       this.result = "";
       this.error = "";
       this.hasError = false;
@@ -223,14 +267,19 @@
             ${this.code}
         `);
 
-        const startTime = Date.now();
-        setTimeout(() => {userFunction(...Object.values(exposedModules))},0);
-        const endTime = Date.now();
-        this.runTime = endTime - startTime;
-
-        if (!this.result) {
-          this.result = "暂无输出";
-        }
+		setTimeout(() => {
+		  const startTime = Date.now();
+		  try {
+			userFunction(...Object.values(exposedModules));
+		  } catch (error) {
+			this.error = `${error.name}: ${error.message}`;
+			this.hasError = true;
+		  }
+		  this.runTime = Date.now() - startTime;
+		  if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
+		  consoleFlushTimer = null;
+		  this.flushConsoleOutput();
+		}, 0);
       } catch (e) {
         this.result = "";
         this.error = `${e.name}: ${e.message}`;
@@ -252,9 +301,7 @@
 
     // 用户点击确认按钮
     onPromptConfirm() {
-      vibrator.vibrate({
-        mode: 'short'
-      });
+      vibrate('short');
       const finalInput = this.inputBuffer;
 
       // 隐藏区域和键盘

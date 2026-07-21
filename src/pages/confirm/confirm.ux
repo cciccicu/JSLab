@@ -18,7 +18,8 @@
 </template>
 
 <script>
-import router from '@system.router';
+import { back } from '../../utils/routeManager.js';
+import { getDialog, invokeDialogCallback } from '../../utils/dialogState.js';
 
 export default {
   private: {
@@ -31,27 +32,25 @@ export default {
     }
   },
   onInit() {
-    const globalDialog = this.$app.$def.currentDialog;
-    if (globalDialog && globalDialog.type === 'confirm') {
-      this.dialog = globalDialog;
+    const dialog = getDialog(this.$app.$def, 'confirm', null);
+    if (dialog) {
+      this.dialog = dialog;
     } else {
-      console.error('dialog_confirm: Global dialog state is invalid or missing.');
+      console.error('Confirm dialog state is invalid or missing.');
     }
   },
-  onCancel() {
-    this.dialog?.callbacks?.onCancel?.();
-    this.$app.$def.currentDialog = null;
-    router.back();
+  close(callbackName) {
+    invokeDialogCallback(this.$app.$def, this.dialog, callbackName);
+    back();
   },
   onConfirm() {
-    this.dialog?.callbacks?.onConfirm?.();
-    this.$app.$def.currentDialog = null;
-    router.back();
+    this.close('onConfirm');
   },
   onReject() {
-    this.dialog?.callbacks?.onReject?.();
-    this.$app.$def.currentDialog = null;
-    router.back();
+    this.close('onReject');
+  },
+  onCancel() {
+    this.close('onCancel');
   },
   onBackPress() {
     this.onCancel();

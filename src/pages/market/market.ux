@@ -16,12 +16,10 @@
 </template>
 
 <script>
-import router from '@system.router';
 import app from '@system.app';
-import prompt from '@system.prompt';   
-import vibrator from '@system.vibrator';
-import configManager from '../../utils/configManager.js';
-import jsManager from '../../utils/jsManager.js';
+import { back as navigateBack, push } from '../../utils/routeManager.js';
+import { showToast, vibrate } from '../../utils/uiFeedback.js';
+import { getCurrentClock } from '../../utils/time.js';
 
 export default {
   private: {
@@ -32,14 +30,7 @@ export default {
 	  app.terminate();
   },
   updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-
-    this.nowTime = `${hours}:${minutes}`;
+    this.nowTime = getCurrentClock();
   },
   onInit() {
     this.updateTime();
@@ -51,23 +42,15 @@ export default {
 	  clearInterval(this.timer);
   },
   routerTo(page) {
-    router.push({
-      uri: `/pages/${page}`
-    });
+    push(page);
   },
   back(){
-    vibrator.vibrate({
-      mode: 'short'
-    });
-  	router.back();
+    vibrate('short');
+    navigateBack();
   },
   showComingSoon() {
-    vibrator.vibrate({
-      mode: 'short'
-    });
-    prompt.showToast({
-      message: '敬请期待'
-    });
+    vibrate('short');
+    showToast('敬请期待');
   }
 };
 </script>

@@ -1,154 +1,90 @@
 import file from '@system.file';
 
-const CONFIG_FILE_PATH = 'internal://files/config.json';
+const CONFIG_URI = 'internal://files/config.json';
+const FILE_NOT_FOUND = 301;
 
-/**
- * 根据路径获取对象的值
- * @param {Object} obj - 配置对象
- * @param {String} path - 路径，如 "editor.font"
- * @returns {*} - 对应路径的值
- */
-function getValueByPath(obj, path) {
-  const keys = path.split('.');
-  let current = obj;
-  
-  for (const key of keys) {
-    if (current[key] === undefined) {
-      return undefined;
-    }
-    current = current[key];
+function getPathValue(source, path) {
+  const segments = path.split('.');
+  let value = source;
+
+  for (let i = 0; i < segments.length; i++) {
+    if (!value || value[segments[i]] === undefined) return undefined;
+    value = value[segments[i]];
   }
-  
-  return current;
+
+  return value;
 }
 
-/**
- * 根据路径设置对象的值
- * @param {Object} obj - 配置对象
- * @param {String} path - 路径，如 "editor.font"
- * @param {*} value - 要设置的值
- * @returns {Object} - 更新后的配置对象
- */
-function setValueByPath(obj, path, value) {
-  const keys = path.split('.');
-  let current = obj;
-  
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i];
-    if (!current[key]) {
-      current[key] = {};
+function setPathValue(source, path, value) {
+  const segments = path.split('.');
+  let target = source;
+
+  for (let i = 0; i < segments.length - 1; i++) {
+    const segment = segments[i];
+    if (!target[segment] || typeof target[segment] !== 'object') {
+      target[segment] = {};
     }
-    current = current[key];
+    target = target[segment];
   }
-  
-  current[keys[keys.length - 1]] = value;
-  return obj;
+
+  target[segments[segments.length - 1]] = value;
+  return source;
 }
 
-/**
- * 读取配置文件
- * @param {Function} callback - 回调函数 (error, config)
- */
-function readConfig(callback) {
-  file.access({
-    uri: CONFIG_FILE_PATH,
-    success: () => {
-      file.readText({
-        uri: CONFIG_FILE_PATH,
-        success: (data) => {
-          try {
-            const config = JSON.parse(data.text);
-            callback(null, config);
-          } catch (e) {
-            console.error('Invalid config format:', e);
-            callback(null, {});
-          }
-        },
-        fail: (data, code) => {
-          console.error(`Failed to read config: ${data}, code: ${code}`);
-          callback(null, {});
+function readConfig() {
+  return new Promise((resolve, reject) => {
+    file.access({
+      uri: CONFIG_URI,
+      success: () => {
+        file.readText({
+          uri: CONFIG_URI,
+          success: (data) => {
+            try {
+              resolve(JSON.parse(data.text));
+            } catch (error) {
+              console.error('Invalid configuration JSON:', error);
+              resolve({});
+            }
+          },
+          fail: (data, code) => reject(new Error('Failed to read configuration: ' + code))
+        });
+      },
+      fail: (data, code) => {
+        if (code === FILE_NOT_FOUND) {
+          resolve({});
+          return;
         }
-      });
-    },
-    fail: (data, code) => {
-      // 文件不存在（错误码301），返回空对象
-      if (code === 301) {
-        callback(null, {});
-      } else {
-        console.error(`Failed to check config file: ${data}, code: ${code}`);
-        callback(null, {});
+        reject(new Error('Failed to access configuration: ' + code));
       }
-    }
+    });
   });
 }
 
-/**
- * 写入配置文件
- * @param {Object} config - 配置对象
- * @param {Function} callback - 回调函数 (error, success)
- */
-function writeConfig(config, callback) {
-  const content = JSON.stringify(config);
-  
-  file.writeText({
-    uri: CONFIG_FILE_PATH,
-    text: content,
-    success: () => {
-      callback(null, true);
-    },
-    fail: (data, code) => {
-      console.error(`Failed to write config: ${data}, code: ${code}`);
-      callback(new Error(`Failed to write config, code: ${code}`), false);
-    }
+function writeConfig(config) {
+  return new Promise((resolve, reject) => {
+    file.writeText({
+      uri: CONFIG_URI,
+      text: JSON.stringify(config),
+      success: () => resolve(true),
+      fail: (data, code) => reject(new Error('Failed to write configuration: ' + code))
+    });
   });
+}
+
+function readValue(key, defaultValue) {
+  return readConfig()
+    .then((config) => {
+      const value = getPathValue(config, key);
+      return value === undefined ? defaultValue : value;
+    });
+}
+
+function writeValue(key, value) {
+  return readConfig()
+    .then((config) => writeConfig(setPathValue(config, key, value)));
 }
 
 export default {
-  /**
-   * 获取配置值
-   * @param {String} key - 配置键，如 "editor.font"
-   * @param {*} defaultValue - 默认值
-   * @param {Function} callback - 回调函数 (error, value)
-   */
-  get(key, defaultValue, callback) {
-    if (typeof defaultValue === 'function') {
-      callback = defaultValue;
-      defaultValue = null;
-    }
-    
-    readConfig((error, config) => {
-      if (error) {
-        console.error('Error reading config:', error);
-        callback(error, defaultValue);
-        return;
-      }
-      
-      const value = getValueByPath(config, key);
-      callback(null, value !== undefined ? value : defaultValue);
-    });
-  },
-  
-  /**
-   * 设置配置值
-   * @param {String} key - 配置键，如 "editor.font"
-   * @param {*} value - 配置值（支持多种数据类型）
-   * @param {Function} callback - 回调函数 (error, success)
-   */
-  set(key, value, callback) {
-    readConfig((error, config) => {
-      if (error) {
-        console.error('Error reading config:', error);
-        callback(error, false);
-        return;
-      }
-      
-      config = setValueByPath(config, key, value);
-      writeConfig(config, (error, success) => {
-        if (error) {
-          console.error('Error writing config:', error);
-        }
-        callback(error, success);
-      });
-    });
-  }
+  get: readValue,
+  set: writeValue
 };

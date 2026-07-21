@@ -41,8 +41,10 @@
 </template>
 
 <script>
-import router from '@system.router';
-import vibrator from '@system.vibrator';
+import { back } from '../../utils/routeManager.js';
+import { getDialog, invokeDialogCallback } from '../../utils/dialogState.js';
+import { vibrate } from '../../utils/uiFeedback.js';
+import { getCurrentClock } from '../../utils/time.js';
 
 export default {
   private: {
@@ -59,9 +61,9 @@ export default {
   },
 
   onInit() {
-    const globalDialog = this.$app.$def.currentDialog;
-    if (globalDialog && globalDialog.type === 'select' && Array.isArray(globalDialog.options)) {
-      this.dialog = globalDialog;
+    const dialog = getDialog(this.$app.$def, 'select', null);
+    if (dialog && Array.isArray(dialog.options)) {
+      this.dialog = dialog;
     } else {
       console.error('dialog_select: Invalid or missing global dialog');
       this.dialog.options = [];
@@ -81,39 +83,32 @@ export default {
   },
 
   updateTime() {
-    const date = new Date();
-    let hours = date.getHours();
-    let minutes = date.getMinutes();
-    hours = hours < 10 ? '0' + hours : hours;
-    minutes = minutes < 10 ? '0' + minutes : minutes;
-    this.nowTime = `${hours}:${minutes}`;
+    this.nowTime = getCurrentClock();
   },
 
   onCancel() {
-    vibrator.vibrate({ mode: 'short' });
-    this.dialog?.callbacks?.onCancel?.();
-    this.$app.$def.currentDialog = null;
-    router.back();
+    vibrate('short');
+    this.close('onCancel');
   },
 
   onSelect(index) {
-    vibrator.vibrate({
-      mode: 'short'
-    });
+    vibrate('short');
     this.selectedIndex = index;
   },
 
   onConfirm() {
-    vibrator.vibrate({ mode: 'short' });
+    vibrate('short');
     if (this.selectedIndex >= 0 && this.selectedIndex < this.dialog.options.length) {
       const selectedValue = this.dialog.options[this.selectedIndex];
-      this.dialog?.callbacks?.onSelect?.(selectedValue);
+      this.close('onSelect', selectedValue);
     } else {
-      // 未选择时视为取消
-      this.dialog?.callbacks?.onCancel?.();
+      this.close('onCancel');
     }
-    this.$app.$def.currentDialog = null;
-    router.back();
+  },
+
+  close(callbackName, value) {
+    invokeDialogCallback(this.$app.$def, this.dialog, callbackName, value);
+    back();
   },
 
   onBackPress() {
