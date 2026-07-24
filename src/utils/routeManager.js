@@ -8,6 +8,7 @@ const ROUTES = {
   runUi: '/workspace/run-ui',
   newFile: '/workspace/new',
   settings: '/settings',
+  settingsFonts: '/settings/fonts',
   settingsAbout: '/settings/about',
   settingsHelp: '/settings/help',
   toolsMarket: '/tools/market',

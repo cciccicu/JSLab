@@ -1,8 +1,8 @@
 {
   "package": "icu.ccicc.jslab",
   "name": "JSLab",
-  "versionName": "1.7.1",
-  "versionCode": 171,
+  "versionName": "1.7.2",
+  "versionCode": 172,
   "minPlatformVersion": 1000,
   "icon": "/common/logo.png",
   "deviceTypeList": [
@@ -61,6 +61,10 @@
       "pages/setting": {
         "component": "setting",
         "path": "/settings"
+      },
+      "pages/font": {
+        "component": "font",
+        "path": "/settings/fonts"
       },
       "pages/about": {
         "component": "about",

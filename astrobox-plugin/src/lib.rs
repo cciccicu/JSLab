@@ -18,6 +18,8 @@ use astrobox_ng_wit::exports::astrobox::psys_plugin::lifecycle::Guest as Lifecyc
 
 const PACKAGE_NAME: &str = "icu.ccicc.jslab";
 const MAX_SCRIPT_BYTES: usize = 48 * 1024;
+const MAX_FONT_BYTES: usize = 2 * 1024 * 1024;
+const FONT_CHUNK_BYTES: usize = 3 * 1024;
 const WRITE_CHUNK_BYTES: usize = 4096;
 const DISCOVERY_RETRY_PREFIX: &str = "jslab-discovery:";
 const DISCOVERY_RETRY_DELAY_MS: u64 = 2_000;
@@ -37,6 +39,11 @@ enum Pending {
     List,
     FontConfig,
     FontConfigSet,
+    FontList,
+    FontUploadStart { name: String, data: Vec<u8> },
+    FontUploadChunk { transfer_id: String, name: String, data: Vec<u8>, offset: usize, index: usize },
+    FontUploadFinish { name: String },
+    FontDelete { name: String },
     Read {
         name: String,
         content: String,
@@ -73,6 +80,12 @@ struct FontMetrics {
     wide_width_ratio: f64,
 }
 
+#[derive(Clone, Default)]
+struct FontMeta {
+    name: String,
+    size: usize,
+}
+
 impl Default for FontMetrics {
     fn default() -> Self {
         Self {
@@ -91,6 +104,7 @@ struct AppState {
     channel_ready: bool,
     files: Vec<FileMeta>,
     font_metrics: FontMetrics,
+    fonts: Vec<FontMeta>,
     active_page: ActivePage,
     selected_file: Option<String>,
     editor_name: String,
@@ -120,6 +134,7 @@ struct ViewState {
     channel_ready: bool,
     files: Vec<FileMeta>,
     font_metrics: FontMetrics,
+    fonts: Vec<FontMeta>,
     active_page: ActivePage,
     selected_file: Option<String>,
     editor_name: String,
@@ -138,6 +153,7 @@ impl Default for AppState {
             channel_ready: false,
             files: Vec::new(),
             font_metrics: FontMetrics::default(),
+            fonts: Vec::new(),
             active_page: ActivePage::Files,
             selected_file: None,
             editor_name: String::new(),
@@ -180,6 +196,7 @@ fn snapshot() -> ViewState {
         channel_ready: state.channel_ready,
         files: state.files.clone(),
         font_metrics: state.font_metrics.clone(),
+        fonts: state.fonts.clone(),
         active_page: state.active_page,
         selected_file: state.selected_file.clone(),
         editor_name: state.editor_name.clone(),
@@ -376,7 +393,7 @@ fn render(element_id: &str) {
             .bg("#111419")
             .child(label("内置字体", "#7F8998", 13))
             .child(label("Ubuntu Mono", "#DCE2EA", 20))
-            .child(label("字体文件由 JSLab 内置；此页只配置编辑器度量。", "#AEB8C6", 14))
+            .child(label("Ubuntu Mono 用于当前渲染；上传字体会保存到手环字体库。", "#AEB8C6", 14))
             .child(label("当前度量", "#7F8998", 13))
             .child(label(
                 format!(
@@ -399,8 +416,35 @@ fn render(element_id: &str) {
                     .child(button("ASCII", "font-ascii-width", false, view.busy || !connected))
                     .child(button("宽字符", "font-wide-width", false, view.busy || !connected))
                     .child(button("重置", "font-reset", false, view.busy || !connected)),
+            )
+            .child(
+                Element::new(ElementType::Div, None)
+                    .flex()
+                    .flex_direction(FlexDirection::Row)
+                    .gap(6)
+                    .child(label(format!("上传字体 · {}", view.fonts.len()), "#7F8998", 13))
+                    .child(button("上传 TTF/OTF", "font-upload", true, view.busy || !connected))
+                    .child(button("刷新", "font-refresh", false, view.busy || !connected)),
             );
-        root = root.child(font_panel);
+        let mut font_list = Element::new(ElementType::Div, None)
+            .flex()
+            .flex_direction(FlexDirection::Column)
+            .gap(6);
+        if view.fonts.is_empty() {
+            font_list = font_list.child(label("尚未上传字体。上传后会存储在手环字体库。", "#AEB8C6", 14));
+        } else {
+            for (index, font) in view.fonts.iter().enumerate() {
+                font_list = font_list.child(
+                    Element::new(ElementType::Div, None)
+                        .flex()
+                        .flex_direction(FlexDirection::Row)
+                        .gap(8)
+                        .child(label(format!("{} · {}", font.name, format_size(font.size)), "#DCE2EA", 14))
+                        .child(button("删除", format!("font-delete:{index}"), false, view.busy || !connected)),
+                );
+            }
+        }
+        root = root.child(font_panel).child(font_list);
         ui_v3::render(element_id, root);
         return;
     }
@@ -513,6 +557,29 @@ fn valid_script_name(name: &str) -> bool {
         && !name
             .chars()
             .any(|c| c.is_control() || c == '/' || c == '\\')
+}
+
+fn valid_font_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 128
+        && (name.to_ascii_lowercase().ends_with(".ttf") || name.to_ascii_lowercase().ends_with(".otf"))
+        && !name.contains("..")
+        && !name.chars().any(|c| c.is_control() || c == '/' || c == '\\')
+}
+
+fn encode_base64(data: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let a = chunk[0];
+        let b = *chunk.get(1).unwrap_or(&0);
+        let c = *chunk.get(2).unwrap_or(&0);
+        output.push(TABLE[(a >> 2) as usize] as char);
+        output.push(TABLE[(((a & 3) << 4) | (b >> 4)) as usize] as char);
+        output.push(if chunk.len() > 1 { TABLE[(((b & 15) << 2) | (c >> 6)) as usize] as char } else { '=' });
+        output.push(if chunk.len() > 2 { TABLE[(c & 63) as usize] as char } else { '=' });
+    }
+    output
 }
 
 fn next_utf8_chunk(content: &str, offset: usize) -> (&str, usize) {
@@ -843,6 +910,36 @@ async fn request_set_font_config(metrics: FontMetrics) -> Result<(), String> {
     ).await
 }
 
+async fn request_font_list() -> Result<(), String> {
+    let already_pending = with_state(|state| state.pending.values().any(|pending| matches!(pending, Pending::FontList)));
+    if already_pending { return Ok(()); }
+    send_request("fontList", json!({}), Pending::FontList).await
+}
+
+async fn request_font_upload(name: String, data: Vec<u8>, overwrite: bool) -> Result<(), String> {
+    if !valid_font_name(&name) { return Err("字体文件名必须是不含路径的 .ttf 或 .otf".into()); }
+    if data.is_empty() || data.len() > MAX_FONT_BYTES { return Err("字体不能超过 2 MiB".into()); }
+    set_status(format!("正在准备上传 {name}"), true);
+    send_request(
+        "fontUploadStart",
+        json!({ "name": name, "size": data.len(), "overwrite": overwrite }),
+        Pending::FontUploadStart { name, data },
+    ).await
+}
+
+async fn send_next_font_chunk(transfer_id: String, name: String, data: Vec<u8>, offset: usize, index: usize) -> Result<(), String> {
+    if offset >= data.len() {
+        return send_request("fontUploadFinish", json!({ "transferId": transfer_id }), Pending::FontUploadFinish { name }).await;
+    }
+    let end = usize::min(offset + FONT_CHUNK_BYTES, data.len());
+    set_status(format!("正在上传 {} · {} / {}", name, format_size(end), format_size(data.len())), true);
+    send_request(
+        "fontUploadChunk",
+        json!({ "transferId": transfer_id, "index": index, "content": encode_base64(&data[offset..end]) }),
+        Pending::FontUploadChunk { transfer_id, name, data, offset: end, index: index + 1 },
+    ).await
+}
+
 fn parse_font_metrics(result: &Value) -> Result<FontMetrics, String> {
     let profile = result.get("profile").ok_or("字体配置回包缺少 profile")?;
     let value = |name: &str, fallback: f64| profile.get(name).and_then(Value::as_f64).unwrap_or(fallback);
@@ -1015,6 +1112,7 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
             set_status("握手成功，正在读取文件", true);
             request_list().await?;
             request_font_config().await?;
+            request_font_list().await?;
         }
         Pending::List => {
             let files = result
@@ -1076,6 +1174,30 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                 state.busy = !state.pending.is_empty();
             });
             render_current();
+        }
+        Pending::FontList => {
+            let fonts = result.get("fonts").and_then(Value::as_array).cloned().unwrap_or_default()
+                .into_iter().filter_map(|font| Some(FontMeta {
+                    name: font.get("name")?.as_str()?.to_string(),
+                    size: font.get("size").and_then(Value::as_u64).unwrap_or(0) as usize,
+                })).collect();
+            with_state(|state| { state.fonts = fonts; state.status = "已同步字体库".into(); state.error = None; state.busy = !state.pending.is_empty(); });
+            render_current();
+        }
+        Pending::FontUploadStart { name, data } => {
+            let transfer_id = result.get("transferId").and_then(Value::as_str).ok_or("字体上传回包缺少会话 ID")?.to_string();
+            send_next_font_chunk(transfer_id, name, data, 0, 0).await?;
+        }
+        Pending::FontUploadChunk { transfer_id, name, data, offset, index } => {
+            send_next_font_chunk(transfer_id, name, data, offset, index).await?;
+        }
+        Pending::FontUploadFinish { name } => {
+            set_status(format!("已上传 {name}；当前 Vela 运行时不会切换渲染字体"), true);
+            request_font_list().await?;
+        }
+        Pending::FontDelete { name } => {
+            set_status(format!("已删除 {name}"), true);
+            request_font_list().await?;
         }
         Pending::Read { name, mut content } => {
             let chunk = result
@@ -1414,6 +1536,37 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
     }
     if event_id == "font-reset" {
         return request_set_font_config(FontMetrics::default()).await;
+    }
+    if event_id == "font-refresh" {
+        return request_font_list().await;
+    }
+    if event_id == "font-upload" {
+        let picked = dialog::pick_file(
+            &PickConfig { read: true, copy_to: None },
+            &FilterConfig {
+                multiple: false,
+                extensions: vec!["ttf".into(), "otf".into()],
+                default_directory: String::new(),
+                default_file_name: String::new(),
+            },
+        ).await;
+        if picked.name.is_empty() { return Ok(()); }
+        let name = picked.name.rsplit(['/', '\\']).next().unwrap_or(&picked.name).to_string();
+        if !valid_font_name(&name) { return Err("请选择 .ttf 或 .otf 字体文件".into()); }
+        let exists = with_state(|state| state.fonts.iter().any(|font| font.name == name));
+        if exists && !confirm_overwrite(&name).await {
+            set_status("已取消字体上传", false);
+            return Ok(());
+        }
+        return request_font_upload(name, picked.data, exists).await;
+    }
+    if let Some(index) = event_id.strip_prefix("font-delete:").and_then(|value| value.parse::<usize>().ok()) {
+        let name = with_state(|state| state.fonts.get(index).map(|font| font.name.clone()))
+            .ok_or_else(|| "字体列表已变化，请刷新后重试".to_string())?;
+        if confirm_delete(&name, false).await {
+            return send_request("fontDelete", json!({ "name": name.clone() }), Pending::FontDelete { name }).await;
+        }
+        return Ok(());
     }
     if matches!(event_id, "font-line-height" | "font-line-offset" | "font-ascii-width" | "font-wide-width") {
         return edit_font_metric(event_id).await;

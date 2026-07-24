@@ -6,6 +6,7 @@ const PROTOCOL_VERSION = 1;
 const READ_CHUNK_CHARS = 4096;
 const MAX_WRITE_SESSIONS = 2;
 const WRITE_SESSION_TTL_MS = 2 * 60 * 1000;
+const MAX_FONT_WRITE_SESSIONS = 1;
 
 let connection = null;
 let writeSequence = 0;
@@ -13,6 +14,7 @@ let changeUnsubscribe = null;
 let changeNotificationTimer = null;
 let pendingChange = null;
 const writeSessions = {};
+const fontWriteSessions = {};
 
 function log(stage, detail) {
   if (typeof detail === 'undefined') console.log('[JSLab Sync][' + stage + ']');
@@ -104,6 +106,9 @@ function cleanupWriteSessions() {
   Object.keys(writeSessions).forEach((id) => {
     if (now - writeSessions[id].updatedAt > WRITE_SESSION_TTL_MS) delete writeSessions[id];
   });
+  Object.keys(fontWriteSessions).forEach((id) => {
+    if (now - fontWriteSessions[id].updatedAt > WRITE_SESSION_TTL_MS) delete fontWriteSessions[id];
+  });
 }
 
 function beginWrite(payload) {
@@ -164,6 +169,60 @@ function finishWrite(payload) {
   }));
 }
 
+function decodeBase64(value) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  if (typeof value !== 'string' || value.length % 4 !== 0) throw new Error('字体分块编码无效');
+  let output = '';
+  for (let index = 0; index < value.length; index += 4) {
+    const a = chars.indexOf(value.charAt(index));
+    const b = chars.indexOf(value.charAt(index + 1));
+    const cChar = value.charAt(index + 2);
+    const dChar = value.charAt(index + 3);
+    const c = cChar === '=' ? 0 : chars.indexOf(cChar);
+    const d = dChar === '=' ? 0 : chars.indexOf(dChar);
+    if (a < 0 || b < 0 || c < 0 || d < 0 || (cChar === '=' && dChar !== '=')) throw new Error('字体分块编码无效');
+    output += String.fromCharCode((a << 2) | (b >> 4));
+    if (cChar !== '=') output += String.fromCharCode(((b & 15) << 4) | (c >> 2));
+    if (dChar !== '=') output += String.fromCharCode(((c & 3) << 6) | d);
+  }
+  return output;
+}
+
+function beginFontWrite(payload) {
+  cleanupWriteSessions();
+  if (Object.keys(fontWriteSessions).length >= MAX_FONT_WRITE_SESSIONS) return Promise.reject(new Error('当前已有字体上传任务'));
+  if (!payload || Number(payload.size) > fontManager.MAX_FONT_BYTES) return Promise.reject(new Error('字体不能超过 2 MiB'));
+  return fontManager.listFonts().then((fonts) => {
+    if (fonts.some(item => item.name === payload.name) && payload.overwrite !== true) throw new Error('字体已存在，需要确认覆盖');
+    const transferId = 'f' + Date.now() + '-' + (++writeSequence);
+    fontWriteSessions[transferId] = { name: payload.name, chunks: [], bytes: 0, nextIndex: 0, updatedAt: Date.now(), overwrite: payload.overwrite === true };
+    return { transferId };
+  });
+}
+
+function appendFontWriteChunk(payload) {
+  const session = payload && fontWriteSessions[payload.transferId];
+  if (!session || payload.index !== session.nextIndex) return Promise.reject(new Error('字体分块顺序无效'));
+  let chunk;
+  try { chunk = decodeBase64(payload.content); } catch (error) { return Promise.reject(error); }
+  if (session.bytes + chunk.length > fontManager.MAX_FONT_BYTES) {
+    delete fontWriteSessions[payload.transferId];
+    return Promise.reject(new Error('字体不能超过 2 MiB'));
+  }
+  session.chunks.push(chunk);
+  session.bytes += chunk.length;
+  session.nextIndex += 1;
+  session.updatedAt = Date.now();
+  return Promise.resolve({ nextIndex: session.nextIndex, bytes: session.bytes });
+}
+
+function finishFontWrite(payload) {
+  const session = payload && fontWriteSessions[payload.transferId];
+  if (!session) return Promise.reject(new Error('字体上传会话不存在或已过期'));
+  delete fontWriteSessions[payload.transferId];
+  return fontManager.writeFont(session.name, session.chunks.join(''), session.overwrite);
+}
+
 function handleRequest(request) {
   const payload = request.payload || {};
   log('REQUEST_DISPATCH', 'id=' + request.id + ' action=' + request.action);
@@ -174,6 +233,16 @@ function handleRequest(request) {
       return fontManager.getProfile().then(profile => ({ profile }));
     case 'setEditorFontConfig':
       return fontManager.setProfile(payload.profile).then(profile => ({ profile }));
+    case 'fontList':
+      return fontManager.listFonts().then(fonts => ({ fonts }));
+    case 'fontUploadStart':
+      return beginFontWrite(payload);
+    case 'fontUploadChunk':
+      return appendFontWriteChunk(payload);
+    case 'fontUploadFinish':
+      return finishFontWrite(payload);
+    case 'fontDelete':
+      return fontManager.removeFont(payload.name);
     case 'list':
       return jsManager.list().then(files => ({ files }));
     case 'create':
@@ -259,6 +328,7 @@ function start() {
   connection.onclose = (event) => {
     log('CLOSE', 'code=' + String(event && event.code) + ' reason=' + String(event && event.data));
     Object.keys(writeSessions).forEach(id => delete writeSessions[id]);
+    Object.keys(fontWriteSessions).forEach(id => delete fontWriteSessions[id]);
   };
   changeUnsubscribe = jsManager.subscribe(queueFilesChanged);
   if (typeof connection.getReadyState === 'function') {

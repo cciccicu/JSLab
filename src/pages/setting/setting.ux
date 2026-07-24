@@ -13,10 +13,10 @@
 		</div>
   
 		<!-- 编辑器字体 -->
-		<div class="item">
+		<div class="item" @click="routerTo('settingsFonts')">
 		  <div class="item-content">
 			<text class="itemtext">字体</text>
-			<text class="itemtext2">Ubuntu Mono（内置）</text>
+			<text class="itemtext2">Ubuntu Mono 与字体库</text>
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
