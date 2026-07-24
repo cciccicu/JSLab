@@ -70,7 +70,7 @@ export default {
 
 <style>
 .page { width: 336px; height: 480px; background-color: #000000; }
-.content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; }
+.content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; }
 .content-inner { flex-direction: column; flex-shrink: 0; padding: 102px 12px 78px; }
 .section-title { width: 312px; margin-top: 12px; flex-shrink: 0; font-size: 22px; line-height: 30px; font-weight: bold; color: rgba(255,255,255,0.65); }
 .card { width: 312px; margin-top: 8px; padding: 12px; flex-direction: column; flex-shrink: 0; background-color: #262626; border-radius: 12px; }

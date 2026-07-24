@@ -63,7 +63,7 @@ export default {
 <style>
 @font-face { font-family: 'InternalFontExperiment'; src: url('internal://files/fonts/active.ttf') format('ttf'); font-weight: normal; font-style: normal; }
 .page { width: 336px; height: 480px; background-color: #000000; }
-.content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; }
+.content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; }
 .inner { flex-direction: column; flex-shrink: 0; padding: 0px 16px 82px; }
 .top-spacer { height: 106px; flex-shrink: 0; }
 .heading { width: 304px; flex-shrink: 0; font-size: 27px; line-height: 36px; font-weight: bold; color: #ffffff; }
