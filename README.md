@@ -3,15 +3,10 @@
 JSLab is organized as a multi-project wearable workspace. Each deliverable keeps its own build system and dependency boundary.
 
 ```text
-apps/
-  vela-quickapp/                 JSLab Vela JS quick app for Band Pro
-plugins/
-  astrobox-sync/                 AstroBox WASI plugin (.abp)
-  ccicc-jslab-cloud/             Reserved home for the future ccicc.icu plugin
-tooling/
-  ccicc-plugin-development-kit/  ccicc.icu plugin template and packer
-watchfaces/
-  lua-dev-template/              Independent Lua watchface Git workspace
+vela-quickapp/                   JSLab Vela JS quick app for Band Pro
+astrobox-plugin-sync/            AstroBox WASI plugin (.abp)
+ccicc-plugin-cloud/              Future ccicc.icu plugin plus development Kit
+vela-luawatchface/               Independent Lua watchface Git workspace
 docs/
   architecture.md                Ownership, build and delivery map
 ```
@@ -20,12 +15,12 @@ docs/
 
 ```powershell
 # Vela quick app
-cd apps/vela-quickapp
+cd vela-quickapp
 npm run lint
 npm run release
 
 # AstroBox plugin
-cd ../../plugins/astrobox-sync
+cd astrobox-plugin-sync
 ./build.ps1
 ```
 

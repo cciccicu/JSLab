@@ -1,10 +1,10 @@
 {
   "folders": [
-    { "path": "apps/vela-quickapp" },
-    { "path": "plugins/astrobox-sync" },
-    { "path": "plugins/ccicc-jslab-cloud" },
-    { "path": "tooling/ccicc-plugin-development-kit" },
-    { "path": "watchfaces/lua-dev-template" }
+    { "path": "vela-quickapp" },
+    { "path": "astrobox-plugin-sync" },
+    { "path": "ccicc-plugin-cloud" },
+    { "path": "ccicc-plugin-cloud/development-kit" },
+    { "path": "vela-luawatchface" }
   ],
   "settings": {
     "files.exclude": {

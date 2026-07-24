@@ -59,12 +59,12 @@
 
 ## AstroBox 双端同步
 
-同步扩展位于 `../../plugins/astrobox-sync/`，要求 AstroBox API Level 3。它通过 AstroBox Host API 发现在线设备，并以 `icu.ccicc.jslab` 为精确路由包名建立 Interconnect 通信。
+同步扩展位于 `../astrobox-plugin-sync/`，要求 AstroBox API Level 3。它通过 AstroBox Host API 发现在线设备，并以 `icu.ccicc.jslab` 为精确路由包名建立 Interconnect 通信。
 
-扩展不使用 Vela 官方 Android 同步器的包名复用、签名证书或 Android 配对流程。安装新版 JSLab 手环应用和构建出的 `../../plugins/astrobox-sync/JSLab-Sync.abp` 后，在 AstroBox 中授权设备、Interconnect 和接收注册权限即可使用。
+扩展不使用 Vela 官方 Android 同步器的包名复用、签名证书或 Android 配对流程。安装新版 JSLab 手环应用和构建出的 `../astrobox-plugin-sync/JSLab-Sync.abp` 后，在 AstroBox 中授权设备、Interconnect 和接收注册权限即可使用。
 
 ```powershell
-../../plugins/astrobox-sync/build.ps1
+../astrobox-plugin-sync/build.ps1
 ```
 
 文件传输采用确认式分块协议，单个脚本上限与手环端一致，为 48 KiB。手环与扩展端共享文件变更通知，任一端完成新建、保存、重命名或删除后都会自动刷新列表；同名上传必须明确确认覆盖，新建和重命名不会覆盖已有文件。

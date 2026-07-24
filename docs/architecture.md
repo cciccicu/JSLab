@@ -2,10 +2,10 @@
 
 | Project | Purpose | Build output | Device interaction |
 | --- | --- | --- | --- |
-| `apps/vela-quickapp` | JSLab Vela JS app | `.rpk` | AIoT tooling only when explicitly requested |
-| `plugins/astrobox-sync` | AstroBox companion/sync plugin | `.abp` | Host-mediated; no direct Vela app source access |
-| `plugins/ccicc-jslab-cloud` | Planned ccicc.icu cloud plugin | Future `.zip` | Server-side plugin, separate from wearable deployment |
-| `watchfaces/lua-dev-template` | Lua watchface project | `.face` | Its deployment/hot-reload scripts use ADB and require explicit approval |
+| `vela-quickapp` | JSLab Vela JS app | `.rpk` | AIoT tooling only when explicitly requested |
+| `astrobox-plugin-sync` | AstroBox companion/sync plugin | `.abp` | Host-mediated; no direct Vela app source access |
+| `ccicc-plugin-cloud` | Planned ccicc.icu cloud plugin | Future `.zip` | Server-side plugin, separate from wearable deployment |
+| `vela-luawatchface` | Lua watchface project | `.face` | Its deployment/hot-reload scripts use ADB and require explicit approval |
 
 ## Ownership rules
 
@@ -16,4 +16,4 @@
 
 ## Adding the cloud plugin
 
-Copy `tooling/ccicc-plugin-development-kit/example-plugin` to `plugins/ccicc-jslab-cloud`, then set the directory name and `manifest.json.id` to the same lowercase, hyphenated identifier. Keep generated ZIP files in that plugin's ignored `dist/` directory.
+Copy `ccicc-plugin-cloud/development-kit/example-plugin` to the cloud plugin implementation directory, then set the directory name and `manifest.json.id` to the same lowercase, hyphenated identifier. Keep generated ZIP files in that plugin's ignored `dist/` directory.

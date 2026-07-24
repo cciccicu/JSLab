@@ -1,24 +1,25 @@
 # Vela QuickApp
-/apps/vela-quickapp/node_modules/
-/apps/vela-quickapp/build/
-/apps/vela-quickapp/dist/
-/apps/vela-quickapp/sign/
-/apps/vela-quickapp/VelaDocs/
-/apps/vela-quickapp/src.bac/
+/vela-quickapp/node_modules/
+/vela-quickapp/build/
+/vela-quickapp/dist/
+/vela-quickapp/sign/
+/vela-quickapp/VelaDocs/
+/vela-quickapp/src.bac/
 
 # AstroBox plugin
-/plugins/astrobox-sync/target/
-/plugins/astrobox-sync/dist/
-/plugins/astrobox-sync/*.abp
+/astrobox-plugin-sync/target/
+/astrobox-plugin-sync/dist/
+/astrobox-plugin-sync/*.abp
 
 # ccicc.icu development kit and cloud plugin outputs
-/tooling/ccicc-plugin-development-kit/node_modules/
-/tooling/ccicc-plugin-development-kit/dist/
-/plugins/ccicc-jslab-cloud/node_modules/
-/plugins/ccicc-jslab-cloud/dist/
+/ccicc-plugin-cloud/development-kit/node_modules/
+/ccicc-plugin-cloud/development-kit/dist/
+/ccicc-plugin-cloud/node_modules/
+/ccicc-plugin-cloud/dist/
 
 # Lua watchface stays an independent Git working tree.
-/watchfaces/lua-dev-template/
+/vela-luawatchface/
+/watchfaces/
 
 .DS_Store
 Thumbs.db
