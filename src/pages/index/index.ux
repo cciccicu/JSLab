@@ -5,7 +5,7 @@
     <text if="{{fileList.length == 0}}" class="empty-text">啥也没有</text>
   
     <list bounces="true" class="list">
-      <list-item for="{{(index, file) in fileList}}" class="item {{selectedFileIndex === index ? 'item2' : ''}}"
+      <list-item for="{{(index, file) in fileList}}" tid="name" class="item {{selectedFileIndex === index ? 'item2' : ''}}"
         @click="selectFile(index)" type="nook">
         <text class="itemtext">{{file.name}}</text>
         <div class="itemtext" style="justify-content: space-between;width: 100%;">

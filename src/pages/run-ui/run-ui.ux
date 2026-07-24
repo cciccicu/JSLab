@@ -83,26 +83,27 @@ import storage from '@system.storage';
 import file from '@system.file';
 import network from '@system.network';
 import brightness from '@system.brightness';
-import battery from '@system.battery';
 import geolocation from '@system.geolocation';
 import vibrator from '@system.vibrator';
-import event from '@system.event';
 import sensor from '@system.sensor';
-import record from '@system.record';
 import fetch from '@system.fetch';
 import interconnect from '@system.interconnect';
 import uploadtask from '@system.uploadtask';
 import request from '@system.request';
 import prompt from '@system.prompt';
 import crypto from '@system.crypto';
-import audio from '@system.audio';
 
 import { back as navigateBack } from '../../utils/routeManager.js';
 import { vibrate } from '../../utils/uiFeedback.js';
 import { getCurrentClock } from '../../utils/time.js';
+import { getPageElement, loadOptionalSystemModule, scheduleAfterRender } from '../../utils/runtimeCompat.js';
 
 const MAX_UI_NODES = 40;
 const MAX_TEXT_LENGTH = 1024;
+const battery = loadOptionalSystemModule(app, 'system.battery', ['getStatus'], () => require('@system.battery'));
+const event = loadOptionalSystemModule(app, 'system.event', ['publish', 'subscribe', 'unsubscribe'], () => require('@system.event'));
+const record = loadOptionalSystemModule(app, 'system.record', ['start', 'stop'], () => require('@system.record'));
+const audio = loadOptionalSystemModule(app, 'system.audio', ['play', 'pause', 'stop', 'getPlayState'], () => require('@system.audio'));
 
 function clamp(value, min, max, fallback) {
   const number = Number(value);
@@ -382,7 +383,7 @@ export default {
       this.scrollContentHeight = this.layoutHeight;
       this.canScroll = this.layoutHeight > 484;
       this.updateScrollThumb();
-      this.$nextTick(() => this.updateScrollMetrics());
+      this.scheduleAfterRender(() => this.updateScrollMetrics());
     } catch (error) {
       this.showRuntimeError(error);
     }
@@ -441,7 +442,11 @@ export default {
     this.scrollContentHeight = this.layoutHeight;
     this.canScroll = this.layoutHeight > 484;
     this.updateScrollThumb();
-    this.$nextTick(() => this.updateScrollMetrics());
+    this.scheduleAfterRender(() => this.updateScrollMetrics());
+  },
+
+  scheduleAfterRender(callback) {
+    scheduleAfterRender(this, callback);
   },
 
   onUiScroll(eventData) {
@@ -454,7 +459,7 @@ export default {
 
   updateScrollMetrics() {
     if (this.destroyed) return;
-    const element = this.$element('ui-scroll');
+    const element = getPageElement(this, 'ui-scroll');
     if (!element || typeof element.getScrollRect !== 'function') return;
     element.getScrollRect({
       success: (rect) => {
@@ -484,12 +489,12 @@ export default {
 
   requestScroll(position) {
     this.pendingScrollTarget = position;
-    this.$nextTick(() => this.updateScrollMetrics());
+    this.scheduleAfterRender(() => this.updateScrollMetrics());
   },
 
   applyPendingScroll() {
     if (this.pendingScrollTarget === null || this.destroyed) return;
-    const element = this.$element('ui-scroll');
+    const element = getPageElement(this, 'ui-scroll');
     if (!element || typeof element.scrollTo !== 'function') return;
     let top;
     if (this.pendingScrollTarget === 'bottom') {
@@ -537,7 +542,7 @@ export default {
     if (this.destroyed) return;
     this.error = (error && error.name ? error.name + ': ' : '') + (error && error.message ? error.message : String(error));
     this.layoutHeight = Math.max(this.showTopBar ? 590 : 500, this.calculateLayoutHeight(this.uiNodes));
-    this.$nextTick(() => this.updateScrollMetrics());
+    this.scheduleAfterRender(() => this.updateScrollMetrics());
   },
 
   runCode() {
@@ -612,7 +617,6 @@ export default {
   flex-direction: column;
   padding: 102px 12px 24px;
   flex-shrink: 0;
-  box-sizing: border-box;
 }
 
 .node-wrap {
@@ -659,8 +663,6 @@ export default {
 .ui-heading, .ui-text {
   width: 312px;
   margin-bottom: 10px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
   flex-shrink: 0;
 }
 

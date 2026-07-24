@@ -100,7 +100,6 @@ export default {
   color: white;
   font-size: 28px;
   padding: 0 20px;
-  box-sizing: border-box;
 }
 
 .btn-group {
@@ -108,7 +107,6 @@ export default {
   bottom: 20px; /* 距离底部 */
   width: 100%;
   padding: 0 20px;
-  box-sizing: border-box;
   flex-direction: row;
   justify-content: space-between;
 }

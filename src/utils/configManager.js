@@ -2,6 +2,7 @@ import file from '@system.file';
 
 const CONFIG_URI = 'internal://files/config.json';
 const FILE_NOT_FOUND = 301;
+let writeQueue = Promise.resolve();
 
 function getPathValue(source, path) {
   const segments = path.split('.');
@@ -80,8 +81,11 @@ function readValue(key, defaultValue) {
 }
 
 function writeValue(key, value) {
-  return readConfig()
+  const write = () => readConfig()
     .then((config) => writeConfig(setPathValue(config, key, value)));
+  // Serialize read-modify-write cycles so concurrent settings changes do not overwrite each other.
+  writeQueue = writeQueue.catch(() => {}).then(write);
+  return writeQueue;
 }
 
 export default {

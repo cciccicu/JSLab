@@ -1,16 +1,19 @@
 const WIDE_CHARACTER = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/;
 
-export function getLineHeight(fontFamily, fontSize) {
-  return fontFamily === 'SarasaTermSCNerd'
-    ? fontSize * 1.5543 + 0.4022
-    : fontSize;
+export function getLineHeight(fontProfile, fontSize) {
+  const profile = fontProfile || {};
+  return fontSize * (Number(profile.lineHeightRatio) || 1) + (Number(profile.lineHeightOffset) || 0);
 }
 
-export function getCharacterWidth(character, fontSize) {
-  return WIDE_CHARACTER.test(character) ? fontSize : fontSize * 0.5;
+export function getCharacterWidth(character, fontProfile, fontSize) {
+  const profile = fontProfile || {};
+  const ratio = WIDE_CHARACTER.test(character)
+    ? (Number(profile.wideWidthRatio) || 1)
+    : (Number(profile.asciiWidthRatio) || 0.5);
+  return fontSize * ratio;
 }
 
-export function getTextWidth(text, fontSize) {
+export function getTextWidth(text, fontProfile, fontSize) {
   const source = String(text || '');
   let maxWidth = 0;
   let lineWidth = 0;
@@ -19,14 +22,14 @@ export function getTextWidth(text, fontSize) {
       if (lineWidth > maxWidth) maxWidth = lineWidth;
       lineWidth = 0;
     } else {
-      lineWidth += getCharacterWidth(source[index], fontSize);
+      lineWidth += getCharacterWidth(source[index], fontProfile, fontSize);
     }
   }
   if (lineWidth > maxWidth) maxWidth = lineWidth;
   return Math.ceil(maxWidth);
 }
 
-export function getCursorPosition(before, fontFamily, fontSize) {
+export function getCursorPosition(before, fontProfile, fontSize) {
   const source = String(before || '');
   const lineStart = source.lastIndexOf('\n') + 1;
   let line = 0;
@@ -36,10 +39,10 @@ export function getCursorPosition(before, fontFamily, fontSize) {
     if (source.charCodeAt(index) === 10) line += 1;
   }
   for (let index = lineStart; index < source.length; index += 1) {
-    x += getCharacterWidth(source[index], fontSize);
+    x += getCharacterWidth(source[index], fontProfile, fontSize);
   }
 
-  const height = getLineHeight(fontFamily, fontSize);
+  const height = getLineHeight(fontProfile, fontSize);
   return { x, y: line * height, line, height };
 }
 
@@ -56,16 +59,16 @@ function findLineBounds(text, targetLine) {
   return { start, end: newline === -1 ? text.length : newline };
 }
 
-export function moveCursorToPoint(text, x, y, fontFamily, fontSize) {
+export function moveCursorToPoint(text, x, y, fontProfile, fontSize) {
   const source = String(text || '');
-  const lineHeight = getLineHeight(fontFamily, fontSize);
+  const lineHeight = getLineHeight(fontProfile, fontSize);
   const targetLine = Math.max(0, Math.floor(y / lineHeight));
   const bounds = findLineBounds(source, targetLine);
   let lineWidth = 0;
   let offset = bounds.start;
 
   while (offset < bounds.end) {
-    const characterWidth = getCharacterWidth(source[offset], fontSize);
+    const characterWidth = getCharacterWidth(source[offset], fontProfile, fontSize);
     if (lineWidth + characterWidth / 2 > x) break;
     lineWidth += characterWidth;
     offset += 1;

@@ -29,6 +29,8 @@ struct Plugin;
 enum Pending {
     Hello,
     List,
+    FontConfig,
+    FontConfigSet,
     Read {
         name: String,
         content: String,
@@ -57,12 +59,32 @@ enum Pending {
     },
 }
 
+#[derive(Clone)]
+struct FontMetrics {
+    line_height_ratio: f64,
+    line_height_offset: f64,
+    ascii_width_ratio: f64,
+    wide_width_ratio: f64,
+}
+
+impl Default for FontMetrics {
+    fn default() -> Self {
+        Self {
+            line_height_ratio: 1.0,
+            line_height_offset: 0.0,
+            ascii_width_ratio: 0.5,
+            wide_width_ratio: 1.0,
+        }
+    }
+}
+
 struct AppState {
     element_id: Option<String>,
     devices: Vec<DeviceInfo>,
     selected_device: Option<String>,
     channel_ready: bool,
     files: Vec<FileMeta>,
+    font_metrics: FontMetrics,
     selected_file: Option<String>,
     editor_name: String,
     editor_text: String,
@@ -90,6 +112,7 @@ struct ViewState {
     selected_device: Option<String>,
     channel_ready: bool,
     files: Vec<FileMeta>,
+    font_metrics: FontMetrics,
     selected_file: Option<String>,
     editor_name: String,
     editor_text: String,
@@ -106,6 +129,7 @@ impl Default for AppState {
             selected_device: None,
             channel_ready: false,
             files: Vec::new(),
+            font_metrics: FontMetrics::default(),
             selected_file: None,
             editor_name: String::new(),
             editor_text: String::new(),
@@ -146,6 +170,7 @@ fn snapshot() -> ViewState {
         selected_device: state.selected_device.clone(),
         channel_ready: state.channel_ready,
         files: state.files.clone(),
+        font_metrics: state.font_metrics.clone(),
         selected_file: state.selected_file.clone(),
         editor_name: state.editor_name.clone(),
         editor_text: state.editor_text.clone(),
@@ -322,6 +347,39 @@ fn render(element_id: &str) {
                 .text_color("#FFC2C2"),
         );
     }
+
+    let metrics = &view.font_metrics;
+    let font_panel = Element::new(ElementType::Div, None)
+        .flex()
+        .flex_direction(FlexDirection::Column)
+        .gap(8)
+        .padding(10)
+        .radius(6)
+        .bg("#111419")
+        .child(label("编辑器字体 · Ubuntu Mono", "#DCE2EA", 17))
+        .child(label(
+            format!(
+                "行高 {:.3}x  偏移 {:.1}px  ASCII {:.3}x  宽字符 {:.3}x",
+                metrics.line_height_ratio,
+                metrics.line_height_offset,
+                metrics.ascii_width_ratio,
+                metrics.wide_width_ratio
+            ),
+            "#AEB8C6",
+            13,
+        ))
+        .child(
+            Element::new(ElementType::Div, None)
+                .flex()
+                .flex_direction(FlexDirection::Row)
+                .gap(6)
+                .child(button("行高", "font-line-height", false, view.busy || !connected))
+                .child(button("偏移", "font-line-offset", false, view.busy || !connected))
+                .child(button("ASCII", "font-ascii-width", false, view.busy || !connected))
+                .child(button("宽字符", "font-wide-width", false, view.busy || !connected))
+                .child(button("重置", "font-reset", false, view.busy || !connected)),
+        );
+    root = root.child(font_panel);
 
     if !editor_open {
         let list_toolbar = Element::new(ElementType::Div, None)
@@ -735,6 +793,43 @@ async fn request_list() -> Result<(), String> {
     send_request("list", json!({}), Pending::List).await
 }
 
+async fn request_font_config() -> Result<(), String> {
+    let already_pending = with_state(|state| {
+        state.pending.values().any(|pending| matches!(pending, Pending::FontConfig))
+    });
+    if already_pending {
+        return Ok(());
+    }
+    send_request("getEditorFontConfig", json!({}), Pending::FontConfig).await
+}
+
+async fn request_set_font_config(metrics: FontMetrics) -> Result<(), String> {
+    set_status("正在保存编辑器度量", true);
+    send_request(
+        "setEditorFontConfig",
+        json!({
+            "profile": {
+                "lineHeightRatio": metrics.line_height_ratio,
+                "lineHeightOffset": metrics.line_height_offset,
+                "asciiWidthRatio": metrics.ascii_width_ratio,
+                "wideWidthRatio": metrics.wide_width_ratio,
+            }
+        }),
+        Pending::FontConfigSet,
+    ).await
+}
+
+fn parse_font_metrics(result: &Value) -> Result<FontMetrics, String> {
+    let profile = result.get("profile").ok_or("字体配置回包缺少 profile")?;
+    let value = |name: &str, fallback: f64| profile.get(name).and_then(Value::as_f64).unwrap_or(fallback);
+    Ok(FontMetrics {
+        line_height_ratio: value("lineHeightRatio", 1.0),
+        line_height_offset: value("lineHeightOffset", 0.0),
+        ascii_width_ratio: value("asciiWidthRatio", 0.5),
+        wide_width_ratio: value("wideWidthRatio", 1.0),
+    })
+}
+
 async fn request_read(name: String) -> Result<(), String> {
     set_status(format!("正在读取 {name}"), true);
     send_request(
@@ -895,6 +990,7 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
             }
             set_status("握手成功，正在读取文件", true);
             request_list().await?;
+            request_font_config().await?;
         }
         Pending::List => {
             let files = result
@@ -938,6 +1034,20 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                     state.editor_dirty = false;
                 }
                 state.status = format!("已同步 {} 个文件", state.files.len());
+                state.error = None;
+                state.busy = !state.pending.is_empty();
+            });
+            render_current();
+        }
+        Pending::FontConfig | Pending::FontConfigSet => {
+            let metrics = parse_font_metrics(&result)?;
+            with_state(|state| {
+                state.font_metrics = metrics;
+                state.status = if matches!(pending, Pending::FontConfigSet) {
+                    "编辑器度量已保存".into()
+                } else {
+                    "已同步编辑器字体配置".into()
+                };
                 state.error = None;
                 state.busy = !state.pending.is_empty();
             });
@@ -1187,6 +1297,38 @@ async fn confirm_overwrite(name: &str) -> bool {
     result.clicked_btn_id == "overwrite"
 }
 
+fn parse_metric_input(value: &str, label: &str, minimum: f64, maximum: f64) -> Result<f64, String> {
+    let parsed = value.parse::<f64>().map_err(|_| format!("{label} 必须是数字"))?;
+    if !parsed.is_finite() || parsed < minimum || parsed > maximum {
+        return Err(format!("{label} 必须在 {minimum} 到 {maximum} 之间"));
+    }
+    Ok(parsed)
+}
+
+async fn edit_font_metric(event_id: &str) -> Result<(), String> {
+    let current = with_state(|state| state.font_metrics.clone());
+    let (title, content, minimum, maximum, current_value) = match event_id {
+        "font-line-height" => ("设置行高倍率", "输入 0.8 到 2.5，例如 1.2", 0.8, 2.5, current.line_height_ratio),
+        "font-line-offset" => ("设置行高偏移", "输入 -8 到 12（px）", -8.0, 12.0, current.line_height_offset),
+        "font-ascii-width" => ("设置 ASCII 字宽", "输入 0.3 到 1.2，例如 0.5", 0.3, 1.2, current.ascii_width_ratio),
+        "font-wide-width" => ("设置宽字符字宽", "输入 0.5 到 2.5，例如 1", 0.5, 2.5, current.wide_width_ratio),
+        _ => return Ok(()),
+    };
+    let Some(input) = prompt_text(title, &format!("{content}\n当前值：{current_value}")) .await else {
+        return Ok(());
+    };
+    let value = parse_metric_input(&input, title, minimum, maximum)?;
+    let mut next = current;
+    match event_id {
+        "font-line-height" => next.line_height_ratio = value,
+        "font-line-offset" => next.line_height_offset = value,
+        "font-ascii-width" => next.ascii_width_ratio = value,
+        "font-wide-width" => next.wide_width_ratio = value,
+        _ => {}
+    }
+    request_set_font_config(next).await
+}
+
 async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
     if event_id == "editor-input" {
         let value = input_value(payload);
@@ -1235,6 +1377,12 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
     }
     if event_id == "files-refresh" {
         return request_list().await;
+    }
+    if event_id == "font-reset" {
+        return request_set_font_config(FontMetrics::default()).await;
+    }
+    if matches!(event_id, "font-line-height" | "font-line-offset" | "font-ascii-width" | "font-wide-width") {
+        return edit_font_metric(event_id).await;
     }
     if event_id == "editor-close" {
         let (name, dirty) = with_state(|state| (state.editor_name.clone(), state.editor_dirty));

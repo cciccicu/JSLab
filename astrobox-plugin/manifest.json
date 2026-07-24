@@ -1,8 +1,8 @@
 {
   "name": "JSLab Sync",
   "icon": "icon.png",
-  "version": "1.2.0",
-  "description": "通过 AstroBox 在电脑与 JSLab 手环应用之间管理 JavaScript 文件",
+  "version": "1.3.0",
+  "description": "通过 AstroBox 管理 JSLab 脚本与编辑器字体度量",
   "author": "ccicc",
   "website": "https://ccicc.icu",
   "entry": "jslab_sync.wasm",

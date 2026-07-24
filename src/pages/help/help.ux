@@ -2,7 +2,7 @@
   <div class="page">
     <scroll class="scroll" scroll-y="true" bounces="true">
       <div class="content">
-        <div if="{{viewMode === 'directory'}}">
+        <div if="{{viewMode === 'directory'}}" class="directory-view">
           <div class="directory-intro">
             <text class="directory-title">{{directoryTitle}}</text>
             <text class="directory-summary">{{directorySummary}}</text>
@@ -137,19 +137,20 @@ export default {
 .page { width: 336px; height: 480px; background-color: #000000; overflow: hidden; }
 .scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; }
 .content { flex-direction: column; padding: 102px 6px 84px; }
-.directory-intro, .article-card { width: 324px; box-sizing: border-box; flex-direction: column; padding: 18px 20px; margin-bottom: 12px; background-color: #262626; border-radius: 28px; }
+.directory-view { flex-direction: column; }
+.directory-intro, .article-card { width: 324px; flex-direction: column; padding: 18px 20px; margin-bottom: 12px; background-color: #262626; border-radius: 28px; }
 .directory-title, .article-title { width: 284px; font-size: 30px; line-height: 38px; font-weight: bold; color: #ffffff; }
 .directory-summary, .article-summary { width: 284px; margin-top: 8px; font-size: 20px; line-height: 29px; color: rgba(255,255,255,0.68); lines: -1; }
-.menu-card { width: 324px; height: 96px; box-sizing: border-box; padding: 14px 18px 14px 20px; margin-bottom: 8px; background-color: #262626; border-radius: 28px; align-items: center; justify-content: space-between; }
+.menu-card { width: 324px; height: 96px; padding: 14px 18px 14px 20px; margin-bottom: 8px; background-color: #262626; border-radius: 28px; align-items: center; justify-content: space-between; }
 .menu-copy { width: 250px; flex-direction: column; }
 .menu-title { width: 250px; font-size: 25px; line-height: 32px; font-weight: bold; color: #ffffff; text-overflow: ellipsis; lines: 1; }
 .menu-summary { width: 250px; margin-top: 3px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,0.6); text-overflow: ellipsis; lines: 1; }
 .chevron { width: 36px; height: 36px; }
 .article-intro { width: 284px; margin-top: 18px; font-size: 21px; line-height: 31px; color: #ffffff; lines: -1; }
-.method-card { width: 284px; box-sizing: border-box; flex-direction: column; padding: 16px 0px; border-bottom-width: 1px; border-bottom-color: rgba(255,255,255,0.12); }
+.method-card { width: 284px; flex-direction: column; padding: 16px 0px; border-bottom-width: 1px; border-bottom-color: rgba(255,255,255,0.12); }
 .method-name { width: 284px; font-family: UbuntuMono; font-size: 21px; line-height: 29px; font-weight: bold; color: #7db8ff; lines: -1; }
 .method-description { width: 284px; margin-top: 6px; font-size: 20px; line-height: 29px; color: #ffffff; lines: -1; }
-.code-block { width: 284px; box-sizing: border-box; padding: 12px; margin-top: 12px; background-color: #111111; border-radius: 12px; font-family: UbuntuMono; font-size: 17px; line-height: 24px; color: #b7d9ff; lines: -1; }
+.code-block { width: 284px; padding: 12px; margin-top: 12px; background-color: #111111; border-radius: 12px; font-family: UbuntuMono; font-size: 17px; line-height: 24px; color: #b7d9ff; lines: -1; }
 .method-note, .article-note { width: 284px; margin-top: 10px; font-size: 18px; line-height: 27px; color: #ffbf66; lines: -1; }
 .article-note { margin-top: 16px; }
 .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }

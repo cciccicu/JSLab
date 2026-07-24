@@ -1,5 +1,6 @@
 import interconnect from '@system.interconnect';
 import jsManager from './jsManager.js';
+import fontManager from './fontManager.js';
 
 const PROTOCOL_VERSION = 1;
 const READ_CHUNK_CHARS = 4096;
@@ -168,7 +169,11 @@ function handleRequest(request) {
   log('REQUEST_DISPATCH', 'id=' + request.id + ' action=' + request.action);
   switch (request.action) {
     case 'hello':
-      return Promise.resolve({ protocol: PROTOCOL_VERSION, maxScriptBytes: jsManager.maxScriptBytes });
+      return Promise.resolve({ protocol: PROTOCOL_VERSION, maxScriptBytes: jsManager.maxScriptBytes, fontUploadSupported: false });
+    case 'getEditorFontConfig':
+      return fontManager.getProfile().then(profile => ({ profile }));
+    case 'setEditorFontConfig':
+      return fontManager.setProfile(payload.profile).then(profile => ({ profile }));
     case 'list':
       return jsManager.list().then(files => ({ files }));
     case 'create':
@@ -221,7 +226,10 @@ function onMessage(event) {
     return;
   }
   log('MESSAGE_PARSED', 'id=' + request.id + ' action=' + request.action + ' v=' + request.v);
-  handleRequest(request)
+  // handleRequest contains synchronous validation for external payloads.
+  // Start from a resolved promise so every validation error becomes a protocol response.
+  Promise.resolve()
+    .then(() => handleRequest(request))
     .then((result) => {
       log('REQUEST_SUCCESS', 'id=' + request.id + ' action=' + request.action);
       respond(request.id, result);

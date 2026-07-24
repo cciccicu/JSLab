@@ -176,8 +176,12 @@ export default {
   onInit() {
     this.currentState = this.initialLanguage === 'en' ? 'enLetters' : 'cnLetters';
     this.syncCandidateSlots(this.maxlength);
-    this.$watch('hide', 'watchHidePropsChange');
-    this.$watch('maxlength', 'watchMaxLengthPropsChange');
+    // 部分实体机框架未提供 $watch；模板绑定仍会正常处理 hide，
+    // 固定的 maxlength 初始值已在上方同步。
+    if (typeof this.$watch === 'function') {
+      this.$watch('hide', 'watchHidePropsChange');
+      this.$watch('maxlength', 'watchMaxLengthPropsChange');
+    }
   },
 
   addAllTxt(text) {

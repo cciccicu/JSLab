@@ -54,6 +54,7 @@
 
 <script>
 import configManager from '../../utils/configManager.js';
+import fontManager, { DEFAULT_FONT_PROFILE } from '../../utils/fontManager.js';
 import jsManager from '../../utils/jsManager.js';
 import { back as navigateBack, push } from '../../utils/routeManager.js';
 import { showToast, vibrate } from '../../utils/uiFeedback.js';
@@ -112,6 +113,7 @@ export default {
 		maxlength: 5,
 		vibrateMode: "short",
 		fontFamily: 'UbuntuMono',
+		fontProfile: DEFAULT_FONT_PROFILE,
 		fontSize: DEFAULT_FONT_SIZE,
 		codeWidth: 336,
 		// 光标状态
@@ -166,15 +168,16 @@ export default {
 		this.preferencesLoading = true;
 		Promise.all([
 			configManager.get('editor.font.size', DEFAULT_FONT_SIZE),
-			configManager.get('editor.font.family', 'UbuntuMono')
+			fontManager.getProfile()
 		]).then((values) => {
 			this.preferencesLoading = false;
 			if (!this.pageActive) return;
 			const nextSize = normalizeFontSize(values[0]);
-			const nextFamily = values[1] === 'SarasaTermSCNerd' ? 'SarasaTermSCNerd' : 'UbuntuMono';
-			if (nextSize === this.fontSize && nextFamily === this.fontFamily) return;
+			const nextProfile = values[1];
+			if (nextSize === this.fontSize && JSON.stringify(nextProfile) === JSON.stringify(this.fontProfile)) return;
 			this.fontSize = nextSize;
-			this.fontFamily = nextFamily;
+			this.fontProfile = nextProfile;
+			this.fontFamily = 'UbuntuMono';
 			this.refreshCodeLayout();
 		}).catch((error) => {
 			this.preferencesLoading = false;
@@ -248,23 +251,23 @@ export default {
 	},
 
 	refreshCodeLayout() {
-		this.cursorHeight = getLineHeight(this.fontFamily, this.fontSize);
+		this.cursorHeight = getLineHeight(this.fontProfile, this.fontSize);
 		const metrics = analyzeCodeSize(activeSource);
 		this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * this.cursorHeight);
-		this.codeWidth = Math.max(336, getTextWidth(activeSource, this.fontSize) + 20);
+		this.codeWidth = Math.max(336, getTextWidth(activeSource, this.fontProfile, this.fontSize) + 20);
 		this.calculateCursorPosition();
 	},
 
 	moveCursorTo(x, y) {
 		const editor = this.$app.$def.editor;
-		const cursor = moveCursorToPoint(editor.before + editor.after, x, y, this.fontFamily, this.fontSize);
+		const cursor = moveCursorToPoint(editor.before + editor.after, x, y, this.fontProfile, this.fontSize);
 		editor.before = cursor.before;
 		editor.after = cursor.after;
 		this.refreshCursorPosition();
 	},
 
 	refreshCursorPosition() {
-		const position = getCursorPosition(this.$app.$def.editor.before, this.fontFamily, this.fontSize);
+		const position = getCursorPosition(this.$app.$def.editor.before, this.fontProfile, this.fontSize);
 		this.applyCursorPosition(position);
 	},
 
@@ -276,10 +279,10 @@ export default {
 		const wasLarge = this.largeFileMode;
 		this.largeFileMode = metrics.isLarge;
 		this.codeText = activeSource;
-		const position = getCursorPosition(editor.before, this.fontFamily, this.fontSize);
+		const position = getCursorPosition(editor.before, this.fontProfile, this.fontSize);
 		this.cursorHeight = position.height;
 		this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * position.height);
-		this.codeWidth = Math.max(336, getTextWidth(activeSource, this.fontSize) + 20);
+		this.codeWidth = Math.max(336, getTextWidth(activeSource, this.fontProfile, this.fontSize) + 20);
 		this.highlightEnabled = !metrics.isLarge && !deferHighlight;
 		this.codeTokens = this.highlightEnabled
 			? highlightJavascript(activeSource, 'code-token')
@@ -351,7 +354,7 @@ export default {
 	},
 
 	calculateCursorPosition() {
-		const position = getCursorPosition(this.$app.$def.editor.before, this.fontFamily, this.fontSize);
+		const position = getCursorPosition(this.$app.$def.editor.before, this.fontProfile, this.fontSize);
 		this.applyCursorPosition(position);
 	},
 
@@ -384,14 +387,8 @@ export default {
 
 <style>
 	@font-face {
-		font-family: 'SarasaTermSCNerd';
-		src: url('../../common/fonts/SarasaTermSCNerd-Misans-v2.ttf') format('ttf');
-		font-weight: normal;
-		font-style: normal;
-	}
-	@font-face {
 		font-family: 'UbuntuMono';
-		src: url('../../common/fonts/UbuntuMono-MiSans-v2.ttf') format('ttf');
+		src: url('../../common/fonts/UbuntuMono-Misans-v2.ttf') format('ttf');
 		font-weight: normal;
 		font-style: normal;
 	}

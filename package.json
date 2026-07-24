@@ -1,6 +1,6 @@
 {
   "name": "JSLab",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "",
   "engines": {
     "node": ">=8.10"
@@ -10,7 +10,7 @@
     "build": "aiot build --enable-jsc",
     "release": "aiot release --enable-jsc",
     "watch": "aiot watch --open-nuttx",
-    "lint": "eslint --format codeframe --fix --ext .ux,.js src/"
+    "lint": "eslint --format codeframe --ext .ux,.js src/"
   },
   "devDependencies": {
     "@aiot-toolkit/jsc": "^1.0.7",

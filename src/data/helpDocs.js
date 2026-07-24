@@ -14,14 +14,17 @@ const TUTORIALS = [
   document('guide-start', '新建、保存与运行', '从第一个脚本开始', '在“新建 JS”中选择模板或空白脚本，输入文件名并保存。编辑器中的运行按钮会根据首行模式声明打开 Console 或 UI 运行页。修改代码后需要再次运行。', [
     method('hello', 'console.log()', '向 Console 运行页输出文本或值。少量、分段输出更适合手环屏幕。', "console.log('Hello, JSLab!')\nconsole.log(2 + 3)")
   ], '单个脚本最大 48 KiB；一次输出过多文本可能导致内存不足。'),
-  document('guide-input', 'Console 模式与输入', '输出结果，并让用户输入内容', '未声明模式时，JSLab 使用 Console 模式。input() 会打开输入界面并返回字符串；取消或空输入应按空字符串处理。', [
-    method('input', 'input(message)', '显示输入提示并返回用户输入的字符串。', "const name = input('请输入名字')\nif (name) console.log('你好，' + name)"),
-    method('number', 'Number(value)', '将输入文本转换为数字，并在使用前检查是否有效。', "const value = Number(input('请输入数值'))\nif (isNaN(value)) console.log('请输入有效数字')")
+  document('guide-input', 'Console 模式与输入', '输出结果，并让用户输入内容', '未声明模式时，JSLab 使用 Console 模式。input(message, callback) 会打开输入界面，并在确认或取消后以字符串调用 callback；空输入返回空字符串。', [
+    method('input', 'input(message, callback)', '显示输入提示，并在 callback 中接收用户输入的字符串。', "input('请输入名字', name => {\n  if (name) console.log('你好，' + name)\n})"),
+    method('number', 'Number(value)', '在输入回调中将文本转换为数字，并在使用前检查是否有效。', "input('请输入数值', text => {\n  const value = Number(text)\n  if (isNaN(value)) console.log('请输入有效数字')\n})")
   ], '同步死循环会阻塞运行页；请把长计算拆分，避免无限 while 循环。'),
   document('guide-storage', '数据持久化', '为设置、分数和小型状态保存数据', 'storage 适合少量键值数据；file 适合脚本、导出文本和更大的内容。所有文件 URI 都应使用应用的 internal://files/ 目录。', [
     method('storage-example', '保存并读取', '异步读写要在 success 与 fail 回调中处理结果。', "storage.set({ key: 'score', value: '42', success: () => console.log('已保存') })\nstorage.get({ key: 'score', success: data => console.log(data) })"),
     method('file-example', '文本文件', '使用 file.writeText 与 file.readText 写入、读取文本。', "file.writeText({ uri: 'internal://files/note.txt', text: 'hello' })")
   ], '不要把脚本或大文本拼成一个超大的 storage 值。'),
+  document('guide-editor-font', '编辑器字体与度量', 'Ubuntu Mono 与 AstroBox 字体配置', 'JSLab 仅内置 Ubuntu Mono，保证包体和渲染结果一致。连接 AstroBox 后，可在“编辑器字体”面板调整行高倍率、行高偏移、ASCII 字宽和宽字符字宽；这些参数会同时影响光标位置、点按定位和横向滚动宽度。', [
+    method('font-metrics', '受限度量参数', '参数是数值配置，不执行公式或 JavaScript。这样既可校准不同字体的排版，又不会让同步配置获得脚本执行权限。', '行高倍率：1\nASCII 字宽：0.5\n宽字符字宽：1')
+  ], 'Vela 文档未定义从 internal://files 运行时注册 TTF/OTF 的接口。因此 AstroBox 当前只同步度量配置；上传字体文件不会被提供为已生效的功能。'),
   document('guide-system', '系统能力与兼容性', '调用 Vela 原生模块前先处理失败分支', 'JSLab 已把常用 Vela 模块注入脚本作用域，无需 import。系统版本与手环型号会影响接口可用性；位置、设备标识等能力还会受到权限限制。', [
     method('feedback-example', '震动反馈', '最稳妥的入门系统能力之一。', "vibrator.vibrate({ mode: 'short' })"),
     method('failure-example', '失败处理', '网络、权限与硬件接口必须提供 fail 回调。', "fetch.fetch({ url: 'https://example.com', success: res => console.log(res.code), fail: (data, code) => console.log('失败：' + code) })")

@@ -55,12 +55,9 @@
 
   import network from '@system.network';
   import brightness from '@system.brightness';
-  import battery from '@system.battery';
   import geolocation from '@system.geolocation';
   import vibrator from '@system.vibrator';
-  import event from '@system.event';
   import sensor from '@system.sensor';
-  import record from '@system.record';
 
   import fetch from '@system.fetch';
   import interconnect from '@system.interconnect';
@@ -69,11 +66,11 @@
   import prompt from '@system.prompt';
 
   import crypto from '@system.crypto';
-  import audio from '@system.audio';
 
   import { back as navigateBack } from '../../utils/routeManager.js';
   import { vibrate } from '../../utils/uiFeedback.js';
   import { getCurrentClock } from '../../utils/time.js';
+  import { loadOptionalSystemModule, scheduleAfterRender } from '../../utils/runtimeCompat.js';
 
   const MAX_CONSOLE_CHARACTERS = 6 * 1024;
   const CONSOLE_FLUSH_DELAY = 80;
@@ -81,6 +78,10 @@
   let consoleBuffer = '';
   let consoleFlushTimer = null;
   let consoleOutputTruncated = false;
+  const battery = loadOptionalSystemModule(app, 'system.battery', ['getStatus'], () => require('@system.battery'));
+  const event = loadOptionalSystemModule(app, 'system.event', ['publish', 'subscribe', 'unsubscribe'], () => require('@system.event'));
+  const record = loadOptionalSystemModule(app, 'system.record', ['start', 'stop'], () => require('@system.record'));
+  const audio = loadOptionalSystemModule(app, 'system.audio', ['play', 'pause', 'stop', 'getPlayState'], () => require('@system.audio'));
 
 	function formatConsoleArgument(argument) {
 	  if (typeof argument !== 'object' || argument === null) return String(argument);
@@ -396,7 +397,7 @@
       this.inputBuffer = "";
 
       // 处理下一个输入请求（如果有）
-      this.$nextTick(() => {
+      scheduleAfterRender(this, () => {
         this.processInputQueue();
         if (!this.waitingForInput && this.inputQueue.length === 0) {
           this.isRunning = false;
@@ -454,15 +455,11 @@
 .result {
   color: #9cdcfe;
   font-size: 24px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .error {
   color: #f48771;
   font-size: 24px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .runtime {
