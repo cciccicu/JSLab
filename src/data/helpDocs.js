@@ -22,9 +22,9 @@ const TUTORIALS = [
     method('storage-example', '保存并读取', '异步读写要在 success 与 fail 回调中处理结果。', "storage.set({ key: 'score', value: '42', success: () => console.log('已保存') })\nstorage.get({ key: 'score', success: data => console.log(data) })"),
     method('file-example', '文本文件', '使用 file.writeText 与 file.readText 写入、读取文本。', "file.writeText({ uri: 'internal://files/note.txt', text: 'hello' })")
   ], '不要把脚本或大文本拼成一个超大的 storage 值。'),
-  document('guide-editor-font', '编辑器字体与度量', 'Ubuntu Mono、字体库与 AstroBox 配置', 'JSLab 仅内置 Ubuntu Mono，保证包体和渲染结果一致。手环“设置-字体”是独立页面；连接 AstroBox 后，可上传 TTF/OTF 到手环字体库，并调整行高倍率、行高偏移、ASCII 字宽和宽字符字宽。度量参数会影响光标位置、点按定位和横向滚动宽度。', [
+  document('guide-editor-font', '编辑器字体与度量', 'Ubuntu Mono 与编辑器排版配置', 'JSLab 仅内置 Ubuntu Mono，保证包体和渲染结果一致。手环“设置-字体”是独立页面，可调整行高倍率、行高偏移、ASCII 字宽和宽字符字宽。度量参数会影响光标位置、点按定位和横向滚动宽度。', [
     method('font-metrics', '受限度量参数', '参数是数值配置，不执行公式或 JavaScript。这样既可校准不同字体的排版，又不会让同步配置获得脚本执行权限。', '行高倍率：1\nASCII 字宽：0.5\n宽字符字宽：1')
-  ], '字体库单文件上限为 2 MiB，总上限为 4 MiB。Vela 文档未定义从 internal://files 运行时注册 TTF/OTF 的接口，因此上传字体暂不会替换 Ubuntu Mono 的渲染。'),
+  ], '修改度量参数后，编辑器会按新配置重新计算排版。'),
   document('guide-system', '系统能力与兼容性', '调用 Vela 原生模块前先处理失败分支', 'JSLab 已把常用 Vela 模块注入脚本作用域，无需 import。系统版本与手环型号会影响接口可用性；位置、设备标识等能力还会受到权限限制。', [
     method('feedback-example', '震动反馈', '最稳妥的入门系统能力之一。', "vibrator.vibrate({ mode: 'short' })"),
     method('failure-example', '失败处理', '网络、权限与硬件接口必须提供 fail 回调。', "fetch.fetch({ url: 'https://example.com', success: res => console.log(res.code), fail: (data, code) => console.log('失败：' + code) })")

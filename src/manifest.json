@@ -66,10 +66,6 @@
         "component": "font",
         "path": "/settings/fonts"
       },
-      "pages/font-lab": {
-        "component": "font-lab",
-        "path": "/settings/fonts/lab"
-      },
       "pages/about": {
         "component": "about",
         "path": "/settings/about"

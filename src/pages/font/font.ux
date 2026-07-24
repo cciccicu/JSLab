@@ -12,20 +12,10 @@
           <text class="detail">行高 {{lineHeightRatio}}x · 偏移 {{lineHeightOffset}}px</text>
           <text class="detail">ASCII {{asciiWidthRatio}}x · 宽字符 {{wideWidthRatio}}x</text>
         </div>
-        <text class="section-title">已上传字体</text>
-        <div if="{{fonts.length === 0}}" class="card">
-          <text class="detail">暂无上传字体。请在 AstroBox 的“字体设置”页面上传 TTF 或 OTF。</text>
-        </div>
-        <div for="{{font in fonts}}" tid="name" class="card">
-          <text class="font-name">{{font.name}}</text>
-          <text class="detail">{{font.sizeText}} · 已存储</text>
-          <text class="notice">当前 Vela 运行时不会把私有目录字体注册为渲染字体。</text>
-        </div>
       </div>
     </scroll>
     <img static src="/common/images/hd.png" class="topbar" />
     <img static src="/common/images/back.png" class="btn" @click="back" />
-    <img static src="/common/images/more.png" class="btn btn-right" @click="openLab" />
     <text class="time">{{nowTime}}</text>
     <text class="title">字体</text>
   </div>
@@ -33,38 +23,30 @@
 
 <script>
 import fontManager from '../../utils/fontManager.js';
-import { back, push } from '../../utils/routeManager.js';
+import { back } from '../../utils/routeManager.js';
 import { getCurrentClock } from '../../utils/time.js';
 import { vibrate } from '../../utils/uiFeedback.js';
 
-function formatSize(size) {
-  return size < 1024 ? size + ' B' : (size / 1024).toFixed(1) + ' KiB';
-}
-
 export default {
   private: {
-    nowTime: '00:00', timer: null, fonts: [],
+    nowTime: '00:00', timer: null,
     lineHeightRatio: 1, lineHeightOffset: 0, asciiWidthRatio: 0.5, wideWidthRatio: 1
   },
   onInit() {
     this.nowTime = getCurrentClock();
     this.timer = setInterval(() => { this.nowTime = getCurrentClock(); }, 60000);
   },
-  onShow() { this.loadFonts(); },
+  onShow() { this.loadProfile(); },
   onDestroy() { if (this.timer) clearInterval(this.timer); },
-  loadFonts() {
+  loadProfile() {
     fontManager.getProfile().then((profile) => {
       this.lineHeightRatio = profile.lineHeightRatio;
       this.lineHeightOffset = profile.lineHeightOffset;
       this.asciiWidthRatio = profile.asciiWidthRatio;
       this.wideWidthRatio = profile.wideWidthRatio;
-    });
-    fontManager.listFonts().then((fonts) => {
-      this.fonts = fonts.map(font => ({ name: font.name, sizeText: formatSize(font.size) }));
-    }).catch(error => console.error('Failed to list uploaded fonts:', error));
+    }).catch(error => console.error('Failed to load font profile:', error));
   },
-  back() { vibrate('short'); back(); },
-  openLab() { vibrate('short'); push('settingsFontLab'); }
+  back() { vibrate('short'); back(); }
 };
 </script>
 
@@ -76,10 +58,8 @@ export default {
 .card { width: 312px; margin-top: 8px; padding: 12px; flex-direction: column; flex-shrink: 0; background-color: #262626; border-radius: 12px; }
 .font-name { width: 288px; flex-shrink: 0; font-size: 25px; line-height: 33px; font-family: UbuntuMono; color: #ffffff; lines: 1; text-overflow: ellipsis; }
 .detail { width: 288px; margin-top: 5px; flex-shrink: 0; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.72); lines: -1; }
-.notice { width: 288px; margin-top: 7px; flex-shrink: 0; font-size: 16px; line-height: 23px; color: #ffbf66; lines: -1; }
 .topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
 .btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
-.btn-right { left: 258px; }
 .time { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
 .title { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }
 </style>

@@ -16,7 +16,7 @@
 		<div class="item" @click="routerTo('settingsFonts')">
 		  <div class="item-content">
 			<text class="itemtext">字体</text>
-			<text class="itemtext2">Ubuntu Mono 与字体库</text>
+			<text class="itemtext2">Ubuntu Mono 与编辑器度量</text>
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>

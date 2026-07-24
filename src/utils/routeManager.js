@@ -9,7 +9,6 @@ const ROUTES = {
   newFile: '/workspace/new',
   settings: '/settings',
   settingsFonts: '/settings/fonts',
-  settingsFontLab: '/settings/fonts/lab',
   settingsAbout: '/settings/about',
   settingsHelp: '/settings/help',
   toolsMarket: '/tools/market',
