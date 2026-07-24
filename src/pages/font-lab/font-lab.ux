@@ -1,0 +1,91 @@
+<template>
+  <div class="page">
+    <scroll class="content" scroll-y="true">
+      <div class="inner">
+        <text class="heading">内部字体 URL 实验</text>
+        <text class="body">将内置 Ubuntu 复制到 internal://files/fonts/active.ttf，然后让 CSS 的 @font-face 直接加载这个 URI。</text>
+        <div class="status-card">
+          <text class="status-title">{{statusTitle}}</text>
+          <text class="body">{{statusDetail}}</text>
+        </div>
+        <text class="label">系统默认（对照）</text>
+        <text class="sample system-font">012345 ABCDEF 中文字符</text>
+        <text class="label">InternalFont（应为等宽）</text>
+        <text class="sample internal-font">012345 ABCDEF 中文字符</text>
+        <text class="hint">若第二行明显是 Ubuntu Mono 的等宽字形，说明模拟器接受 internal://files 字体 URL。点击右下角重建测试文件，再重启应用确认缓存行为。</text>
+      </div>
+    </scroll>
+    <img static src="/common/images/hd.png" class="topbar" />
+    <img static src="/common/images/back.png" class="btn" @click="back" />
+    <img static src="/common/images/rerun.png" class="btn btn-right" @click="prepare" />
+    <text class="time">{{nowTime}}</text>
+    <text class="title">字体实验</text>
+  </div>
+</template>
+
+<script>
+import file from '@system.file';
+import { back } from '../../utils/routeManager.js';
+import { showToast, vibrate } from '../../utils/uiFeedback.js';
+import { getCurrentClock } from '../../utils/time.js';
+
+const SOURCE_URI = '/common/fonts/UbuntuMono-Misans-v2.ttf';
+const TARGET_URI = 'internal://files/fonts/active.ttf';
+
+export default {
+  private: { nowTime: '00:00', timer: null, statusTitle: '准备中', statusDetail: '正在写入内部测试字体…' },
+  onInit() {
+    this.nowTime = getCurrentClock();
+    this.timer = setInterval(() => { this.nowTime = getCurrentClock(); }, 60000);
+    this.prepare();
+  },
+  onDestroy() { if (this.timer) clearInterval(this.timer); },
+  prepare() {
+    this.statusTitle = '正在创建测试字体';
+    this.statusDetail = '从应用资源复制到 internal://files/fonts/active.ttf';
+    file.mkdir({
+      uri: 'internal://files/fonts/', recursive: true,
+      success: () => this.copyFont(),
+      fail: () => this.copyFont()
+    });
+  },
+  copyFont() {
+    file.copy({
+      srcUri: SOURCE_URI,
+      dstUri: TARGET_URI,
+      success: () => {
+        this.statusTitle = '测试文件已创建';
+        this.statusDetail = '请比较下方两行文字；重启 JSLab 后再次进入本页，可验证字体缓存。';
+        showToast('内部字体测试文件已创建');
+      },
+      fail: (data, code) => {
+        this.statusTitle = '复制失败：' + code;
+        this.statusDetail = '模拟器不允许从应用资源复制字体。此时无法在无外部导入的条件下完成 internal URL 实验。';
+        console.error('Failed to prepare internal font:', data, code);
+      }
+    });
+  },
+  back() { vibrate('short'); back(); }
+};
+</script>
+
+<style>
+@font-face { font-family: 'InternalFontExperiment'; src: url('internal://files/fonts/active.ttf') format('ttf'); font-weight: normal; font-style: normal; }
+.page { width: 336px; height: 480px; background-color: #000000; }
+.content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; }
+.inner { flex-direction: column; padding: 106px 16px 82px; }
+.heading { width: 304px; font-size: 27px; line-height: 36px; font-weight: bold; color: #ffffff; }
+.body { width: 304px; margin-top: 8px; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.75); lines: -1; }
+.status-card { width: 304px; margin-top: 14px; padding: 12px; flex-direction: column; background-color: #262626; border-radius: 12px; }
+.status-title { width: 280px; font-size: 21px; line-height: 29px; font-weight: bold; color: #7db8ff; }
+.label { width: 304px; margin-top: 18px; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.6); }
+.sample { width: 304px; margin-top: 5px; font-size: 22px; line-height: 31px; color: #ffffff; }
+.system-font { font-family: sans-serif; }
+.internal-font { font-family: InternalFontExperiment; }
+.hint { width: 304px; margin-top: 18px; font-size: 17px; line-height: 25px; color: #ffbf66; lines: -1; }
+.topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+.btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
+.btn-right { left: 258px; }
+.time { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
+.title { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
+</style>

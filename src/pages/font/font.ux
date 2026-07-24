@@ -25,6 +25,7 @@
     </scroll>
     <img static src="/common/images/hd.png" class="topbar" />
     <img static src="/common/images/back.png" class="btn" @click="back" />
+    <img static src="/common/images/more.png" class="btn btn-right" @click="openLab" />
     <text class="time">{{nowTime}}</text>
     <text class="title">字体</text>
   </div>
@@ -32,7 +33,7 @@
 
 <script>
 import fontManager from '../../utils/fontManager.js';
-import { back } from '../../utils/routeManager.js';
+import { back, push } from '../../utils/routeManager.js';
 import { getCurrentClock } from '../../utils/time.js';
 import { vibrate } from '../../utils/uiFeedback.js';
 
@@ -62,7 +63,8 @@ export default {
       this.fonts = fonts.map(font => ({ name: font.name, sizeText: formatSize(font.size) }));
     }).catch(error => console.error('Failed to list uploaded fonts:', error));
   },
-  back() { vibrate('short'); back(); }
+  back() { vibrate('short'); back(); },
+  openLab() { vibrate('short'); push('settingsFontLab'); }
 };
 </script>
 
@@ -77,6 +79,7 @@ export default {
 .notice { width: 288px; margin-top: 7px; font-size: 16px; line-height: 23px; color: #ffbf66; lines: -1; }
 .topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
 .btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
+.btn-right { left: 258px; }
 .time { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
 .title { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }
 </style>
