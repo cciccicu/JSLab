@@ -4,21 +4,21 @@
       <div class="inner">
         <div class="top-spacer"></div>
         <text class="heading">内部字体 URL 实验</text>
-        <text class="body">下载测试字体到 internal://files/fonts/active.ttf，然后让 CSS 的 @font-face 直接加载这个 URI。</text>
+        <text class="body">此页直接使用 ADB 推送到 internal://files/fonts/active.ttf 的 active.ttf，并让 CSS 的 @font-face 加载该 URI。</text>
         <div class="status-card">
           <text class="status-title">{{statusTitle}}</text>
           <text class="body">{{statusDetail}}</text>
         </div>
         <text class="label">系统默认（对照）</text>
         <text class="sample system-font">012345 ABCDEF 中文字符</text>
-        <text class="label">InternalFont（应为等宽）</text>
+        <text class="label">InternalFont（ADB 推送的 Ubuntu Mono）</text>
         <text class="sample internal-font">012345 ABCDEF 中文字符</text>
-        <text class="hint">若第二行明显是 Ubuntu Mono 的等宽字形，说明模拟器接受 internal://files 字体 URL。点击右下角重建测试文件，再重启应用确认缓存行为。</text>
+        <text class="hint">若第二行是 Ubuntu Mono 的等宽字形，说明模拟器接受 internal://files 字体 URL。替换 active.ttf 后请重启 JSLab，再重新打开此页检查缓存行为。</text>
       </div>
     </scroll>
     <img static src="/common/images/hd.png" class="topbar" />
     <img static src="/common/images/back.png" class="btn" @click="back" />
-    <img static src="/common/images/rerun.png" class="btn btn-right" @click="prepare" />
+    <img static src="/common/images/rerun.png" class="btn btn-right" @click="checkActiveFont" />
     <text class="time">{{nowTime}}</text>
     <text class="title">字体实验</text>
   </div>
@@ -26,58 +26,35 @@
 
 <script>
 import file from '@system.file';
-import fetch from '@system.fetch';
 import { back } from '../../utils/routeManager.js';
 import { showToast, vibrate } from '../../utils/uiFeedback.js';
 import { getCurrentClock } from '../../utils/time.js';
 
 const TARGET_URI = 'internal://files/fonts/active.ttf';
-const TEST_FONT_URL = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ibmplexmono/IBMPlexMono-Regular.ttf';
 
 export default {
-  private: { nowTime: '00:00', timer: null, statusTitle: '准备中', statusDetail: '正在写入内部测试字体…' },
+  private: { nowTime: '00:00', timer: null, statusTitle: '准备中', statusDetail: '正在检查 ADB 推送的测试字体…' },
   onInit() {
     this.nowTime = getCurrentClock();
     this.timer = setInterval(() => { this.nowTime = getCurrentClock(); }, 60000);
-    this.prepare();
+    this.checkActiveFont();
   },
   onDestroy() { if (this.timer) clearInterval(this.timer); },
-  prepare() {
-    this.statusTitle = '正在创建测试字体';
-    this.statusDetail = '从测试源下载到 internal://files/fonts/active.ttf';
-    file.mkdir({
-      uri: 'internal://files/fonts/', recursive: true,
-      success: () => this.downloadFont(),
-      fail: () => this.downloadFont()
-    });
-  },
-  downloadFont() {
-    fetch.fetch({
-      url: TEST_FONT_URL,
-      responseType: 'arraybuffer',
-      success: (response) => {
-        const data = response && response.data;
-        if (!data || !data.byteLength) {
-          this.downloadFailed('测试字体响应为空');
-          return;
-        }
-        file.writeArrayBuffer({
-          uri: TARGET_URI,
-          buffer: data,
-          success: () => {
-            this.statusTitle = '测试文件已创建';
-            this.statusDetail = '请比较下方两行文字；重启 JSLab 后再次进入本页，可验证字体缓存。';
-            showToast('内部字体测试文件已创建');
-          },
-          fail: (error, code) => this.downloadFailed('写入失败：' + code)
-        });
+  checkActiveFont() {
+    this.statusTitle = '正在检查 active.ttf';
+    this.statusDetail = '目标：' + TARGET_URI;
+    file.get({
+      uri: TARGET_URI,
+      success: (data) => {
+        this.statusTitle = '已检测到 ADB 测试字体';
+        this.statusDetail = 'active.ttf · ' + data.length + ' B。已由 CSS 的 InternalFontExperiment 请求加载。';
+        showToast('已检测到 active.ttf');
       },
-      fail: (error, code) => this.downloadFailed('下载失败：' + code)
+      fail: (error, code) => {
+        this.statusTitle = '未检测到 active.ttf';
+        this.statusDetail = '请执行 ADB push 到 /data/files/icu.ccicc.jslab/fonts/active.ttf，然后重启 JSLab。错误：' + code;
+      }
     });
-  },
-  downloadFailed(detail) {
-    this.statusTitle = '测试文件未创建';
-    this.statusDetail = detail + '。模拟器需能访问测试源；这不会影响 JSLab 的 Ubuntu 回退字体。';
   },
   back() { vibrate('short'); back(); }
 };
