@@ -71,12 +71,12 @@ export default {
 <style>
 .page { width: 336px; height: 480px; background-color: #000000; }
 .content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; }
-.content-inner { flex-direction: column; padding: 102px 12px 78px; }
-.section-title { width: 312px; margin-top: 12px; font-size: 22px; line-height: 30px; font-weight: bold; color: rgba(255,255,255,0.65); }
-.card { width: 312px; margin-top: 8px; padding: 12px; flex-direction: column; background-color: #262626; border-radius: 12px; }
-.font-name { width: 288px; font-size: 25px; line-height: 33px; font-family: UbuntuMono; color: #ffffff; lines: 1; text-overflow: ellipsis; }
-.detail { width: 288px; margin-top: 5px; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.72); lines: -1; }
-.notice { width: 288px; margin-top: 7px; font-size: 16px; line-height: 23px; color: #ffbf66; lines: -1; }
+.content-inner { flex-direction: column; flex-shrink: 0; padding: 102px 12px 78px; }
+.section-title { width: 312px; margin-top: 12px; flex-shrink: 0; font-size: 22px; line-height: 30px; font-weight: bold; color: rgba(255,255,255,0.65); }
+.card { width: 312px; margin-top: 8px; padding: 12px; flex-direction: column; flex-shrink: 0; background-color: #262626; border-radius: 12px; }
+.font-name { width: 288px; flex-shrink: 0; font-size: 25px; line-height: 33px; font-family: UbuntuMono; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+.detail { width: 288px; margin-top: 5px; flex-shrink: 0; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.72); lines: -1; }
+.notice { width: 288px; margin-top: 7px; flex-shrink: 0; font-size: 16px; line-height: 23px; color: #ffbf66; lines: -1; }
 .topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
 .btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
 .btn-right { left: 258px; }
