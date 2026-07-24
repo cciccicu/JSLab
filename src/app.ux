@@ -1,10 +1,12 @@
 <script>
 import { push } from './utils/routeManager.js';
+import syncService from './utils/syncService.js';
+import { getExecutionRoute } from './utils/executionMode.js';
 
 const DIALOG_ROUTES = {
-  confirm: 'confirm',
-  select: 'select',
-  number: 'numberInput'
+  confirm: 'overlayConfirm',
+  select: 'overlaySelect',
+  number: 'overlayNumberInput'
 };
 
 export default {
@@ -14,6 +16,14 @@ export default {
     code: '',
     before: '',
     after: ''
+  },
+
+  onCreate() {
+    syncService.start();
+  },
+
+  onDestroy() {
+    syncService.stop();
   },
 
   openDialog(type, options) {
@@ -40,6 +50,11 @@ export default {
 
   updateEditorCode(code) {
     this.editor.code = code;
+  },
+
+  openRunner(code) {
+    this.editor.code = String(code || '');
+    push(getExecutionRoute(this.editor.code));
   }
 };
 </script>

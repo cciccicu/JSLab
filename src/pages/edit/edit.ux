@@ -45,7 +45,7 @@
 		<!-- 顶栏 -->
 		<img static src="/common/images/hd.png" class="topbar-bg" />
 		<img static class="btn" src="/common/images/back.png" @click="back" style="left: 6px;top: 6px;" />
-		<img static class="btn" src="/common/images/more.png" @click="routerTo('more')" style="left: 258px;top: 6px;" />
+		<img static class="btn" src="/common/images/more.png" @click="routerTo('settings')" style="left: 258px;top: 6px;" />
 		<img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="changeKeybord" style="left: 258px;top: 6px;" />
 		<text class="time-text">{{nowTime}}</text>
 		<text class="title-text">编辑JS</text>
@@ -119,11 +119,13 @@ export default {
 		cursorX: 0,
 		cursorY: 0,
 		cursorHeight: 20,
-		cursorBlinkTimer: null
+		cursorBlinkTimer: null,
+		lockToken: null
 	},
 
 	onInit() {
 		const editor = this.$app.$def.editor;
+		if (editor.name) this.lockToken = jsManager.lock(editor.name);
 		if (!editor.before && !editor.after && editor.code) editor.before = editor.code;
 		editor.code = '';
 		this.updateCodeDisplay();
@@ -140,6 +142,10 @@ export default {
 		if (this.timer) clearInterval(this.timer);
 		if (this.highlightRefreshTimer) clearTimeout(this.highlightRefreshTimer);
 		this.stopCursorBlink();
+		if (this.lockToken && this.$app.$def.editor.name) {
+			jsManager.unlock(this.$app.$def.editor.name, this.lockToken);
+			this.lockToken = null;
+		}
 		activeSource = '';
 		this.codeText = '';
 		this.codeTokens = [];
@@ -359,7 +365,7 @@ export default {
 		vibrate('short');
 		const editor = this.$app.$def.editor;
 		const code = editor.before + editor.after;
-		jsManager.write(editor.name, code)
+		jsManager.write(editor.name, code, { token: this.lockToken })
 			.then(() => showToast('代码已保存'))
 			.catch((error) => showToast('保存失败: ' + error.message));
 	},
@@ -367,8 +373,7 @@ export default {
 	runcode() {
 		vibrate('short');
 		const editor = this.$app.$def.editor;
-		editor.code = editor.before + editor.after;
-		push('run');
+		this.$app.$def.openRunner(editor.before + editor.after);
 	},
 
 	updateTime() {

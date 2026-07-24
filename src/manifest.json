@@ -1,8 +1,8 @@
 {
   "package": "icu.ccicc.jslab",
   "name": "JSLab",
-  "versionName": "1.2.9",
-  "versionCode": 129,
+  "versionName": "1.7.0",
+  "versionCode": 170,
   "minPlatformVersion": 1000,
   "icon": "/common/logo.png",
   "deviceTypeList": [
@@ -43,40 +43,56 @@
     "entry": "pages/index",
     "pages": {
       "pages/index": {
-        "component": "index"
+        "component": "index",
+        "path": "/"
       },
       "pages/edit": {
-        "component": "edit"
+        "component": "edit",
+        "path": "/workspace/editor"
       },
-      "pages/run": {
-        "component": "run"
+      "pages/run-console": {
+        "component": "run-console",
+        "path": "/workspace/run-console"
+      },
+      "pages/run-ui": {
+        "component": "run-ui",
+        "path": "/workspace/run-ui"
       },
       "pages/setting": {
-        "component": "setting"
+        "component": "setting",
+        "path": "/settings"
       },
       "pages/about": {
-        "component": "about"
+        "component": "about",
+        "path": "/settings/about"
       },
       "pages/add": {
-        "component": "add"
+        "component": "add",
+        "path": "/workspace/new"
       },
       "pages/market": {
-        "component": "market"
+        "component": "market",
+        "path": "/tools/market"
       },
       "pages/money": {
-        "component": "money"
+        "component": "money",
+        "path": "/tools/money"
       },
       "pages/help": {
-        "component": "help"
+        "component": "help",
+        "path": "/settings/help"
       },
       "pages/select": {
-        "component": "select"
+        "component": "select",
+        "path": "/overlay/select"
       },
       "pages/confirm": {
-        "component": "confirm"
+        "component": "confirm",
+        "path": "/overlay/confirm"
       },
       "pages/number-input": {
-        "component": "number-input"
+        "component": "number-input",
+        "path": "/overlay/number-input"
       }
     }
   }

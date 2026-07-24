@@ -1,0 +1,11 @@
+{
+  "name": "ccicc-plugin-development-kit",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "pack": "node tools/pack-plugin.mjs"
+  },
+  "dependencies": {
+    "yazl": "^3.3.1"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "example-plugin",
+  "version": "0.1.0",
+  "displayName": "Example Plugin",
+  "description": "Independent ccicc.icu plugin development example.",
+  "author": "Plugin Developer",
+  "entry": "index.js",
+  "dependencies": [],
+  "enabledByDefault": false
+}

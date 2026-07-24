@@ -54,8 +54,10 @@ import { back as navigateBack, push } from '../../utils/routeManager.js';
 import { showToast, vibrate } from '../../utils/uiFeedback.js';
 import { getCurrentClock } from '../../utils/time.js';
 import createLargeFileExample from '../../utils/largeFileExample.js';
+import ui2048Example from '../../utils/ui2048Example.js';
 
-const LARGE_FILE_TEMPLATE_INDEX = 5;
+const UI_2048_TEMPLATE_INDEX = 6;
+const LARGE_FILE_TEMPLATE_INDEX = 7;
 
 export default {
   private: {
@@ -69,7 +71,7 @@ export default {
     // 文件相关
     fileName: "",
     selectedTemplateIndex: 0,
-    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例', '用户输入示例', '500行性能测试'],
+    templateOptions: ['空白文件', 'Hello World', 'Prompt示例', 'fetch示例', '用户输入示例', 'UI模式示例', 'UI 2048游戏', '500行性能测试'],
     
     // 模板内容
     templateContents: [
@@ -96,7 +98,55 @@ input("请输入你的名字：", function(name) {
   console.log("你好，" + name + "！");
 });
 console.log("等待输入完成...");
-`
+`, `// @jslab-mode ui
+const count = ui.signal(0);
+const enabled = ui.signal(true);
+const level = ui.signal(35);
+
+ui.setTitle('UI 示例');
+ui.render(() => [
+  ui.heading('交互组件', {
+    id: 'title',
+    color: '#ffffff'
+  }),
+  ui.text('计数：' + count.get() + '　状态：' + (enabled.get() ? '开启' : '关闭'), {
+    id: 'summary',
+    color: '#9cdcfe'
+  }),
+  ui.button('计数 +1', () => count.update(value => value + 1), {
+    id: 'add-button'
+  }),
+  ui.switch('示例开关', enabled.get(), value => enabled.set(value), {
+    id: 'feature-switch',
+    detail: enabled.get() ? '点击可以关闭' : '点击可以开启'
+  }),
+  ui.divider(),
+  ui.slider('强度', level.get(), value => level.set(value), {
+    id: 'level-slider',
+    min: 0,
+    max: 100,
+    step: 5
+  }),
+  ui.progress('当前强度', level.get(), {
+    id: 'level-progress',
+    color: enabled.get() ? '#0d6eff' : '#7f8792'
+  }),
+  ui.spacer(6),
+  ui.button('显示提示', () => {
+    ui.toast('计数为 ' + count.get() + '，强度为 ' + level.get());
+  }, {
+    id: 'toast-button',
+    tone: 'neutral'
+  }),
+  ui.button('重置示例', () => {
+    count.set(0);
+    level.set(35);
+    enabled.set(true);
+  }, {
+    id: 'reset-button',
+    tone: 'danger'
+  })
+]);`
     ]
   },
   
@@ -143,6 +193,9 @@ console.log("等待输入完成...");
     this.selectedTemplateIndex = e.newSelected;
   },
   getTemplateContent() {
+    if (this.selectedTemplateIndex === UI_2048_TEMPLATE_INDEX) {
+      return ui2048Example;
+    }
     if (this.selectedTemplateIndex === LARGE_FILE_TEMPLATE_INDEX) {
       return createLargeFileExample(500);
     }
@@ -159,11 +212,17 @@ console.log("等待输入完成...");
       fileName += '.js';
     }
     const templateContent = this.getTemplateContent();
-    jsManager.write(fileName, templateContent)
+    jsManager.list()
+      .then((files) => {
+        if (files.some(fileInfo => fileInfo.name === fileName)) {
+          throw new Error('文件已存在，不会覆盖');
+        }
+        return jsManager.write(fileName, templateContent);
+      })
       .then(() => {
         showToast(`文件 ${fileName} 创建成功`);
         this.$app.$def.openEditor(fileName, templateContent);
-        push('edit');
+        push('editor');
       })
       .catch(error => {
         console.error(`创建文件 ${fileName} 失败:`, error.message);

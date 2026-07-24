@@ -17,13 +17,13 @@
   
     <img static src="/common/images/hd.png" class="header-img" />
     <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="exit" />
-    <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('setting')" />
+    <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('settings')" />
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">JSLab</text>
   
     <!-- 底部按钮根据选择状态显示 -->
-    <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" style="left: 6px;top: 402px;" class="btn" @click="routerTo('market')"/>
-    <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('add')"/>
+    <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" style="left: 6px;top: 402px;" class="btn" @click="routerTo('toolsMarket')"/>
+    <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('newFile')"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn" @click="runcode"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 132px;top: 402px;" class="btn" @click="editcode"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn" @click="handleDeleteClick"/>
@@ -44,6 +44,7 @@ export default {
     selectedFileIndex: -1,
     nowTime: "00:00",
     timer: null,
+    fileChangeUnsubscribe: null,
 
     // 简化删除逻辑
     deleteClickCount: 0,
@@ -61,6 +62,9 @@ export default {
 
   onInit() {
     this.updateTime();
+    this.fileChangeUnsubscribe = jsManager.subscribe(() => {
+      this.loadFileList(true);
+    });
     this.timer = setInterval(() => {
       this.updateTime();
     }, 1000);
@@ -68,6 +72,10 @@ export default {
 
   onDestroy() {
     clearInterval(this.timer);
+    if (this.fileChangeUnsubscribe) {
+      this.fileChangeUnsubscribe();
+      this.fileChangeUnsubscribe = null;
+    }
     if (this.deleteTimer) {
       clearTimeout(this.deleteTimer);
     }
@@ -77,10 +85,15 @@ export default {
     this.loadFileList();
   },
 
-  loadFileList() {
+  loadFileList(preserveSelection = false) {
+    const selectedName = preserveSelection && this.fileList[this.selectedFileIndex]
+      ? this.fileList[this.selectedFileIndex].name
+      : '';
     jsManager.list().then(fileList => {
       this.fileList = fileList;
-      this.selectedFileIndex = -1;
+      this.selectedFileIndex = selectedName
+        ? fileList.findIndex(fileInfo => fileInfo.name === selectedName)
+        : -1;
       // 重置删除状态（文件列表刷新后不应保留旧操作）
       this.resetDeleteClick();
     }).catch(error => {
@@ -117,7 +130,7 @@ export default {
     jsManager.read(fileName)
       .then(content => {
         this.$app.$def.openEditor(fileName, content, 'run');
-        push('run');
+        this.$app.$def.openRunner(content);
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -141,7 +154,7 @@ export default {
     jsManager.read(fileName)
       .then(content => {
         this.$app.$def.openEditor(fileName, content, 'edit');
-        push('edit');
+      push('editor');
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -181,7 +194,6 @@ export default {
       jsManager.remove(fileName)
         .then(() => {
           showToast(`文件 ${fileName} 已删除`, 500);
-          return this.loadFileList();
         })
         .catch(error => {
           console.error(`删除文件 ${fileName} 失败:`, error.message);

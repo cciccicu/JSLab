@@ -1,0 +1,16 @@
+{
+  "name": "ccicc-example-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "check": "tsc --ignoreConfig --allowJs --checkJs --noEmit --skipLibCheck --module node16 --target es2022 --moduleResolution node16 index.js lib/static-files.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "pino": "^10.3.1",
+    "typescript": "^6.0.3"
+  }
+}

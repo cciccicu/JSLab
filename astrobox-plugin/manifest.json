@@ -1,0 +1,17 @@
+{
+  "name": "JSLab Sync",
+  "icon": "icon.png",
+  "version": "1.2.0",
+  "description": "通过 AstroBox 在电脑与 JSLab 手环应用之间管理 JavaScript 文件",
+  "author": "ccicc",
+  "website": "https://ccicc.icu",
+  "entry": "jslab_sync.wasm",
+  "wasi_version": 2,
+  "api_level": 3,
+  "permissions": [
+    "device",
+    "interconnect",
+    "thirdpartyapp",
+    "register_interconnect_recv"
+  ]
+}

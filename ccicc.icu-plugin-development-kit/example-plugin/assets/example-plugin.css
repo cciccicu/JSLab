@@ -1,0 +1,41 @@
+.example-plugin-form {
+  display: grid;
+  gap: var(--app-space-3);
+  margin-bottom: var(--ui-content-gap);
+}
+
+.example-plugin-form .plugin-actions {
+  align-items: stretch;
+}
+
+.example-plugin-list {
+  display: grid;
+  gap: var(--app-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.example-plugin-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--app-space-4);
+  padding: var(--app-space-3);
+  color: var(--app-text);
+  background: var(--app-bg-subtle);
+  border: 1px solid var(--app-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+.example-plugin-list small,
+.example-plugin-empty {
+  color: var(--app-text-muted);
+}
+
+@media (max-width: 640px) {
+  .example-plugin-form .plugin-actions,
+  .example-plugin-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

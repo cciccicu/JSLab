@@ -2,6 +2,27 @@ import file from '@system.file';
 
 const SCRIPT_DIRECTORY_URI = 'internal://files/js/';
 const MAX_SCRIPT_BYTES = 48 * 1024;
+const changeListeners = [];
+const fileLocks = {};
+
+function notifyChange(change) {
+  changeListeners.slice().forEach((listener) => {
+    try {
+      listener(change);
+    } catch (error) {
+      console.error('[JSLab] file change listener failed:', error);
+    }
+  });
+}
+
+function subscribe(listener) {
+  if (typeof listener !== 'function') return () => {};
+  changeListeners.push(listener);
+  return () => {
+    const index = changeListeners.indexOf(listener);
+    if (index !== -1) changeListeners.splice(index, 1);
+  };
+}
 
 function validateScriptName(name) {
   if (typeof name !== 'string' || !name || name.length > 128) {
@@ -33,6 +54,26 @@ function validateScriptContent(content) {
     throw new Error('脚本不能超过 48 KiB');
   }
   return content;
+}
+
+function lockScript(name) {
+  validateScriptName(name);
+  if (fileLocks[name]) return fileLocks[name];
+  const token = 'edit-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  fileLocks[name] = token;
+  return token;
+}
+
+function unlockScript(name, token) {
+  validateScriptName(name);
+  if (fileLocks[name] && (!token || fileLocks[name] === token)) delete fileLocks[name];
+}
+
+function assertWritable(name, token) {
+  validateScriptName(name);
+  if (fileLocks[name] && fileLocks[name] !== token) {
+    throw new Error('文件正在编辑中，请先退出编辑器');
+  }
 }
 
 function getScriptUri(name) {
@@ -88,10 +129,10 @@ function readScript(name) {
     }));
 }
 
-function writeScript(name, content) {
+function writeScript(name, content, options) {
   let safeContent;
   try {
-    validateScriptName(name);
+    assertWritable(name, options && options.token);
     safeContent = validateScriptContent(content);
   } catch (error) {
     return Promise.reject(error);
@@ -101,16 +142,21 @@ function writeScript(name, content) {
       file.writeText({
         uri: getScriptUri(name),
         text: safeContent,
-        success: () => resolve(),
+        success: () => {
+          notifyChange({ action: 'write', name });
+          resolve();
+        },
         fail: (data, code) => reject(new Error('Failed to write script: ' + code))
       });
     }));
 }
 
-function renameScript(name, newName) {
+function renameScript(name, newName, options) {
   let srcUri;
   let dstUri;
   try {
+    assertWritable(name, options && options.token);
+    assertWritable(newName, options && options.token);
     srcUri = getScriptUri(name);
     dstUri = getScriptUri(newName);
   } catch (error) {
@@ -127,7 +173,10 @@ function renameScript(name, newName) {
           file.move({
             srcUri,
             dstUri,
-            success: () => resolve(),
+            success: () => {
+              notifyChange({ action: 'rename', name: newName, previousName: name });
+              resolve();
+            },
             fail: (data, code) => reject(new Error('Failed to rename script: ' + code))
           });
         }
@@ -135,12 +184,20 @@ function renameScript(name, newName) {
     }));
 }
 
-function removeScript(name) {
+function removeScript(name, options) {
+  try {
+    assertWritable(name, options && options.token);
+  } catch (error) {
+    return Promise.reject(error);
+  }
   return ensureScriptDirectory()
     .then(() => new Promise((resolve, reject) => {
       file.delete({
         uri: getScriptUri(name),
-        success: () => resolve(),
+        success: () => {
+          notifyChange({ action: 'delete', name });
+          resolve();
+        },
         fail: (data, code) => reject(new Error('Failed to delete script: ' + code))
       });
     }));
@@ -152,5 +209,9 @@ export default {
   write: writeScript,
   remove: removeScript,
   rename: renameScript,
+  lock: lockScript,
+  unlock: unlockScript,
+  isLocked: name => !!fileLocks[name],
+  subscribe,
   maxScriptBytes: MAX_SCRIPT_BYTES
 };

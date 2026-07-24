@@ -6,6 +6,7 @@
     <scroll bounces="true" class="scroll-container" scroll-y="true">
       <div class="console-card">
         <text class="result-title">console：</text>
+        <text class="run-status" style="color: {{statusColor}};">{{statusText}}</text>
         <div class="result-box">
           <text class="result" if="{{!hasError}}">{{result}}</text>
           <text class="error" if="{{hasError}}">{{error}}</text>
@@ -32,9 +33,14 @@
     <!-- 顶部工具栏 -->
     <img static src="/common/images/hd.png" class="topbar-bg" />
     <img static src="/common/images/back.png" class="btn" style="left: 6px; top: 6px;" @click="onBack" />
-    <img static src="/common/images/rerun.png" class="btn" style="left: 258px; top: 6px;" @click="onRerun" />
+    <img static if="{{!isRunning}}" src="/common/images/rerun.png" class="btn" style="left: 258px; top: 6px;" @click="onRerun" />
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">运行JS</text>
+
+    <!-- 右上角根据运行状态切换停止/重试。 -->
+    <div if="{{isRunning}}" class="stop-button" @click="onStop">
+      <div class="stop-symbol"></div>
+    </div>
   </div>
 </template>
 
@@ -101,6 +107,9 @@
       error: "",
       hasError: false,
       runTime: "",
+      isRunning: false,
+      statusText: "准备运行",
+      statusColor: "#9aa0a8",
 
       // Prompt 状态
       currentInputCallback: null,
@@ -109,6 +118,8 @@
       hideInputMethod: true,    // 控制 prompt 区域是否渲染
       inputMethodHide: true,    // 控制输入法键盘显隐
       waitingForInput: false,   // 当前是否正在等待用户输入
+      runId: 0,
+      destroyed: false,
 
       // 全局虚拟 window
       vwindow: null,
@@ -118,13 +129,11 @@
     },
 
     onInit() {
+      this.destroyed = false;
       this.updateTime();
       this.timer = setInterval(() => {
         this.updateTime();
       }, 60000);
-
-      // 初始化 vwindow（只创建一次）
-      this.initVWindow();
 
       const editor = this.$app.$def.editor;
       this.code = editor.code || editor.before + editor.after;
@@ -133,6 +142,8 @@
     },
 
     onDestroy() {
+      this.cancelRun();
+      this.destroyed = true;
       if (this.timer) clearInterval(this.timer);
 	  if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
 	  consoleFlushTimer = null;
@@ -142,7 +153,7 @@
 	  this.result = '';
 	  this.error = '';
 	  this.inputQueue = [];
-	  this.currentInputCallback = null;
+      this.currentInputCallback = null;
     },
 
     updateTime() {
@@ -151,6 +162,7 @@
 
     onBack() {
       vibrate('short');
+      this.cancelRun();
       navigateBack();
     },
 
@@ -159,31 +171,50 @@
       this.runCode();
     },
 
+    onStop() {
+      if (!this.isRunning) return;
+      vibrate('short');
+      this.cancelRun();
+      this.isRunning = false;
+      this.statusText = '已停止';
+      this.statusColor = '#9aa0a8';
+      this.appendConsoleOutput('运行已停止');
+      if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
+      consoleFlushTimer = null;
+      this.flushConsoleOutput();
+    },
+
     exit() {
       app.terminate();
     },
 
-    initVWindow() {
+    initVWindow(runId) {
       // console 实现
       const vconsole = {
         log: (...args) => {
+		  if (this.destroyed || runId !== this.runId) return;
 		  const output = args.map(formatConsoleArgument).join(' ');
 		  this.appendConsoleOutput(output);
         },
         error: (...args) => {
-          const output = args.map(String).join(' ');
+          if (this.destroyed || runId !== this.runId) return;
+          const output = args.map(formatConsoleArgument).join(' ');
 		  this.appendConsoleOutput("[ERROR] " + output);
         }
       };
 
       // input 实现：使用回调
       const input = (message, callback) => {
+        if (this.destroyed || runId !== this.runId) return;
         if (typeof message === 'function') {
           // 兼容 input(callback) 形式
           callback = message;
           message = "请输入内容";
         }
         message = String(message || "请输入内容");
+        this.isRunning = true;
+        this.statusText = '等待输入';
+        this.statusColor = '#f2c94c';
         this.inputQueue.push({ message, callback });
         this.processInputQueue();
       };
@@ -192,7 +223,8 @@
         console: vconsole,
         input: input
       };
-    },
+      return this.vwindow;
+	},
 
 	appendConsoleOutput(output) {
 	  if (consoleOutputTruncated) return;
@@ -214,8 +246,20 @@
 	},
 
 	flushConsoleOutput() {
+	  if (this.destroyed) return;
 	  this.result = consoleBuffer || '暂无输出';
 	},
+
+    cancelRun() {
+      this.runId += 1;
+      this.inputQueue = [];
+      this.currentInputCallback = null;
+      this.inputBuffer = '';
+      this.promptMessage = '';
+      this.waitingForInput = false;
+      this.hideInputMethod = true;
+      this.inputMethodHide = true;
+    },
 
     processInputQueue() {
       if (this.waitingForInput || this.inputQueue.length === 0) {
@@ -228,12 +272,18 @@
       this.hideInputMethod = false;
       this.inputMethodHide = false;
       this.waitingForInput = true;
+      this.isRunning = true;
+      this.statusText = '等待输入';
+      this.statusColor = '#f2c94c';
 
       // 存储当前回调
       this.currentInputCallback = callback;
     },
 
     runCode() {
+	  this.runId += 1;
+	  const runId = this.runId;
+	  this.vwindow = this.initVWindow(runId);
 	  if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
 	  consoleFlushTimer = null;
 	  consoleBuffer = '';
@@ -242,15 +292,26 @@
       this.error = "";
       this.hasError = false;
       this.runTime = "";
+      this.isRunning = true;
+      this.statusText = '运行中';
+      this.statusColor = '#72d39b';
 
       if (!this.code.trim()) {
         this.result = "没有代码可执行";
+        this.isRunning = false;
+        this.statusText = '无代码';
+        this.statusColor = '#9aa0a8';
         return;
       }
 
       // 清空输入队列（可选：根据需求决定是否保留）
       this.inputQueue = [];
+      this.currentInputCallback = null;
+      this.inputBuffer = '';
+      this.promptMessage = '';
       this.waitingForInput = false;
+      this.hideInputMethod = true;
+      this.inputMethodHide = true;
 
       const exposedModules = {
         app, device, router, configuration,
@@ -268,14 +329,24 @@
         `);
 
 		setTimeout(() => {
+		  if (this.destroyed || runId !== this.runId) return;
 		  const startTime = Date.now();
 		  try {
 			userFunction(...Object.values(exposedModules));
 		  } catch (error) {
+			if (this.destroyed || runId !== this.runId) return;
 			this.error = `${error.name}: ${error.message}`;
 			this.hasError = true;
+			this.isRunning = false;
+			this.statusText = '运行错误';
+			this.statusColor = '#f48771';
 		  }
-		  this.runTime = Date.now() - startTime;
+		  if (!this.hasError && !this.waitingForInput && this.inputQueue.length === 0) {
+			this.isRunning = false;
+			this.statusText = '已完成';
+			this.statusColor = '#9aa0a8';
+		  }
+		  this.runTime = String(Date.now() - startTime);
 		  if (consoleFlushTimer) clearTimeout(consoleFlushTimer);
 		  consoleFlushTimer = null;
 		  this.flushConsoleOutput();
@@ -284,6 +355,9 @@
         this.result = "";
         this.error = `${e.name}: ${e.message}`;
         this.hasError = true;
+        this.isRunning = false;
+        this.statusText = '编译失败';
+        this.statusColor = '#f48771';
       }
     },
 
@@ -324,6 +398,11 @@
       // 处理下一个输入请求（如果有）
       this.$nextTick(() => {
         this.processInputQueue();
+        if (!this.waitingForInput && this.inputQueue.length === 0) {
+          this.isRunning = false;
+          this.statusText = '已完成';
+          this.statusColor = '#9aa0a8';
+        }
       });
     }
   }
@@ -345,7 +424,7 @@
   width: 100%;
   height: 100%;
   flex-direction: column;
-  padding: 86px 6px 6px;
+  padding: 102px 6px 6px;
 }
 
 .console-card {
@@ -360,6 +439,11 @@
   color: rgba(255, 255, 255, 0.6);
   font-size: 24px;
   font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.run-status {
+  font-size: 20px;
   margin-bottom: 8px;
 }
 
@@ -433,6 +517,25 @@
   position: absolute;
   width: 72px;
   height: 72px;
+}
+
+.stop-button {
+  position: absolute;
+  left: 258px;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background-color: #ff3b3b;
+  justify-content: center;
+  align-items: center;
+}
+
+.stop-symbol {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  background-color: #ffffff;
 }
 
 .time-text {
