@@ -26,6 +26,12 @@ const CONNECT_TIMER_PREFIX: &str = "jslab-connect:";
 
 struct Plugin;
 
+#[derive(Clone, Copy, PartialEq)]
+enum ActivePage {
+    Files,
+    Fonts,
+}
+
 enum Pending {
     Hello,
     List,
@@ -85,6 +91,7 @@ struct AppState {
     channel_ready: bool,
     files: Vec<FileMeta>,
     font_metrics: FontMetrics,
+    active_page: ActivePage,
     selected_file: Option<String>,
     editor_name: String,
     editor_text: String,
@@ -113,6 +120,7 @@ struct ViewState {
     channel_ready: bool,
     files: Vec<FileMeta>,
     font_metrics: FontMetrics,
+    active_page: ActivePage,
     selected_file: Option<String>,
     editor_name: String,
     editor_text: String,
@@ -130,6 +138,7 @@ impl Default for AppState {
             channel_ready: false,
             files: Vec::new(),
             font_metrics: FontMetrics::default(),
+            active_page: ActivePage::Files,
             selected_file: None,
             editor_name: String::new(),
             editor_text: String::new(),
@@ -171,6 +180,7 @@ fn snapshot() -> ViewState {
         channel_ready: state.channel_ready,
         files: state.files.clone(),
         font_metrics: state.font_metrics.clone(),
+        active_page: state.active_page,
         selected_file: state.selected_file.clone(),
         editor_name: state.editor_name.clone(),
         editor_text: state.editor_text.clone(),
@@ -249,6 +259,7 @@ fn render(element_id: &str) {
     let device_online = view.selected_device.is_some();
     let connected = view.channel_ready;
     let editor_open = view.selected_file.is_some();
+    let fonts_page = view.active_page == ActivePage::Fonts;
 
     let status_badge = Element::new(
         ElementType::Badge,
@@ -277,13 +288,19 @@ fn render(element_id: &str) {
         "#FF9A9A"
     });
 
+    let page_action = if fonts_page {
+        button("返回文件", "page-files", false, view.busy)
+    } else {
+        button("字体设置", "page-fonts", false, view.busy)
+    };
     let header = Element::new(ElementType::Div, None)
         .flex()
         .flex_direction(FlexDirection::Row)
         .align_center()
         .gap(10)
-        .child(label("JSLab 文件同步", "#F5F7FA", 22))
+        .child(label(if fonts_page { "JSLab 字体设置" } else { "JSLab 文件同步" }, "#F5F7FA", 22))
         .child(status_badge)
+        .child(page_action)
         .child(button("刷新设备", "device-refresh", false, view.busy));
 
     let status_row = Element::new(ElementType::Div, None)
@@ -348,38 +365,45 @@ fn render(element_id: &str) {
         );
     }
 
-    let metrics = &view.font_metrics;
-    let font_panel = Element::new(ElementType::Div, None)
-        .flex()
-        .flex_direction(FlexDirection::Column)
-        .gap(8)
-        .padding(10)
-        .radius(6)
-        .bg("#111419")
-        .child(label("编辑器字体 · Ubuntu Mono", "#DCE2EA", 17))
-        .child(label(
-            format!(
-                "行高 {:.3}x  偏移 {:.1}px  ASCII {:.3}x  宽字符 {:.3}x",
-                metrics.line_height_ratio,
-                metrics.line_height_offset,
-                metrics.ascii_width_ratio,
-                metrics.wide_width_ratio
-            ),
-            "#AEB8C6",
-            13,
-        ))
-        .child(
-            Element::new(ElementType::Div, None)
-                .flex()
-                .flex_direction(FlexDirection::Row)
-                .gap(6)
-                .child(button("行高", "font-line-height", false, view.busy || !connected))
-                .child(button("偏移", "font-line-offset", false, view.busy || !connected))
-                .child(button("ASCII", "font-ascii-width", false, view.busy || !connected))
-                .child(button("宽字符", "font-wide-width", false, view.busy || !connected))
-                .child(button("重置", "font-reset", false, view.busy || !connected)),
-        );
-    root = root.child(font_panel);
+    if fonts_page {
+        let metrics = &view.font_metrics;
+        let font_panel = Element::new(ElementType::Div, None)
+            .flex()
+            .flex_direction(FlexDirection::Column)
+            .gap(10)
+            .padding(14)
+            .radius(6)
+            .bg("#111419")
+            .child(label("内置字体", "#7F8998", 13))
+            .child(label("Ubuntu Mono", "#DCE2EA", 20))
+            .child(label("字体文件由 JSLab 内置；此页只配置编辑器度量。", "#AEB8C6", 14))
+            .child(label("当前度量", "#7F8998", 13))
+            .child(label(
+                format!(
+                    "行高 {:.3}x  ·  偏移 {:.1}px\nASCII {:.3}x  ·  宽字符 {:.3}x",
+                    metrics.line_height_ratio,
+                    metrics.line_height_offset,
+                    metrics.ascii_width_ratio,
+                    metrics.wide_width_ratio
+                ),
+                "#DCE2EA",
+                15,
+            ))
+            .child(
+                Element::new(ElementType::Div, None)
+                    .flex()
+                    .flex_direction(FlexDirection::Row)
+                    .gap(6)
+                    .child(button("行高", "font-line-height", false, view.busy || !connected))
+                    .child(button("偏移", "font-line-offset", false, view.busy || !connected))
+                    .child(button("ASCII", "font-ascii-width", false, view.busy || !connected))
+                    .child(button("宽字符", "font-wide-width", false, view.busy || !connected))
+                    .child(button("重置", "font-reset", false, view.busy || !connected)),
+            );
+        root = root.child(font_panel);
+        ui_v3::render(element_id, root);
+        return;
+    }
 
     if !editor_open {
         let list_toolbar = Element::new(ElementType::Div, None)
@@ -1377,6 +1401,16 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
     }
     if event_id == "files-refresh" {
         return request_list().await;
+    }
+    if event_id == "page-fonts" {
+        with_state(|state| state.active_page = ActivePage::Fonts);
+        render_current();
+        return Ok(());
+    }
+    if event_id == "page-files" {
+        with_state(|state| state.active_page = ActivePage::Files);
+        render_current();
+        return Ok(());
     }
     if event_id == "font-reset" {
         return request_set_font_config(FontMetrics::default()).await;
