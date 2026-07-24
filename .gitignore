@@ -1,21 +1,32 @@
-node_modules
-build
-dist
-sign
-VelaDocs
-src.bac/
+# Vela QuickApp
+/apps/vela-quickapp/node_modules/
+/apps/vela-quickapp/build/
+/apps/vela-quickapp/dist/
+/apps/vela-quickapp/sign/
+/apps/vela-quickapp/VelaDocs/
+/apps/vela-quickapp/src.bac/
+
+# AstroBox plugin
+/plugins/astrobox-sync/target/
+/plugins/astrobox-sync/dist/
+/plugins/astrobox-sync/*.abp
+
+# ccicc.icu development kit and cloud plugin outputs
+/tooling/ccicc-plugin-development-kit/node_modules/
+/tooling/ccicc-plugin-development-kit/dist/
+/plugins/ccicc-jslab-cloud/node_modules/
+/plugins/ccicc-jslab-cloud/dist/
+
+# Lua watchface stays an independent Git working tree.
+/watchfaces/lua-dev-template/
 
 .DS_Store
 Thumbs.db
-package-lock.json
-
 *.log
 *.iml
 .idea/
 .vscode/
-
-.nyc_output
-/coverage
-
-/logs
+.nyc_output/
+coverage/
+logs/
 
