@@ -2,8 +2,9 @@
   <div class="page">
     <scroll class="content" scroll-y="true">
       <div class="inner">
+        <div class="top-spacer"></div>
         <text class="heading">内部字体 URL 实验</text>
-        <text class="body">将内置 Ubuntu 复制到 internal://files/fonts/active.ttf，然后让 CSS 的 @font-face 直接加载这个 URI。</text>
+        <text class="body">下载测试字体到 internal://files/fonts/active.ttf，然后让 CSS 的 @font-face 直接加载这个 URI。</text>
         <div class="status-card">
           <text class="status-title">{{statusTitle}}</text>
           <text class="body">{{statusDetail}}</text>
@@ -25,12 +26,13 @@
 
 <script>
 import file from '@system.file';
+import fetch from '@system.fetch';
 import { back } from '../../utils/routeManager.js';
 import { showToast, vibrate } from '../../utils/uiFeedback.js';
 import { getCurrentClock } from '../../utils/time.js';
 
-const SOURCE_URI = '/common/fonts/UbuntuMono-Misans-v2.ttf';
 const TARGET_URI = 'internal://files/fonts/active.ttf';
+const TEST_FONT_URL = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ibmplexmono/IBMPlexMono-Regular.ttf';
 
 export default {
   private: { nowTime: '00:00', timer: null, statusTitle: '准备中', statusDetail: '正在写入内部测试字体…' },
@@ -42,28 +44,40 @@ export default {
   onDestroy() { if (this.timer) clearInterval(this.timer); },
   prepare() {
     this.statusTitle = '正在创建测试字体';
-    this.statusDetail = '从应用资源复制到 internal://files/fonts/active.ttf';
+    this.statusDetail = '从测试源下载到 internal://files/fonts/active.ttf';
     file.mkdir({
       uri: 'internal://files/fonts/', recursive: true,
-      success: () => this.copyFont(),
-      fail: () => this.copyFont()
+      success: () => this.downloadFont(),
+      fail: () => this.downloadFont()
     });
   },
-  copyFont() {
-    file.copy({
-      srcUri: SOURCE_URI,
-      dstUri: TARGET_URI,
-      success: () => {
-        this.statusTitle = '测试文件已创建';
-        this.statusDetail = '请比较下方两行文字；重启 JSLab 后再次进入本页，可验证字体缓存。';
-        showToast('内部字体测试文件已创建');
+  downloadFont() {
+    fetch.fetch({
+      url: TEST_FONT_URL,
+      responseType: 'arraybuffer',
+      success: (response) => {
+        const data = response && response.data;
+        if (!data || !data.byteLength) {
+          this.downloadFailed('测试字体响应为空');
+          return;
+        }
+        file.writeArrayBuffer({
+          uri: TARGET_URI,
+          buffer: data,
+          success: () => {
+            this.statusTitle = '测试文件已创建';
+            this.statusDetail = '请比较下方两行文字；重启 JSLab 后再次进入本页，可验证字体缓存。';
+            showToast('内部字体测试文件已创建');
+          },
+          fail: (error, code) => this.downloadFailed('写入失败：' + code)
+        });
       },
-      fail: (data, code) => {
-        this.statusTitle = '复制失败：' + code;
-        this.statusDetail = '模拟器不允许从应用资源复制字体。此时无法在无外部导入的条件下完成 internal URL 实验。';
-        console.error('Failed to prepare internal font:', data, code);
-      }
+      fail: (error, code) => this.downloadFailed('下载失败：' + code)
     });
+  },
+  downloadFailed(detail) {
+    this.statusTitle = '测试文件未创建';
+    this.statusDetail = detail + '。模拟器需能访问测试源；这不会影响 JSLab 的 Ubuntu 回退字体。';
   },
   back() { vibrate('short'); back(); }
 };
@@ -73,7 +87,8 @@ export default {
 @font-face { font-family: 'InternalFontExperiment'; src: url('internal://files/fonts/active.ttf') format('ttf'); font-weight: normal; font-style: normal; }
 .page { width: 336px; height: 480px; background-color: #000000; }
 .content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; }
-.inner { flex-direction: column; padding: 106px 16px 82px; }
+.inner { flex-direction: column; padding: 0px 16px 82px; }
+.top-spacer { height: 106px; flex-shrink: 0; }
 .heading { width: 304px; font-size: 27px; line-height: 36px; font-weight: bold; color: #ffffff; }
 .body { width: 304px; margin-top: 8px; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.75); lines: -1; }
 .status-card { width: 304px; margin-top: 14px; padding: 12px; flex-direction: column; background-color: #262626; border-radius: 12px; }
