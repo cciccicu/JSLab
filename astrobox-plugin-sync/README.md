@@ -1,50 +1,45 @@
-# JSLab Sync for AstroBox
+# JSLab AstroBox 同步插件
 
-AstroBox v2 第三方插件，用于管理包名 `icu.ccicc.jslab` 的 JSLab 手环应用中的 JavaScript 文件。
+这是 AstroBox v2 第三方插件，用于管理包名为 `icu.ccicc.jslab` 的 JSLab 手环应用。
 
-## 能力
+## 功能
 
-- 发现 AstroBox 当前已连接设备并显示连接状态
-- 刷新、选择、新建、编辑、重命名和删除手环文件
-- 从本机上传 UTF-8 `.js` 文件，或将手环脚本下载到本机
-- 使用 UI V3 `TEXTAREA` 提供普通多行文本编辑
-- 通过请求 ID、逐块确认和 15 秒超时处理大文件与断连错误
-- 接收手环端文件变更事件并自动刷新列表，合并并发刷新请求
-- 上传同名文件前确认覆盖，新建和重命名默认禁止覆盖
-- 文件列表与编辑器采用互斥全宽视图，点击文件直接进入编辑
-- 跟踪未保存状态，返回列表前确认放弃更改，并可下载当前编辑内容
-- 上传唯一的 `.ttf` / `.otf` 待安装字体包；字体文件上限 2 MiB，支持逐块确认和断点续传
-- 上传时填写显示名称、行高倍率/偏移、ASCII 字宽和宽字符字宽，并生成配套数据文件
+- 发现已连接设备并显示连接状态；
+- 刷新、新建、编辑、重命名、删除、上传和下载手环脚本；
+- 使用 UI V3 `TEXTAREA` 编辑多行文本；
+- 使用请求 ID、分块确认和 15 秒超时处理大文件与断线；
+- 接收手环端文件变化事件并合并刷新请求；
+- 同名上传前要求确认覆盖，新建和重命名默认不覆盖；
+- 上传唯一的 `.ttf` 或 `.otf` 字体，文件上限 2 MiB，支持断点续传；
+- 填写字体名称、行高、ASCII 字宽和宽字符字宽，并生成配套数据文件。
 
-## 字体说明
+## 字体传输
 
-JSLab 安装包内置 Ubuntu Mono 及其 `active.json`。AstroBox 的“字体上传”页面不读取或展示当前字体，只负责选择一个字体并填写配套数据。插件按 3 KiB 分块上传，并用内容指纹确认恢复的是同一份字体；快应用把分块立即写入 `pending.parts/`，用 `pending.state.json` 保存进度，并在传输完成后生成 `pending.json`。高权限 Lua 表盘合并和校验分块后，将其作为一组安装为 `active.ttf + active.json`。JSLab 重启后使用新字体，并以同一数据文件计算光标、点按定位和横向滚动。
+字体按 3 KiB 分块上传。手环端立即写入 `pending.parts/`，并使用
+`pending.state.json` 保存进度，完成后生成 `pending.json`。JSLab Helper
+表盘会校验并合并字体，将其安装为 `active.ttf` 与 `active.json`。
 
-## 架构约束
+## 运行边界
 
-插件是 `wasm32-wasip2` WebAssembly Component，只调用 AstroBox Host API：
+插件是 `wasm32-wasip2` WebAssembly Component，只通过 AstroBox Host API 工作：
 
-- `device`：获取当前已连接设备
-- `thirdpartyapp`：确认并启动设备上的 `icu.ccicc.jslab`
-- `register`：按设备地址和 `icu.ccicc.jslab` 注册接收
-- `interconnect`：发送 JSLab RPC 消息
-- `dialog`：选择上传文件与分块保存下载文件
-- `timer`：请求超时
-- `ui-v3`：渲染扩展界面
+- `device`：发现当前设备；
+- `thirdpartyapp`：启动 `icu.ccicc.jslab`；
+- `register`：注册 Interconnect 接收；
+- `interconnect`：发送 JSLab RPC；
+- `dialog`：选择文件和保存下载内容；
+- `timer`：处理超时；
+- `ui-v3`：渲染 AstroBox 界面。
 
-这里没有 Android 应用、证书、签名或 Vela 官方 Android 同步器配对逻辑。
-
-插件直接依赖官方 `astrobox-ng-wit 0.3.1` crate，并使用其 `psys-world-v3`、`event_v3` 与 `ui_v3` 绑定，不再复制或裁剪 WIT 文件。
-
-连接顺序以 Clartime 的可用实现为基准：发现设备、查询目标快应用、调用 `launch_qa`、等待 2 秒、注册 Interconnect 接收，然后发送首包。JSLab 的首包是 `hello` 握手请求，握手成功后再读取文件列表。插件会在 AstroBox 完成设备连接前有界重试，并在收到设备状态事件时重新发现。
+插件不包含 Android 应用、证书、签名或官方 Android 同步器配对逻辑。
 
 ## 构建
 
-需要 Rust 与 `wasm32-wasip2` target：
+需要 Rust 和 `wasm32-wasip2`：
 
 ```powershell
 rustup target add wasm32-wasip2
-./build.ps1
+.\build.ps1
 ```
 
-脚本会生成 `JSLab-Sync.abp`，其中包含 `manifest.json`、`icon.png` 和 `jslab_sync.wasm`。
+脚本生成 `JSLab-Sync.abp`，其中包含 manifest、图标和 WASM Component。

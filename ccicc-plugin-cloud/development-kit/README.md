@@ -25,4 +25,4 @@ ccicc plugin install --file .\dist\my-plugin.zip
 
 不要将 `node_modules`、构建缓存、环境文件或密钥打入安装包。插件的 npm 依赖应写在插件自己的 `package.json.dependencies` 中，由平台安装。
 
-详细接口、生命周期、依赖策略、Caddy 子域名与安全要求见同级发布的 `GUIDE.md`（源码中的 `docs/plugin-development-guide.md`）。
+接口签名见 `ccicc-plugin-api.d.ts`，完整生命周期用法见 `example-plugin/`，发布前请逐项完成 [插件发布检查清单](CHECKLIST.md)。

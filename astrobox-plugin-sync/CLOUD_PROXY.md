@@ -1,5 +1,14 @@
-# Cloud compatibility proxy
+# 云端兼容代理
 
-Devices with `system.fetch` connect directly to the configured cloud origin. When `fetch` is unavailable, the Vela app sends the same request through the existing Interconnect channel with action `cloudProxy`; AstroBox forwards it through the runtime-provided WASI HTTP client (`waki`) and returns the HTTP status, content type, and UTF-8 response body.
+支持 `system.fetch` 的设备直接访问配置的云端地址。没有 `fetch` 时，Vela
+应用通过 Interconnect 发送 `cloudProxy` 请求，AstroBox 使用运行时提供的
+WASI HTTP 客户端 `waki` 转发，并返回 HTTP 状态码、内容类型和 UTF-8 响应体。
 
-The watch owns the device token. AstroBox only sees the `Authorization` header for the active request and never persists, displays, or logs it. The proxy forwards the URL configured by the watch, permits `GET`, `POST`, `PUT`, and `DELETE`, accepts only `Authorization`, `Content-Type`, and `Accept` headers, and enforces request, response, and URL-size limits. `waki` supplies a 10-second connection timeout; the Vela RPC layer supplies a 20-second user-visible response timeout and ignores late responses. Requests are not serialized, so one delayed upstream response does not reject later requests as busy. Existing local script and font management remains independent from cloud synchronization.
+手环拥有设备 Token。AstroBox 只在当前请求期间读取 `Authorization` 请求头，
+不会保存、显示或写入日志。代理转发手环提供的 URL，允许 `GET`、`POST`、`PUT`
+和 `DELETE`，只接受 `Authorization`、`Content-Type` 和 `Accept` 请求头，并限制
+请求、响应和 URL 大小。
+
+`waki` 提供 10 秒连接超时，Vela RPC 层提供 20 秒用户可见响应超时，并忽略迟到的
+响应。请求之间不互相阻塞，某个上游请求延迟不会让后续请求被错误地判定为忙碌。
+本地脚本和字体管理与云同步相互独立。

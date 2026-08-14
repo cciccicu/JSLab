@@ -1,19 +1,21 @@
-# Workspace architecture
+# JSLab 项目架构
 
-| Project | Purpose | Build output | Device interaction |
+| 项目 | 职责 | 构建产物 | 设备交互 |
 | --- | --- | --- | --- |
-| `vela-quickapp` | JSLab Vela JS app | `.rpk` | AIoT tooling only when explicitly requested |
-| `astrobox-plugin-sync` | AstroBox companion/sync plugin | `.abp` | Host-mediated; no direct Vela app source access |
-| `ccicc-plugin-cloud` | ccicc.icu JSLab Cloud plugin | `jslab-cloud/dist/*.zip` | Server-side plugin, separate from wearable deployment |
-| `vela-luawatchface` | JSLab Helper Lua watchface project | `.face` | Its deployment/hot-reload scripts use ADB and require explicit approval |
+| `vela-quickapp` | JSLab Vela 手环应用 | `.rpk` | 仅通过明确授权的 AIoT 工具操作 |
+| `astrobox-plugin-sync` | AstroBox 文件和字体同步插件 | `.abp` | 通过 Host API 和 Interconnect 操作 |
+| `ccicc-plugin-cloud` | ccicc.icu 云空间、市场、配对和 AI 插件 | `jslab-cloud/dist/*.zip` | 服务端插件，不直接部署到手环 |
+| `vela-luawatchface` | JSLab Helper Lua 表盘 | `.face` | ADB 部署和热重载必须明确授权 |
 
-## Ownership rules
+## 所有权边界
 
-- The quick app is the only project that owns Vela `.ux`, `manifest.json`, `src/`, and AIoT build configuration.
-- AstroBox owns companion-side transfer and configuration UI. It communicates through the documented transport contract, not by reading quick-app source files.
-- The ccicc.icu plugin owns cloud persistence, accounts, AI generation, pairing, and market routes. It is scaffolded from the development Kit and must not share host-runtime code with AstroBox.
-- Lua watchfaces are independent runtime artifacts with their own build/deployment scripts. They are not bundled into the RPK or ABP, but their source is versioned in this repository.
+- `vela-quickapp` 独占 Vela `.ux`、快应用 `manifest.json`、`src/` 和 AIoT 构建配置；
+- AstroBox 插件只负责配套端传输和界面，通过 Interconnect 通信，不读取快应用私有目录；
+- 云端插件负责云文件、账户、配对、市场、审核、激活和 AI 生成，不复用 AstroBox 宿主代码；
+- Lua 表盘拥有独立的运行时资源和构建脚本，不打入 `.rpk` 或 `.abp`；其源码现在与其他项目一起由本根仓库版本控制。
 
-## Adding the cloud plugin
+## 云插件开发
 
-Copy `ccicc-plugin-cloud/development-kit/example-plugin` to the cloud plugin implementation directory, then set the directory name and `manifest.json.id` to the same lowercase, hyphenated identifier. Keep generated ZIP files in that plugin's ignored `dist/` directory.
+从 `ccicc-plugin-cloud/development-kit/example-plugin` 复制示例后，修改目录名、
+`manifest.json.id`、路由前缀和数据库表名。插件目录名必须与 manifest ID 一致，
+生成的 ZIP 放在插件自己的 `dist/` 目录中。

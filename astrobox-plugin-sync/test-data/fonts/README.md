@@ -1,17 +1,15 @@
-# Font upload fixtures
+# 字体上传测试夹具
 
-These files are local inputs for testing the AstroBox font upload and Lua
-installer flow. They are not bundled as the JSLab default font.
+这些文件用于测试 AstroBox 字体上传和 Lua 表盘安装流程，不会打入 JSLab 默认字体。
 
-For `SarasaTermSCNerd-Misans-v2.ttf`, enter the values from its companion JSON
-when the AstroBox plugin asks for font data:
+测试 `SarasaTermSCNerd-Misans-v2.ttf` 时，请在 AstroBox 字体表单中使用同名 JSON
+中的参数：
 
-- Name: `Sarasa Term SC Nerd`
-- Line height ratio: `1.5543`
-- Line height offset: `0.4022`
-- ASCII width ratio: `0.5`
-- Wide character width ratio: `1`
+- 名称：`Sarasa Term SC Nerd`；
+- 行高倍率：`1.5543`；
+- 行高偏移：`0.4022`；
+- ASCII 字宽倍率：`0.5`；
+- 宽字符字宽倍率：`1`。
 
-The line-height values come from JSLab's former Sarasa editor calculation:
-`fontSize * 1.5543 + 0.4022`. The width ratios preserve the former terminal
-font cursor and hit-testing calculation.
+这些参数来自 JSLab 旧版 Sarasa 编辑器测量公式：
+`fontSize * 1.5543 + 0.4022`，用于保持光标定位和点按命中计算一致。
