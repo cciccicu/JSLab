@@ -6,7 +6,7 @@ JSLab is organized as a multi-project wearable workspace. Each deliverable keeps
 vela-quickapp/                   JSLab Vela JS quick app for Band Pro
 astrobox-plugin-sync/            AstroBox WASI plugin (.abp)
 ccicc-plugin-cloud/              ccicc.icu JSLab Cloud plugin plus development Kit
-vela-luawatchface/               Independent Lua watchface Git workspace
+vela-luawatchface/               JSLab Helper Lua watchface project
 docs/
   architecture.md                Ownership, build and delivery map
 ```
@@ -29,7 +29,7 @@ npm test
 npm run pack -- .\ .\dist\jslab-cloud-0.5.0.zip
 ```
 
-The Lua watchface workspace has its own Git repository and Python virtual environment. Its local build command creates a `.face` only; deployment and hot reload are deliberately separate, device-affecting actions.
+The Lua watchface project builds a `.face` through its own PowerShell/Python toolchain. Deployment and hot reload are deliberately separate, device-affecting actions.
 
 See [workspace architecture](docs/architecture.md) for boundaries and release outputs.
 

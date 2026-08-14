@@ -19,8 +19,15 @@
 /ccicc-plugin-cloud/jslab-cloud/node_modules/
 /ccicc-plugin-cloud/jslab-cloud/dist/
 
-# Lua watchface stays an independent Git working tree.
-/vela-luawatchface/
+# Lua watchface build outputs (the source is part of this repository).
+/vela-luawatchface/node_modules/
+/vela-luawatchface/build/
+/vela-luawatchface/dist/
+/vela-luawatchface/bin/
+/vela-luawatchface/watchface/data/
+/vela-luawatchface/watchface/fprj/output/
+/vela-luawatchface/watchface/tools/__pycache__/
+/vela-luawatchface/.venv/
 /watchfaces/
 .codex-temp/
 

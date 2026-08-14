@@ -1,0 +1,12 @@
+{
+    "projectName":  "JSLab Helper",
+    "watchfaceId":  "511360537",
+    "power_consumption":  "3",
+    "resourceBin":  {
+                        "lvglVersion":  8,
+                        "colorFormat":  "I8",
+                        "compress":  "NONE",
+                        "input":  "watchface/fprj/images/preview.png",
+                        "name":  "preview"
+                    }
+}

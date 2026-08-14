@@ -1,0 +1,10 @@
+node_modules
+build
+dist
+bin
+watchface/data/
+watchface/fprj/output/
+watchface/tools/__pycache__/
+.venv/
+nul
+.claude
