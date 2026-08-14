@@ -1,8 +1,8 @@
 {
   "package": "icu.ccicc.jslab",
   "name": "JSLab",
-  "versionName": "1.7.8",
-  "versionCode": 178,
+  "versionName": "1.8.5",
+  "versionCode": 185,
   "minPlatformVersion": 1000,
   "icon": "/common/logo.png",
   "deviceTypeList": [
@@ -46,57 +46,89 @@
         "component": "index",
         "path": "/"
       },
-      "pages/edit": {
-        "component": "edit",
+      "pages/workspace/editor": {
+        "component": "editor",
         "path": "/workspace/editor"
       },
-      "pages/run-console": {
+      "pages/workspace/editor/v0": {
+        "component": "v0",
+        "path": "/workspace/editor/v0"
+      },
+      "pages/workspace/editor/v1": {
+        "component": "v1",
+        "path": "/workspace/editor/v1"
+      },
+      "pages/workspace/ai-generate": {
+        "component": "ai-generate",
+        "path": "/workspace/ai-generate"
+      },
+      "pages/workspace/run-console": {
         "component": "run-console",
         "path": "/workspace/run-console"
       },
-      "pages/run-ui": {
+      "pages/workspace/run-ui": {
         "component": "run-ui",
         "path": "/workspace/run-ui"
       },
-      "pages/setting": {
-        "component": "setting",
+      "pages/settings": {
+        "component": "settings",
         "path": "/settings"
       },
-      "pages/font": {
-        "component": "font",
-        "path": "/settings/fonts"
+      "pages/settings/editor": {
+        "component": "editor",
+        "path": "/settings/editor"
       },
-      "pages/about": {
+      "pages/settings/editor/fonts": {
+        "component": "fonts",
+        "path": "/settings/editor/fonts"
+      },
+      "pages/settings/editor/highlight": {
+        "component": "highlight",
+        "path": "/settings/editor/highlight"
+      },
+      "pages/settings/about": {
         "component": "about",
         "path": "/settings/about"
       },
-      "pages/add": {
-        "component": "add",
+      "pages/workspace/new": {
+        "component": "new",
         "path": "/workspace/new"
       },
-      "pages/market": {
+      "pages/tools/market": {
         "component": "market",
         "path": "/tools/market"
       },
-      "pages/money": {
+      "pages/tools/money": {
         "component": "money",
         "path": "/tools/money"
       },
-      "pages/help": {
+      "pages/settings/help": {
         "component": "help",
         "path": "/settings/help"
       },
-      "pages/select": {
+      "pages/settings/cloud": {
+        "component": "cloud",
+        "path": "/settings/cloud"
+      },
+      "pages/settings/cloud/files": {
+        "component": "files",
+        "path": "/settings/cloud/files"
+      },
+      "pages/overlay/select": {
         "component": "select",
         "path": "/overlay/select"
       },
-      "pages/confirm": {
+      "pages/overlay/confirm": {
         "component": "confirm",
         "path": "/overlay/confirm"
       },
-      "pages/number-input": {
+      "pages/overlay/number-input": {
         "component": "number-input",
         "path": "/overlay/number-input"
+      },
+      "pages/overlay/text-input": {
+        "component": "text-input",
+        "path": "/overlay/text-input"
       }
     }
   }

@@ -1,6 +1,6 @@
 [package]
 name = "jslab-astrobox-sync"
-version = "1.4.0"
+version = "1.5.5"
 edition = "2024"
 
 [lib]
@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 astrobox-ng-wit = "=0.3.1"
+waki = "0.5.1"
 
 [profile.release]
 lto = true

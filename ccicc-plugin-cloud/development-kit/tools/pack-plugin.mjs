@@ -29,7 +29,7 @@ if (!entry.startsWith(`${source}${path.sep}`) || !fs.statSync(entry, { throwIfNo
 const output = path.resolve(outputArg || path.join('dist', `${manifest.id}-${manifest.version}.zip`));
 fs.mkdirSync(path.dirname(output), { recursive: true });
 
-const excluded = (name) => name === 'node_modules' || name === '.git' || name === '.DS_Store' || name.endsWith('.tmp');
+const excluded = (name) => name === 'node_modules' || name === 'dist' || name === '.git' || name === '.DS_Store' || name.endsWith('.tmp');
 const files = [];
 const visit = (dir) => {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {

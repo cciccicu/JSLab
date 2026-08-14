@@ -1,0 +1,5 @@
+# Cloud compatibility proxy
+
+Devices with `system.fetch` connect directly to the configured cloud origin. When `fetch` is unavailable, the Vela app sends the same request through the existing Interconnect channel with action `cloudProxy`; AstroBox forwards it through the runtime-provided WASI HTTP client (`waki`) and returns the HTTP status, content type, and UTF-8 response body.
+
+The watch owns the device token. AstroBox only sees the `Authorization` header for the active request and never persists, displays, or logs it. The proxy forwards the URL configured by the watch, permits `GET`, `POST`, `PUT`, and `DELETE`, accepts only `Authorization`, `Content-Type`, and `Accept` headers, and enforces request, response, and URL-size limits. `waki` supplies a 10-second connection timeout; the Vela RPC layer supplies a 20-second user-visible response timeout and ignores late responses. Requests are not serialized, so one delayed upstream response does not reject later requests as busy. Existing local script and font management remains independent from cloud synchronization.

@@ -57,9 +57,9 @@
 - 支持 `input()` 函数获取用户交互输入。
 - 通过 AstroBox 插件在扩展端浏览、新建、编辑、重命名、删除、上传和下载手环中的 JavaScript 文件。
 
-## AstroBox 双端同步
+## AstroBox 配套端桥接
 
-同步扩展位于 `../astrobox-plugin-sync/`，要求 AstroBox API Level 3。它通过 AstroBox Host API 发现在线设备，并以 `icu.ccicc.jslab` 为精确路由包名建立 Interconnect 通信。
+配套端插件位于 `../astrobox-plugin-sync/`，要求 AstroBox API Level 3。它通过 AstroBox Host API 发现在线设备，并以 `icu.ccicc.jslab` 为精确路由包名建立 Interconnect 通信。
 
 扩展不使用 Vela 官方 Android 同步器的包名复用、签名证书或 Android 配对流程。安装新版 JSLab 手环应用和构建出的 `../astrobox-plugin-sync/JSLab-Sync.abp` 后，在 AstroBox 中授权设备、Interconnect 和接收注册权限即可使用。
 
@@ -82,20 +82,15 @@
 - `/tools/market`、`/tools/money`：工具页面
 - `/overlay/select`、`/overlay/confirm`、`/overlay/number-input`：交互页面
 
-新增页面时，应在 `src/manifest.json` 注册唯一 `path`，并通过 `src/utils/routeManager.js` 使用规范 route key 或多级 slug；不接受旧 `/pages/*` 别名或包含 `..` 的路径。
+新增页面时，应在 `src/manifest.json` 注册唯一 `path`，并通过 `src/utils/core/routeManager.js` 使用规范 route key 或多级 slug；不接受旧 `/pages/*` 别名或包含 `..` 的路径。
 
 ## 脚本运行模式
 
-脚本默认使用 Console 模式，通过 `run-console.ux` 执行。需要显示交互界面时，将下面的声明放在脚本第一个非空行：
-
-```javascript
-// @jslab-mode ui
-```
+普通 `.js` 文件使用 Console 模式，通过 `run-console.ux` 执行；以 `.ui.js` 结尾的文件使用 UI 模式。运行器只由文件名决定。
 
 UI 模式通过 `run-ui.ux` 执行，使用声明式 `ui.render()` API：
 
 ```javascript
-// @jslab-mode ui
 const count = ui.signal(0)
 
 ui.setTitle('计数器')
@@ -112,14 +107,15 @@ ui.render(() => [
 ])
 ```
 
-UI API 包含：`render`、`refresh`、`setTitle`、`setTopBar`、`fullscreen`、`back`、`heading`、`text`、`button`、`buttonRow`、`grid`、`switch`、`slider`、`progress`、`divider`、`spacer`、`signal`、`toast` 和滚动控制接口。UI 模式不提供停止和重试操作；重新执行脚本需返回编辑器后再次运行。单次渲染最多显示 40 个根组件，以控制手环内存占用。“新建 JS”页面内置无动画 2048 游戏模板。
+UI API 包含：`render`、`refresh`、`setTitle`、`showHeader`、`heading`、`text`、`button`、`buttonRow`、`grid`、`switch`、`slider`、`progress`、`divider`、`spacer`、`signal` 和滚动控制接口。退出和 Toast 分别使用共用的 `script.exit()` 与 `script.toast()`。UI 模式不提供 `console`；状态和错误应显示在界面中。重新执行脚本需返回编辑器后再次运行。单次渲染最多显示 40 个根组件，以控制手环内存占用。“新建 JS”页面内置无动画 2048 游戏模板。
 
 完整参数和示例见 [JSLab UI 模式 API](docs/UI_API.md)。
 
-## TODO
+## 当前边界
 
-- [ ] 输入法集成 JS 关键字快捷补全。
-- [ ] 脚本分享与在线市场。
+- 手环端云空间只支持用户主动上传和下载，不执行自动同步。
+- JS 市场浏览和发布由 ccicc.icu 云插件负责；手环端仅执行用户主动发起的传输。
+- 输入法关键字快捷补全仍未实现，属于后续功能。
 
 ## 开发指南
 

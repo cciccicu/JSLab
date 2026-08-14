@@ -1,0 +1,204 @@
+<template>
+  <div class="page">
+    <scroll class="content" scroll-y="true" bounces="true">
+      <div class="content-inner">
+        <text class="section-title">当前编辑器字体</text>
+        <div class="card">
+          <text class="font-name">{{fontName}}</text>
+          <text class="detail">文件：{{sourceName}} · {{fontFormat}}</text>
+          <text class="detail">行高 {{lineHeightRatio}}x · 偏移 {{lineHeightOffset}}px</text>
+          <text class="detail">ASCII {{asciiWidthRatio}}x · 宽字符 {{wideWidthRatio}}x</text>
+        </div>
+        <text class="section-title">更换字体</text>
+        <text class="helper-status" style="color: {{helperOnline ? '#9FE5B0' : '#FFC2C2'}};">表盘状态：{{helperStatus}}</text>
+        <div class="card">
+          <text class="step-title">1. 上传字体</text>
+          <text class="detail">在 AstroBox 的 JSLab 同步插件中打开“字体”，选择 TTF 或 OTF 文件。</text>
+        </div>
+        <div class="card">
+          <text class="step-title">2. 填写字体数据</text>
+          <text class="detail">按提示填写名称、行高、偏移以及 ASCII 和宽字符字宽。上传完成后字体包即进入待安装状态。</text>
+        </div>
+        <div class="install-button" @click="startInstallation">
+          <text class="install-button-title">安装待安装字体</text>
+          <text class="install-button-state">{{installActionText}}</text>
+        </div>
+        <text class="install-status">{{installStatus}}</text>
+        <div class="card last-card">
+          <text class="step-title">3. 重新打开 JSLab</text>
+          <text class="detail">JSLab Helper 会在后台监听并完成安装，无需打开表盘。安装完成后完全退出并重新打开 JSLab。</text>
+        </div>
+      </div>
+    </scroll>
+    <img static src="/common/images/hd.png" class="topbar" />
+    <img static src="/common/images/back.png" class="btn" @click="goBack" />
+    <text class="time">{{nowTime}}</text>
+    <text class="title">字体</text>
+  </div>
+</template>
+
+<script>
+import fontManager, { DEFAULT_FONT_PROFILE } from '../../../../utils/editor/fontManager.js';
+import { back } from '../../../../utils/core/routeManager.js';
+import { getCurrentClock } from '../../../../utils/core/time.js';
+import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
+
+export default {
+  private: {
+    nowTime: '00:00', timer: null, installationPollTimer: null, helperPollTimer: null,
+    fontName: DEFAULT_FONT_PROFILE.name,
+    sourceName: DEFAULT_FONT_PROFILE.sourceName,
+    fontFormat: DEFAULT_FONT_PROFILE.format.toUpperCase(),
+    lineHeightRatio: DEFAULT_FONT_PROFILE.lineHeightRatio,
+    lineHeightOffset: DEFAULT_FONT_PROFILE.lineHeightOffset,
+    asciiWidthRatio: DEFAULT_FONT_PROFILE.asciiWidthRatio,
+    wideWidthRatio: DEFAULT_FONT_PROFILE.wideWidthRatio,
+    pageActive: true,
+    helperOnline: false,
+    helperStatus: '正在检测',
+    installActionText: '开始安装',
+    installStatus: '正在检查待安装字体包',
+    installBusy: false
+  },
+  onInit() {
+    this.nowTime = getCurrentClock();
+    this.timer = setInterval(() => { this.nowTime = getCurrentClock(); }, 60000);
+  },
+  onShow() {
+    this.pageActive = true;
+    this.loadFontData();
+    this.loadInstallationState();
+    this.checkHelperHeartbeat();
+    if (!this.helperPollTimer) this.helperPollTimer = setInterval(() => this.checkHelperHeartbeat(), 5000);
+  },
+  onDestroy() {
+    this.pageActive = false;
+    if (this.timer) clearInterval(this.timer);
+    if (this.helperPollTimer) clearInterval(this.helperPollTimer);
+    this.helperPollTimer = null;
+    this.stopInstallationPolling();
+  },
+  checkHelperHeartbeat() {
+    fontManager.getHelperHeartbeat().then((heartbeat) => {
+      if (!this.pageActive) return;
+      this.helperOnline = heartbeat.online;
+      this.helperStatus = heartbeat.online ? '在线，可后台安装' : '未检测到，请确认已安装 JSLab Helper';
+    }).catch(() => {
+      if (!this.pageActive) return;
+      this.helperOnline = false;
+      this.helperStatus = '检测失败，请稍后重试';
+    });
+  },
+  startInstallationPolling() {
+    if (this.installationPollTimer || !this.pageActive) return;
+    this.installationPollTimer = setInterval(() => this.loadInstallationState(), 2000);
+  },
+  stopInstallationPolling() {
+    if (!this.installationPollTimer) return;
+    clearInterval(this.installationPollTimer);
+    this.installationPollTimer = null;
+  },
+  loadFontData() {
+    fontManager.getProfile().then((profile) => {
+      if (!this.pageActive) return;
+      this.fontName = profile.name;
+      this.sourceName = profile.sourceName;
+      this.fontFormat = profile.format.toUpperCase();
+      this.lineHeightRatio = profile.lineHeightRatio;
+      this.lineHeightOffset = profile.lineHeightOffset;
+      this.asciiWidthRatio = profile.asciiWidthRatio;
+      this.wideWidthRatio = profile.wideWidthRatio;
+    }).catch(error => { if (!this.pageActive) return; console.error('Failed to load active font data:', error); showToast('读取当前字体资料失败'); });
+  },
+  loadInstallationState() {
+    Promise.all([fontManager.getPendingInstallationInfo(), fontManager.getInstallationRequest(), fontManager.getInstallationResult(), fontManager.getHelperHeartbeat()])
+      .then((values) => {
+        if (!this.pageActive || this.installBusy) return;
+        const pending = values[0];
+        const request = values[1];
+        const result = values[2];
+        const heartbeat = values[3];
+        this.helperOnline = heartbeat.online;
+        this.helperStatus = heartbeat.online ? '在线，可后台安装' : '未检测到，请确认已安装 JSLab Helper';
+        if (request && (!result || result.id !== request.id)) {
+          this.installActionText = '等待安装完成';
+          this.installStatus = '已发起。JSLab Helper 正在后台处理，无需打开表盘。';
+          this.startInstallationPolling();
+          return;
+        }
+        const resultMatchesPending = !pending || result && result.checksum === pending.checksum;
+        if (result && resultMatchesPending && result.status === 'ok') {
+          this.installActionText = '安装完成';
+          this.installStatus = result.message || '字体已安装。完全退出并重新打开 JSLab 后生效。';
+          this.stopInstallationPolling();
+        } else if (result && resultMatchesPending && result.status === 'error') {
+          this.installActionText = '重新发起安装';
+          this.installStatus = result.message || '安装失败，请稍后重新发起安装。';
+          this.stopInstallationPolling();
+        } else if (pending) {
+          this.installActionText = '开始安装';
+          this.installStatus = '待安装：' + pending.sourceName + '。点击按钮后由 JSLab Helper 在后台完成安装。';
+          this.stopInstallationPolling();
+        } else {
+          this.installActionText = '开始安装';
+          this.installStatus = '请先在 AstroBox 的 JSLab 同步插件中上传完整的 TTF 或 OTF 字体包。';
+          this.stopInstallationPolling();
+        }
+      })
+      .catch(() => {
+        if (!this.pageActive || this.installBusy) return;
+        this.installActionText = '开始安装';
+        this.installStatus = '无法读取字体安装状态，请稍后重试。';
+      });
+  },
+  startInstallation() {
+    if (this.installBusy) return;
+    this.installBusy = true;
+    this.installActionText = '正在发起安装';
+    this.installStatus = '正在发起后台安装请求。';
+    fontManager.getHelperHeartbeat()
+      .then((heartbeat) => {
+        this.helperOnline = heartbeat.online;
+        this.helperStatus = heartbeat.online ? '在线，可后台安装' : '未检测到，请确认已安装 JSLab Helper';
+        if (!heartbeat.online) throw new Error('未检测到 JSLab Helper，无法发起安装');
+        return fontManager.requestInstallation();
+      })
+      .then(() => {
+        if (!this.pageActive) return;
+        this.installActionText = '等待安装完成';
+        this.installStatus = '已发起。JSLab Helper 会在后台处理，无需打开表盘。';
+        this.startInstallationPolling();
+        showToast('已发起后台安装');
+      })
+      .catch((error) => {
+        if (!this.pageActive) return;
+        this.installActionText = '开始安装';
+        this.installStatus = error && error.message ? error.message : '发起安装失败，请稍后重试。';
+        showToast(this.installStatus);
+      })
+      .then(() => { this.installBusy = false; });
+  },
+  goBack() { vibrate('short'); back(); }
+};
+</script>
+
+<style>
+.page { width: 336px; height: 480px; background-color: #000000; overflow: hidden; }
+.content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; }
+.content-inner { width: 336px; flex-direction: column; flex-shrink: 0; padding: 102px 6px 84px; }
+.section-title { width: 324px; margin-top: 12px; flex-shrink: 0; font-size: 22px; line-height: 30px; font-weight: bold; color: rgba(255,255,255,0.65); }
+.helper-status { width: 284px; margin: 6px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; font-weight: bold; }
+.card { width: 324px; margin-top: 8px; padding: 16px 20px; flex-direction: column; flex-shrink: 0; background-color: #262626; border-radius: 36px; }
+.font-name { width: 284px; flex-shrink: 0; font-size: 28px; line-height: 36px; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+.step-title { width: 284px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #9ecbff; }
+.detail { width: 284px; margin-top: 6px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
+.install-button { width: 324px; height: 72px; margin-top: 8px; padding: 0px 20px; flex-shrink: 0; align-items: center; justify-content: space-between; background-color: #2f75c7; border-radius: 36px; }
+.install-button-title { width: 190px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #ffffff; text-overflow: ellipsis; lines: 1; }
+.install-button-state { width: 90px; flex-shrink: 0; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.78); text-align: right; text-overflow: ellipsis; lines: 1; }
+.install-status { width: 284px; margin: 8px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
+.last-card { margin-bottom: 16px; }
+.topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+.btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
+.time { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
+.title { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }
+</style>

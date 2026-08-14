@@ -1,12 +1,15 @@
 <script>
-import { push } from './utils/routeManager.js';
-import syncService from './utils/syncService.js';
-import { getExecutionRoute } from './utils/executionMode.js';
+import { push } from './utils/core/routeManager.js';
+import companionBridge from './utils/cloud/companionBridge.js';
+import { getExecutionRoute } from './utils/runtime/executionMode.js';
+import { createDialogRequest } from './utils/core/dialogState.js';
+import configManager from './utils/core/configManager.js';
 
 const DIALOG_ROUTES = {
   confirm: 'overlayConfirm',
   select: 'overlaySelect',
-  number: 'overlayNumberInput'
+  number: 'overlayNumberInput',
+  text: 'overlayTextInput'
 };
 
 export default {
@@ -19,26 +22,46 @@ export default {
   },
 
   onCreate() {
-    syncService.start();
+    configManager.init().catch((error) => {
+      console.error('Failed to preload configuration:', error);
+    });
+    // The AstroBox sync plugin always uses Interconnect. This lifecycle bridge
+    // must not depend on the user's separate cloud HTTP transport preference.
+    companionBridge.start();
   },
 
   onDestroy() {
-    syncService.stop();
+    this.dialog = null;
+    companionBridge.stop();
   },
 
   openDialog(type, options) {
     const route = DIALOG_ROUTES[type];
     if (!route) {
       console.error('Unknown dialog type:', type);
-      return;
+      return null;
     }
 
-    this.dialog = Object.assign({ type }, options);
-    push(route);
+    if (this.dialog) {
+      console.warn('Dialog is already active:', this.dialog.type);
+      return null;
+    }
+
+    const dialog = createDialogRequest(type, options);
+    this.dialog = dialog;
+    try {
+      push(route);
+      return dialog.id;
+    } catch (error) {
+      this.closeDialog(dialog.id);
+      throw error;
+    }
   },
 
-  closeDialog() {
+  closeDialog(dialogId) {
+    if (!this.dialog || (dialogId && this.dialog.id !== dialogId)) return false;
     this.dialog = null;
+    return true;
   },
 
   openEditor(name, code, mode) {
@@ -52,9 +75,9 @@ export default {
     this.editor.code = code;
   },
 
-  openRunner(code) {
+  openRunner(name, code) {
     this.editor.code = String(code || '');
-    push(getExecutionRoute(this.editor.code));
+    push(getExecutionRoute(name));
   }
 };
 </script>

@@ -16,10 +16,13 @@
 /ccicc-plugin-cloud/development-kit/dist/
 /ccicc-plugin-cloud/node_modules/
 /ccicc-plugin-cloud/dist/
+/ccicc-plugin-cloud/jslab-cloud/node_modules/
+/ccicc-plugin-cloud/jslab-cloud/dist/
 
 # Lua watchface stays an independent Git working tree.
 /vela-luawatchface/
 /watchfaces/
+.codex-temp/
 
 .DS_Store
 Thumbs.db

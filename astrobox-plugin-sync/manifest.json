@@ -1,8 +1,8 @@
 {
   "name": "JSLab Sync",
   "icon": "icon.png",
-  "version": "1.4.0",
-  "description": "通过 AstroBox 管理 JSLab 脚本与编辑器字体度量",
+  "version": "1.5.5",
+  "description": "通过 AstroBox 管理 JSLab 脚本并上传单字体数据包",
   "author": "ccicc",
   "website": "https://ccicc.icu",
   "entry": "jslab_sync.wasm",
@@ -11,6 +11,7 @@
   "permissions": [
     "device",
     "interconnect",
+    "network",
     "thirdpartyapp",
     "register_interconnect_recv"
   ]

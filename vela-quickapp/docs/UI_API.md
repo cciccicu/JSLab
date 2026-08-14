@@ -2,18 +2,11 @@
 
 ## 启用 UI 模式
 
-将模式声明放在脚本第一个非空行：
-
-```javascript
-// @jslab-mode ui
-```
-
-未声明时使用 Console 模式。UI 模式运行于 `/workspace/run-ui`，通过 `ui.render()` 提交声明式组件树。
+将文件命名为 `.ui.js`（例如 `counter.ui.js`）即可启用 UI 模式。普通 `.js` 文件使用 Console 模式；运行器只由文件名决定。UI 模式运行于 `/workspace/run-ui`，通过 `ui.render()` 提交声明式组件树。
 
 ## 基本结构
 
 ```javascript
-// @jslab-mode ui
 const count = ui.signal(0)
 
 ui.setTitle('计数器')
@@ -31,11 +24,10 @@ ui.render(() => [
 - `ui.render(view | factory)`：显示组件树。
 - `ui.refresh()`：重新执行当前渲染函数。
 - `ui.setTitle(text)`：设置顶部标题，最多显示 10 个字符。
-- `ui.setTopBar(visible)`：显示或隐藏 JSLab 顶栏。
-- `ui.fullscreen(enabled)`：全屏模式快捷接口；`true` 时隐藏顶栏并释放顶部空间。
-- `ui.back()`：返回上一页，全屏页面应提供可见的返回入口。
+- `ui.showHeader(visible)`：显示或隐藏 JSLab 顶栏。
+- `script.exit()`：退出当前脚本；隐藏顶栏时应提供调用它的可见按钮。
 - `ui.signal(initialValue)`：创建状态对象，提供 `get()`、`set(value)` 和 `update(fn)`；写入后自动刷新。
-- `ui.toast(message, duration)`：显示 1500–10000ms Toast。
+- `script.toast(message, duration)`：显示 1500–10000ms Toast。
 - `ui.grid(items, options)`：显示 2–4 列紧凑网格，适用于仪表盘、棋盘和快捷入口。
 - `ui.buttonRow(buttons, options)`：在同一行显示最多 4 个按钮。
 - `ui.scrollTo(y)`：平滑滚动到指定纵向位置。
@@ -129,20 +121,19 @@ ui.buttonRow([
 - 内容超过屏幕高度时自动形成不可压缩的纵向滚动区域并显示右侧位置指示条；状态重绘会保留当前滚动位置。
 - 建议为会改变顺序的交互组件提供稳定且唯一的 `id`。
 - 返回页面或重新进入运行页后，旧页面的按钮、开关和滑块回调将失效。
-- UI 模式仍可使用 JSLab 已注入的 Vela 系统 API，例如 `storage`、`fetch`、`device` 和 `vibrator`。
+- UI 模式可使用共用的 `script`、`dialog`、`system` API，但不提供 `console`。状态和错误应通过 `ui.text` 等界面组件或 `script.toast()` 呈现。
 - QuickJS 同步死循环会阻塞 UI 线程，UI 模式无法在页面内抢占正在执行的同步代码。
 
 ## 全屏界面
 
 ```javascript
-// @jslab-mode ui
-ui.fullscreen(true)
+ui.showHeader(false)
 
 ui.render(() => [
   ui.heading('全屏界面'),
   ui.text('顶部 102px 已释放给用户内容'),
-  ui.button('返回 JSLab', () => ui.back(), { tone: 'neutral' })
+  ui.button('返回 JSLab', () => script.exit(), { tone: 'neutral' })
 ])
 ```
 
-UI 模式不提供停止和重试按钮。隐藏顶栏后，脚本应使用 `ui.back()` 提供自己的返回入口。
+UI 模式不提供停止和重试按钮。隐藏顶栏后，脚本应使用 `script.exit()` 提供自己的返回入口。

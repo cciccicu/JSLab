@@ -43,16 +43,29 @@
         </div>
       </div>
 
-      <!-- 中文符号和英文符号是两个独立页面。 -->
-      <scroll if="{{currentState==='cnSymbols' || currentState==='enSymbols'}}" id="symbolKeyboard" class="keyboard-body" scroll-x="true">
-        <div if="{{currentState==='cnSymbols'}}" class="symbol-rows">
-          <div class="symbol-row" for="{{row in keys['cnSymbols']}}">
-            <text class="symbol-key" for="{{item in row}}" @click="onSelect(item)">{{item}}</text>
+      <!-- 两组符号保持完整按键尺寸，向右滑动进入中文符号区。 -->
+      <scroll if="{{currentState==='symbols'}}" class="keyboard-page-scroll" scroll-x="true" bounces="true">
+        <div static class="symbol-content">
+          <div class="symbol-section">
+            <text class="keyboard-section-heading">英文符号</text>
+            <div class="symbol-row" for="{{row in keys['enSymbols']}}">
+              <text class="symbol-key" for="{{item in row}}" @click="onSelect(item)">{{item}}</text>
+            </div>
+          </div>
+          <div class="symbol-section symbol-section-cn">
+            <text class="keyboard-section-heading">中文符号</text>
+            <div class="symbol-row" for="{{row in keys['cnSymbols']}}">
+              <text class="symbol-key" for="{{item in row}}" @click="onSelect(item)">{{item}}</text>
+            </div>
           </div>
         </div>
-        <div if="{{currentState==='enSymbols'}}" class="symbol-rows">
-          <div class="symbol-row" for="{{row in keys['enSymbols']}}">
-            <text class="symbol-key" for="{{item in row}}" @click="onSelect(item)">{{item}}</text>
+      </scroll>
+
+      <!-- JS 页使用不等宽模板键，整页可横向滑动。 -->
+      <scroll if="{{currentState==='snippets'}}" class="keyboard-page-scroll" scroll-x="true" bounces="true">
+        <div static class="snippet-content">
+          <div class="snippet-row" for="{{row in keys['snippets']}}">
+            <text class="snippet-key" for="{{item in row}}" style="width: {{item.width}}px;" @click="onSelect(item.value)">{{item.label}}</text>
           </div>
         </div>
       </scroll>
@@ -74,17 +87,19 @@
 
       <!-- 非中文候选页面固定为 ABC / 中 / 符号 / 123 / 退格，位置永不变化。 -->
       <div if="{{currentState!=='cnLetters'}}" class="action-row-five">
-        <text if="{{currentState==='enLetters'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">ABC</text>
-        <text else class="state-button" @click="goToState('enLetters')">ABC</text>
+        <text if="{{currentState==='enLetters'}}" class="state-button state-button-compact state-button-active" @click="onBtnClick('toggleStateMenu')">ABC</text>
+        <text else class="state-button state-button-compact" @click="goToState('enLetters')">ABC</text>
 
         <text class="state-button" @click="goToState('cnLetters')">中</text>
 
-        <text if="{{currentState==='enSymbols'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">{}</text>
-        <text elif="{{currentState==='cnSymbols'}}" class="state-button state-button-active symbol-mode-cn" @click="onBtnClick('toggleStateMenu')">，。</text>
-        <text else class="state-button" @click="goToState('enSymbols')">{}</text>
+        <text if="{{currentState==='symbols'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">符</text>
+        <text else class="state-button" @click="goToState('symbols')">符</text>
 
-        <text if="{{currentState==='numbers'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">123</text>
-        <text else class="state-button" @click="goToState('numbers')">123</text>
+        <text if="{{currentState==='snippets'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">JS</text>
+        <text else class="state-button" @click="goToState('snippets')">JS</text>
+
+        <text if="{{currentState==='numbers'}}" class="state-button state-button-compact state-button-active" @click="onBtnClick('toggleStateMenu')">123</text>
+        <text else class="state-button state-button-compact" @click="goToState('numbers')">123</text>
 
         <img class="toolbar-delete" src="./assets/horizontal/del.png" @click="onBtnClick('delete')" />
       </div>
@@ -92,16 +107,16 @@
       <!-- 任意当前模式按钮都打开同一五态菜单；蓝色项就是当前页面。 -->
       <div if="{{stateMenuVisible}}" class="state-menu">
         <text if="{{currentState==='enLetters'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">ABC</text>
-        <text else class="menu-button" @click="goToState('enLetters')">ABC</text>
+        <text else class="menu-button" @click="goToState('enLetters')" style="font-size:18px;">ABC</text>
 
         <text if="{{currentState==='cnLetters'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">中</text>
         <text else class="menu-button" @click="goToState('cnLetters')">中</text>
 
-        <text if="{{currentState==='cnSymbols'}}" class="menu-button menu-button-active menu-symbol-cn" @click="onBtnClick('toggleStateMenu')">，。</text>
-        <text else class="menu-button menu-symbol-cn" @click="goToState('cnSymbols')">，。</text>
+        <text if="{{currentState==='symbols'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">符</text>
+        <text else class="menu-button" @click="goToState('symbols')">符</text>
 
-        <text if="{{currentState==='enSymbols'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">{}</text>
-        <text else class="menu-button" @click="goToState('enSymbols')">{}</text>
+        <text if="{{currentState==='snippets'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">JS</text>
+        <text else class="menu-button" @click="goToState('snippets')">JS</text>
 
         <text if="{{currentState==='numbers'}}" class="menu-button-last menu-button-active" @click="onBtnClick('toggleStateMenu')">123</text>
         <text else class="menu-button-last" @click="goToState('numbers')">123</text>
@@ -169,6 +184,41 @@ export default {
         ['(', ')', '{', '}', '[', ']', '<', '>', '!', '?', '@'],
         ['.', ',', ':', ';', "'", '"', '`', '#', '$', '%', '\\'],
         ['=', '/', '+', '-', '*', '_', '&', '|', '^', '~']
+      ],
+      snippets: [
+        [
+          { label: 'console.log(', value: 'console.log(', width: 138 },
+          { label: 'console.error(', value: 'console.error(', width: 148 },
+          { label: 'const value =', value: 'const value = ', width: 138 },
+          { label: 'let value =', value: 'let value = ', width: 126 },
+          { label: 'function', value: 'function name() {\n  \n}', width: 112 },
+          { label: 'arrow function', value: '() => {\n  \n}', width: 142 },
+          { label: 'input(', value: 'input(', width: 92 }
+        ],
+        [
+          { label: 'for loop', value: 'for (let i = 0; i < length; i += 1) {\n  \n}', width: 104 },
+          { label: '.forEach(', value: '.forEach(', width: 108 },
+          { label: '.map(', value: '.map(', width: 84 },
+          { label: '.filter(', value: '.filter(', width: 92 },
+          { label: '.find(', value: '.find(', width: 84 },
+          { label: '.reduce(', value: '.reduce(', width: 98 },
+          { label: 'setTimeout(', value: 'setTimeout(', width: 126 },
+          { label: 'setInterval(', value: 'setInterval(', width: 126 },
+          { label: 'try / catch', value: 'try {\n  \n} catch (error) {\n  console.error(error);\n}', width: 126 },
+          { label: 'Promise.resolve(', value: 'Promise.resolve(', width: 156 }
+        ],
+        [
+          { label: 'JSON.stringify(', value: 'JSON.stringify(', width: 148 },
+          { label: 'JSON.parse(', value: 'JSON.parse(', width: 122 },
+          { label: 'Object.keys(', value: 'Object.keys(', width: 124 },
+          { label: 'Array.isArray(', value: 'Array.isArray(', width: 138 },
+          { label: 'ui.signal(', value: 'ui.signal(', width: 108 },
+          { label: 'ui.render(', value: 'ui.render(', width: 114 },
+          { label: 'ui.text(', value: 'ui.text(', width: 96 },
+          { label: 'ui.button(', value: 'ui.button(', width: 112 },
+          { label: 'prompt.showToast(', value: 'prompt.showToast(', width: 154 },
+          { label: 'fetch.fetch(', value: 'fetch.fetch(', width: 122 }
+        ]
       ]
     }
   },
@@ -202,7 +252,7 @@ export default {
   },
 
   goToState(target) {
-    const validStates = ['cnLetters', 'enLetters', 'cnSymbols', 'enSymbols', 'numbers'];
+    const validStates = ['cnLetters', 'enLetters', 'symbols', 'snippets', 'numbers'];
     if (validStates.indexOf(target) < 0 || target === this.currentState) {
       this.closeOverlays();
       return;
@@ -385,13 +435,20 @@ export default {
   border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
   color: #ffffff; font-size: 28px; font-weight: bold; text-align: center;
 }
-.symbol-rows { left: 6px; flex-direction: column; }
-.symbol-row { height: 56px; margin-bottom: 4px; }
+.keyboard-page-scroll { position: absolute; left: 6px; top: 66px; width: 324px; height: 189px; }
+.symbol-content { width: 1028px; height: 189px; flex-direction: row; flex-shrink: 0; }
+.symbol-section { width: 616px; height: 189px; flex-direction: column; flex-shrink: 0; }
+.symbol-section-cn { width: 406px; margin-left: 6px; }
+.keyboard-section-heading { width: 100%; height: 24px; color: rgba(255,255,255,0.55); font-size: 17px; font-weight: bold; text-align: left; padding-left: 8px; flex-shrink: 0; }
+.symbol-row { height: 52px; margin-bottom: 4px; flex-shrink: 0; }
 .symbol-key {
-  width: 52px; height: 52px; margin-right: 4px; border-radius: 26px;
+  width: 52px; height: 52px; margin-right: 4px; border-radius: 26px; flex-shrink: 0;
   border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
-  color: #ffffff; font-size: 26px; font-weight: bold; text-align: center;
+  color: #ffffff; font-size: 25px; font-weight: bold; text-align: center;
 }
+.snippet-content { width: 1280px; height: 189px; flex-direction: column; flex-shrink: 0; }
+.snippet-row { height: 56px; margin-bottom: 4px; flex-shrink: 0; }
+.snippet-key { height: 52px; margin-right: 6px; border-radius: 26px; border: 3px solid rgba(255,255,255,0.06); background-color: #262626; color: #ffffff; font-size: 18px; font-weight: bold; text-align: center; flex-shrink: 0; }
 .action-row-cn { position: absolute; left: 6px; top: 3px; width: 324px; height: 60px; flex-direction: row; }
 .action-row-five { position: absolute; left: 6px; top: 3px; width: 324px; height: 60px; flex-direction: row; }
 .candidate-bar { width: 192px; height: 60px; margin-left: 6px; border: 3px solid #333333; border-radius: 30px; background-color: #262626; }
@@ -400,12 +457,13 @@ export default {
 .candidate { height: 42px; padding-right: 10px; color: #ffffff; font-size: 28px; text-align: center; }
 .candidate-expand { position: absolute; right: 2px; top: 14px; width: 32px; height: 21px; }
 .delete-button-spaced { width: 60px; height: 60px; margin-left: 6px; }
-.toolbar-delete { width: 60px; height: 60px; }
+.toolbar-delete { width: 60px; height: 60px; margin-left: -6px; }
 .state-button {
-  width: 60px; height: 60px; margin-right: 6px; border-radius: 30px;
+  width: 48px; height: 60px; margin-right: 6px; border-radius: 24px;
   border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
   color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
 }
+.state-button-compact { font-size: 20px; }
 .state-button-active { background-color: #0d84ff; border-color: rgba(255,255,255,0.24); }
 .mode-button-cn {
   width: 60px; height: 60px; margin-right: 0px; border-radius: 30px;

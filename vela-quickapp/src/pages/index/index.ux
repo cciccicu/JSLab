@@ -8,10 +8,8 @@
       <list-item for="{{(index, file) in fileList}}" tid="name" class="item {{selectedFileIndex === index ? 'item2' : ''}}"
         @click="selectFile(index)" type="nook">
         <text class="itemtext">{{file.name}}</text>
-        <div class="itemtext" style="justify-content: space-between;width: 100%;">
-          <text class="itemtext2" style="flex:1">文件大小</text>
-          <text class="itemtext2">{{file.size}}B</text>
-        </div>
+        <text class="itemmeta">大小：{{file.sizeText}}</text>
+        <text class="itemmeta">最终修改日期：{{file.modifiedText}}</text>
       </list-item>
     </list>
   
@@ -23,9 +21,11 @@
   
     <!-- 底部按钮根据选择状态显示 -->
     <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" style="left: 6px;top: 402px;" class="btn" @click="routerTo('toolsMarket')"/>
+    <img if="{{selectedFileIndex === -1}}" src="/common/images/cloud.png" style="left: 132px;top: 402px;" class="btn" @click="routerTo('settingsCloudFiles')"/>
     <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('newFile')"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn" @click="runcode"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 132px;top: 402px;" class="btn" @click="editcode"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" style="left: 90px;top: 402px;" class="btn {{cloudBusy ? 'busy' : ''}}" @click="uploadSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 174px;top: 402px;" class="btn" @click="editcode"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn" @click="handleDeleteClick"/>
   
   </div>
@@ -33,10 +33,13 @@
 
 <script>
 import app from '@system.app';
-import jsManager from '../../utils/jsManager.js';
-import { push } from '../../utils/routeManager.js';
-import { showToast, vibrate } from '../../utils/uiFeedback.js';
-import { getCurrentClock } from '../../utils/time.js';
+import jsManager from '../../utils/files/jsManager.js';
+import { push } from '../../utils/core/routeManager.js';
+import { showToast, vibrate } from '../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../utils/core/time.js';
+import { formatFileSize, formatModifiedDate, utf8ByteLength } from '../../utils/files/fileMetadata.js';
+import { getConfiguredEditorRoute } from '../../utils/editor/editorVersion.js';
+import cloudService from '../../utils/cloud/cloudService.js';
 
 export default {
   private: {
@@ -45,10 +48,8 @@ export default {
     nowTime: "00:00",
     timer: null,
     fileChangeUnsubscribe: null,
-
-    // 简化删除逻辑
-    deleteClickCount: 0,
-    deleteTimer: null
+    cloudBusy: false,
+    pageActive: true
   },
 
   exit() {
@@ -67,17 +68,15 @@ export default {
     });
     this.timer = setInterval(() => {
       this.updateTime();
-    }, 1000);
+    }, 60000);
   },
 
   onDestroy() {
+    this.pageActive = false;
     clearInterval(this.timer);
     if (this.fileChangeUnsubscribe) {
       this.fileChangeUnsubscribe();
       this.fileChangeUnsubscribe = null;
-    }
-    if (this.deleteTimer) {
-      clearTimeout(this.deleteTimer);
     }
   },
 
@@ -90,12 +89,13 @@ export default {
       ? this.fileList[this.selectedFileIndex].name
       : '';
     jsManager.list().then(fileList => {
-      this.fileList = fileList;
+      this.fileList = fileList.map(fileInfo => Object.assign({}, fileInfo, {
+        sizeText: formatFileSize(fileInfo.size),
+        modifiedText: formatModifiedDate(fileInfo.lastModifiedTime)
+      }));
       this.selectedFileIndex = selectedName
-        ? fileList.findIndex(fileInfo => fileInfo.name === selectedName)
+        ? this.fileList.findIndex(fileInfo => fileInfo.name === selectedName)
         : -1;
-      // 重置删除状态（文件列表刷新后不应保留旧操作）
-      this.resetDeleteClick();
     }).catch(error => {
       console.error("获取文件列表失败:", error);
       showToast('获取文件列表失败');
@@ -109,8 +109,6 @@ export default {
     } else {
       this.selectedFileIndex = index;
     }
-    // 切换选择时重置删除计数，防止误删
-    this.resetDeleteClick();
   },
 
   routerTo(page) {
@@ -130,7 +128,7 @@ export default {
     jsManager.read(fileName)
       .then(content => {
         this.$app.$def.openEditor(fileName, content, 'run');
-        this.$app.$def.openRunner(content);
+        this.$app.$def.openRunner(fileName, content);
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -153,8 +151,12 @@ export default {
     const fileName = this.fileList[this.selectedFileIndex].name;
     jsManager.read(fileName)
       .then(content => {
+        if (utf8ByteLength(content) > 48 * 1024) {
+          showToast('脚本超过 48 KiB，无法在手环编辑器中打开');
+          return;
+        }
         this.$app.$def.openEditor(fileName, content, 'edit');
-      push('editor');
+        getConfiguredEditorRoute().then(route => push(route)).catch(() => push('editor'));
       })
       .catch(error => {
         console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -166,54 +168,69 @@ export default {
       });
   },
 
-  handleDeleteClick() {
-    // 在这里直接使用震动API
+  uploadSelected() {
+    if (this.cloudBusy || this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) return;
     vibrate('short');
-    
+    const file = this.fileList[this.selectedFileIndex];
+    this.cloudBusy = true;
+    cloudService.getState().then((state) => {
+      if (!state.paired) throw new Error('not_paired');
+      return cloudService.getEntitlements();
+    }).then((entitlement) => {
+      if (!entitlement.cloudEnabled) throw new Error('activation_required');
+      return cloudService.listCloudScripts();
+    }).then((scripts) => {
+      const existing = scripts.find((script) => script.name === file.name);
+      this.cloudBusy = false;
+      if (existing) {
+        const opened = this.$app.$def.openDialog('confirm', {
+          title: '云空间已有同名文件',
+          message: '上传会替换云空间中的当前内容，是否继续？',
+          callbacks: { onConfirm: () => this.performUpload(file.name) }
+        });
+        if (!opened) showToast('当前有其他操作待处理');
+        return;
+      }
+      this.performUpload(file.name);
+    }).catch((error) => {
+      this.cloudBusy = false;
+      showToast(error.message === 'not_paired' ? '请先配对云账户' : error.message === 'activation_required' ? '请先激活云空间' : cloudService.errorMessage(error, '无法读取云空间'));
+    });
+  },
+
+  performUpload(fileName) {
+    if (this.cloudBusy) return;
+    this.cloudBusy = true;
+    cloudService.uploadScript(fileName).then(() => {
+      showToast('已上传 ' + fileName);
+    }).catch((error) => {
+      showToast(error.message === 'activation_required' ? '请先激活云空间' : cloudService.errorMessage(error, '上传失败'));
+    }).then(() => { this.cloudBusy = false; });
+  },
+
+  handleDeleteClick() {
+    vibrate('short');
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
       showToast('请先选择一个文件');
       return;
     }
-
     const fileName = this.fileList[this.selectedFileIndex].name;
-    this.deleteClickCount++;
-
-    if (this.deleteClickCount === 1) {
-      showToast('再点两次确认删除', 500);
-      this.deleteTimer = setTimeout(() => {
-        this.resetDeleteClick();
-      }, 3000);
-    } else if (this.deleteClickCount === 2) {
-      showToast('再点一次确认删除', 500);
-      // 不重置计时器，沿用第一次的3秒窗口
-    } else if (this.deleteClickCount === 3) {
-      // 清除定时器并执行删除
-      clearTimeout(this.deleteTimer);
-      this.deleteTimer = null;
-
-      jsManager.remove(fileName)
-        .then(() => {
-          showToast(`文件 ${fileName} 已删除`, 500);
-        })
-        .catch(error => {
-          console.error(`删除文件 ${fileName} 失败:`, error.message);
-          showToast(`删除失败: ${error.message}`);
-        })
-        .finally(() => {
-          this.resetDeleteClick();
-        });
-    } else {
-      // 安全兜底：超过3次也重置
-      this.resetDeleteClick();
-    }
+    const opened = this.$app.$def.openDialog('confirm', {
+      title: '删除本地文件',
+      message: '确认删除 ' + fileName + '？此操作不会删除云端文件。',
+      callbacks: { onConfirm: () => this.removeFile(fileName) }
+    });
+    if (!opened) showToast('当前有其他操作待处理');
   },
 
-  resetDeleteClick() {
-    this.deleteClickCount = 0;
-    if (this.deleteTimer) {
-      clearTimeout(this.deleteTimer);
-      this.deleteTimer = null;
-    }
+  removeFile(fileName) {
+    jsManager.remove(fileName).then(() => {
+      if (this.pageActive) showToast(`文件 ${fileName} 已删除`, 500);
+    }).catch(error => {
+      if (!this.pageActive) return;
+      console.error(`删除文件 ${fileName} 失败:`, error.message);
+      showToast(`删除失败: ${error.message}`);
+    });
   }
 };
 </script>
@@ -275,7 +292,7 @@ export default {
 .item {
   width: 100%;
   height: 112px;
-  padding: 14px 20px;
+  padding: 10px 18px;
   margin-bottom: 8px;
   background-color: #262626;
   border-radius: 36px;
@@ -308,8 +325,8 @@ export default {
 }
 
 .itemtext {
-  font-size: 32px;
-  line-height: 40px;
+  font-size: 28px;
+  line-height: 34px;
   width: 100%;
   font-weight: bold;
   color: white;
@@ -317,12 +334,16 @@ export default {
   lines: 1;
 }
 
-.itemtext2 {
-  font-size: 28px;
-  line-height: 37px;
-  font-weight: bold;
+.itemmeta {
+  width: 100%;
+  font-size: 16px;
+  line-height: 22px;
   color: rgba(255,255,255,0.6);
   text-overflow: ellipsis;
   lines: 1;
+}
+
+.busy {
+  opacity: 0.5;
 }
 </style>

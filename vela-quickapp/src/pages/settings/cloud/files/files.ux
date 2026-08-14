@@ -1,0 +1,201 @@
+<template>
+  <div class="page">
+    <img if="{{!loading && !loadError && paired && activated && cloudScripts.length === 0}}" src="/common/images/empty.png" class="empty-img" />
+    <text if="{{!loading && !loadError && paired && activated && cloudScripts.length === 0}}" class="empty-text">云空间为空</text>
+    <text if="{{!paired}}" class="state-text">请先配对设备</text>
+    <text if="{{paired && !activated}}" class="state-text">请先在网页激活云空间</text>
+    <text if="{{loading}}" class="state-text">正在读取云空间...</text>
+    <text if="{{loadError}}" class="state-text" @click="loadFiles">{{loadErrorText}}</text>
+
+    <list if="{{paired && activated && !loading && !loadError}}" bounces="true" class="list">
+      <list-item for="{{(index, script) in cloudScripts}}" tid="id" type="cloud-file"
+        class="item {{selectedFileIndex === index ? 'item-selected' : ''}}" @click="selectFile(index)">
+        <text class="item-name">{{script.name}}</text>
+        <text class="item-meta">类型：{{script.typeText}}</text>
+        <text class="item-meta">更新时间：{{script.updatedText}}</text>
+      </list-item>
+    </list>
+
+    <img static src="/common/images/hd.png" class="header" />
+    <img static src="/common/images/back.png" class="btn top-left" @click="goBack" />
+    <img static src="/common/images/push.png" class="btn top-right" @click="loadFiles" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="heading">云空间</text>
+
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/download.png" class="btn action-left" @click="downloadSelected" />
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/save.png" class="btn action-center" @click="saveAsSelected" />
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" class="btn action-right" @click="removeSelected" />
+  </div>
+</template>
+
+<script>
+import cloudService from '../../../../utils/cloud/cloudService.js';
+import { back } from '../../../../utils/core/routeManager.js';
+import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../../utils/core/time.js';
+
+export default {
+  private: {
+    paired: false,
+    activated: false,
+    loading: false,
+    busy: false,
+    loadError: false,
+    loadErrorText: '读取失败，点击重试',
+    cloudScripts: [],
+    selectedFileIndex: -1,
+    nowTime: '00:00',
+    timer: null,
+    pageActive: true
+  },
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+  },
+  onShow() { this.loadFiles(); },
+  onDestroy() { this.pageActive = false; if (this.timer) clearInterval(this.timer); },
+  updateTime() { this.nowTime = getCurrentClock(); },
+  formatUpdated(value) {
+    const text = String(value || '').replace('T', ' ').replace('Z', '');
+    return text ? text.slice(0, 16) : '未知';
+  },
+  loadFiles() {
+    if (this.loading || this.busy) return;
+    const selected = this.cloudScripts[this.selectedFileIndex];
+    const selectedId = selected ? selected.id : null;
+    this.loading = true;
+    this.loadError = false;
+    cloudService.getState().then((state) => {
+      if (!this.pageActive) return null;
+      this.paired = state.paired;
+      if (!state.paired) return null;
+      return cloudService.getEntitlements().then((entitlement) => {
+        this.activated = entitlement.cloudEnabled;
+        return this.activated ? cloudService.listCloudScripts() : null;
+      });
+    }).then((scripts) => {
+      if (!this.pageActive) return;
+      if (!scripts) {
+        this.cloudScripts = [];
+        this.selectedFileIndex = -1;
+        return;
+      }
+      this.cloudScripts = scripts.map((script) => Object.assign({}, script, {
+        typeText: script.type === 'ui' ? 'UI 脚本' : '控制台脚本',
+        updatedText: this.formatUpdated(script.updated_at)
+      }));
+      this.selectedFileIndex = selectedId == null
+        ? -1
+        : this.cloudScripts.findIndex((script) => script.id === selectedId);
+    }).catch((error) => {
+      if (!this.pageActive) return;
+      this.loadError = true;
+      this.loadErrorText = cloudService.errorMessage(error, '读取失败，点击重试');
+      this.selectedFileIndex = -1;
+      showToast(cloudService.errorMessage(error, '无法读取云空间'));
+    }).then(() => { if (this.pageActive) this.loading = false; });
+  },
+  selectFile(index) {
+    if (this.busy) return;
+    vibrate('short');
+    this.selectedFileIndex = this.selectedFileIndex === index ? -1 : index;
+  },
+  selectedFile() {
+    return this.selectedFileIndex === -1 ? null : this.cloudScripts[this.selectedFileIndex];
+  },
+  downloadSelected() {
+    const script = this.selectedFile();
+    if (!script || this.busy) return;
+    this.busy = true;
+    cloudService.downloadScript(script.id, script.name, false).then(() => {
+      if (!this.pageActive) return;
+      this.busy = false;
+      showToast('已下载 ' + script.name);
+    }).catch((error) => {
+      if (!this.pageActive) return;
+      this.busy = false;
+      if (error.message !== 'file_exists') { showToast(cloudService.errorMessage(error, '下载失败')); return; }
+      const opened = this.$app.$def.openDialog('confirm', {
+        title: '本地文件已存在',
+        message: '覆盖本地同名文件？',
+        callbacks: { onConfirm: () => this.downloadOverwrite(script) }
+      });
+      if (!opened) showToast('当前有其他操作待处理');
+    });
+  },
+  downloadOverwrite(script) {
+    if (this.busy) return;
+    this.busy = true;
+    cloudService.downloadScript(script.id, script.name, true).then(() => {
+      if (!this.pageActive) return;
+      showToast('已覆盖本地文件');
+    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '下载失败')); }).then(() => { if (this.pageActive) this.busy = false; });
+  },
+  saveAsSelected() {
+    const script = this.selectedFile();
+    if (!script || this.busy) return;
+    const opened = this.$app.$def.openDialog('text', {
+      title: '另存为',
+      initialValue: script.name,
+      callbacks: { onConfirm: (name) => this.saveAs(script, name) }
+    });
+    if (!opened) showToast('当前有其他操作待处理');
+  },
+  saveAs(script, name) {
+    if (this.busy) return;
+    const target = String(name || '').trim();
+    if (!target) return;
+    this.busy = true;
+    cloudService.downloadScript(script.id, target, false).then(() => {
+      if (!this.pageActive) return;
+      showToast('已另存为 ' + target);
+    }).catch((error) => {
+      if (!this.pageActive) return;
+      showToast(error.message === 'file_exists' ? '本地已有同名文件' : cloudService.errorMessage(error, '另存失败'));
+    }).then(() => { if (this.pageActive) this.busy = false; });
+  },
+  removeSelected() {
+    const script = this.selectedFile();
+    if (!script || this.busy) return;
+    const opened = this.$app.$def.openDialog('confirm', {
+      title: '删除云端文件',
+      message: '只删除云空间文件，不影响本地和市场。',
+      callbacks: { onConfirm: () => this.removeCloud(script) }
+    });
+    if (!opened) showToast('当前有其他操作待处理');
+  },
+  removeCloud(script) {
+    if (this.busy) return;
+    this.busy = true;
+    cloudService.deleteCloudScript(script.id).then(() => {
+      if (!this.pageActive) return;
+      this.selectedFileIndex = -1;
+      this.busy = false;
+      showToast('已从云空间删除');
+      this.loadFiles();
+    }).catch((error) => { if (!this.pageActive) return; this.busy = false; showToast(cloudService.errorMessage(error, '删除失败')); });
+  },
+  goBack() { vibrate('short'); back(); }
+};
+</script>
+
+<style>
+.page { width:336px; height:480px; background-color:#000000; color:#ffffff; text-align:center; overflow:hidden; }
+.list { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 86px; }
+.item { width:100%; height:138px; padding:12px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; justify-content:space-between; }
+.item-selected { background-color:#0D6EFF; }
+.item-name { width:100%; font-size:32px; line-height:40px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }
+.item-meta { width:100%; font-size:18px; line-height:27px; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:1; }
+.empty-img { position:absolute; left:104px; top:146px; width:128px; height:128px; }
+.empty-text { position:absolute; left:0px; top:298px; width:336px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
+.state-text { position:absolute; left:18px; top:205px; width:300px; line-height:36px; font-size:26px; font-weight:bold; color:#ffffff; text-align:center; }
+.header { position:absolute; left:0px; top:0px; width:336px; height:102px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
+.heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
+.btn { position:absolute; width:72px; height:72px; }
+.top-left { left:6px; top:6px; }
+.top-right { left:258px; top:6px; }
+.action-left { left:6px; top:402px; }
+.action-center { left:132px; top:402px; }
+.action-right { left:258px; top:402px; }
+</style>
