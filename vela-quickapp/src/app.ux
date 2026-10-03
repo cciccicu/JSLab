@@ -1,0 +1,83 @@
+<script>
+import { push } from './utils/core/routeManager.js';
+import companionBridge from './utils/cloud/companionBridge.js';
+import { getExecutionRoute } from './utils/runtime/executionMode.js';
+import { createDialogRequest } from './utils/core/dialogState.js';
+import configManager from './utils/core/configManager.js';
+
+const DIALOG_ROUTES = {
+  confirm: 'overlayConfirm',
+  select: 'overlaySelect',
+  number: 'overlayNumberInput',
+  text: 'overlayTextInput'
+};
+
+export default {
+  dialog: null,
+  editor: {
+    name: '',
+    code: '',
+    before: '',
+    after: ''
+  },
+
+  onCreate() {
+    configManager.init().catch((error) => {
+      console.error('Failed to preload configuration:', error);
+    });
+    // The AstroBox sync plugin always uses Interconnect. This lifecycle bridge
+    // must not depend on the user's separate cloud HTTP transport preference.
+    companionBridge.start();
+  },
+
+  onDestroy() {
+    this.dialog = null;
+    companionBridge.stop();
+  },
+
+  openDialog(type, options) {
+    const route = DIALOG_ROUTES[type];
+    if (!route) {
+      console.error('Unknown dialog type:', type);
+      return null;
+    }
+
+    if (this.dialog) {
+      console.warn('Dialog is already active:', this.dialog.type);
+      return null;
+    }
+
+    const dialog = createDialogRequest(type, options);
+    this.dialog = dialog;
+    try {
+      push(route);
+      return dialog.id;
+    } catch (error) {
+      this.closeDialog(dialog.id);
+      throw error;
+    }
+  },
+
+  closeDialog(dialogId) {
+    if (!this.dialog || (dialogId && this.dialog.id !== dialogId)) return false;
+    this.dialog = null;
+    return true;
+  },
+
+  openEditor(name, code, mode) {
+    this.editor.name = name;
+    this.editor.code = mode === 'run' ? code : '';
+    this.editor.before = '';
+    this.editor.after = mode === 'run' ? '' : code;
+  },
+
+  updateEditorCode(code) {
+    this.editor.code = code;
+  },
+
+  openRunner(name, code) {
+    this.editor.code = String(code || '');
+    push(getExecutionRoute(name));
+  }
+};
+</script>

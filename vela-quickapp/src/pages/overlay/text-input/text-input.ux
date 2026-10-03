@@ -1,0 +1,196 @@
+<import name="input-method" src="../../../components/InputMethod/InputMethod.ux"></import>
+
+<template>
+  <div class="page">
+    <div class="input-card">
+      <text class="message">{{dialog.message}}</text>
+      <div class="input-field">
+        <text if="{{inputValue}}" class="input-value">{{displayValue}}_</text>
+        <text else class="placeholder">{{dialog.placeholder || '请输入内容'}}_</text>
+      </div>
+    </div>
+
+    <input-method
+      hide="{{false}}"
+      initial-language="en"
+      maxlength="5"
+      vibratemode="short"
+      @delete="onDelete"
+      @complete="onComplete"
+    ></input-method>
+
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+    <img static src="/common/images/conform.png" class="btn btn-confirm" @click="onConfirm" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+  </div>
+</template>
+
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { getDialog, recoverInvalidDialog, settleDialog } from '../../../utils/core/dialogState.js';
+import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+
+const DEFAULT_MAX_LENGTH = 64;
+const DISPLAY_TAIL_LENGTH = 24;
+
+export default {
+  private: {
+    dialog: {
+      type: 'text',
+      title: '文本输入',
+      message: '',
+      placeholder: '请输入内容',
+      initialValue: '',
+      maxLength: DEFAULT_MAX_LENGTH
+    },
+    inputValue: '',
+    displayValue: '',
+    nowTime: '00:00',
+    timer: null,
+    closing: false,
+    invalidState: false
+  },
+
+  onInit() {
+    const dialog = getDialog(this.$app.$def, 'text', null);
+    if (dialog) {
+      this.dialog = dialog;
+      this.inputValue = String(dialog.initialValue || '').slice(0, this.getMaxLength());
+      this.refreshDisplayValue();
+    } else {
+      console.error('dialog_text: Global dialog state is invalid or missing.');
+      recoverInvalidDialog(this.$app.$def);
+      this.invalidState = true;
+    }
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+  },
+
+  onReady() {
+    if (this.invalidState) back();
+  },
+
+  onDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  },
+
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
+
+  getMaxLength() {
+    const value = parseInt(this.dialog.maxLength);
+    return value > 0 ? value : DEFAULT_MAX_LENGTH;
+  },
+
+  refreshDisplayValue() {
+    const value = this.inputValue;
+    this.displayValue = value.length > DISPLAY_TAIL_LENGTH
+      ? '...' + value.slice(-DISPLAY_TAIL_LENGTH)
+      : value;
+  },
+
+  onComplete(evt) {
+    const content = evt && evt.detail ? String(evt.detail.content || '') : '';
+    if (!content) return;
+    const remaining = this.getMaxLength() - this.inputValue.length;
+    if (remaining <= 0) {
+      showToast('已达到最大长度');
+      return;
+    }
+    this.inputValue += content.slice(0, remaining);
+    this.refreshDisplayValue();
+  },
+
+  onDelete() {
+    if (!this.inputValue) return;
+    this.inputValue = this.inputValue.slice(0, -1);
+    this.refreshDisplayValue();
+  },
+
+  onCancel() {
+    vibrate('short');
+    this.close('onCancel');
+  },
+
+  onConfirm() {
+    vibrate('short');
+    this.close('onConfirm', this.inputValue);
+  },
+
+  close(callbackName, value) {
+    if (this.closing) return;
+    this.closing = true;
+    settleDialog(this.$app.$def, this.dialog, callbackName, value);
+    back();
+  },
+
+  onBackPress() {
+    this.onCancel();
+    return true;
+  }
+};
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.input-card {
+  position: absolute;
+  left: 6px;
+  top: 94px;
+  width: 324px;
+  height: 123px;
+  padding: 10px 16px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.message {
+  width: 292px;
+  height: 28px;
+  color: rgba(255,255,255,0.6);
+  font-size: 18px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.input-field {
+  width: 292px;
+  height: 58px;
+  margin-top: 6px;
+  padding: 0px 12px;
+  border-radius: 29px;
+  background-color: #141414;
+  align-items: center;
+}
+
+.input-value, .placeholder {
+  width: 268px;
+  color: #ffffff;
+  font-size: 22px;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.placeholder { color: rgba(255,255,255,0.42); }
+.topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+.btn { position: absolute; top: 6px; width: 72px; height: 72px; }
+.btn-back { left: 6px; }
+.btn-confirm { left: 258px; }
+.time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; color: rgba(255,255,255,0.6); font-size: 24px; font-weight: bold; text-align: center; }
+.title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; color: #ffffff; font-size: 30px; font-weight: bold; text-align: center; lines: 1; text-overflow: ellipsis; }
+.title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; color: #ffffff; font-size: 30px; font-weight: bold; text-align: center; }
+</style>

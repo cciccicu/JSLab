@@ -1,0 +1,176 @@
+<template>
+	<div class="page" style="flex-direction: column;">
+    <scroll bounces="true" class="scroll-container" scroll-y="true">
+      <div class="spacer"></div>
+
+      <div class="item item-small">
+        <div class="item-content">
+          <text class="itemtext2">你好呀，同学</text>
+          <text class="itemtext2">应用用的还开心吗？</text>
+          <text class="itemtext2">开心的话给作者买瓶水吧</text>
+        </div>
+      </div>
+
+      <div class="item item-wechat">
+        <div class="item-content">
+          <text class="itemtext">微信</text>
+          <qrcode value="wxp://f2f0AckffT-6mnt3W3WdSmrvD82JyHqET2FeEt3qvEOqrdgLV_6fbGJ60GABwcyBZ1we"></qrcode>
+        </div>
+      </div>
+
+      <div class="item item-alipay">
+        <div class="item-content">
+          <text class="itemtext">支付宝</text>
+          <qrcode value="https://qr.alipay.com/fkx161225lhz9nmrjfsnt71"></qrcode>
+        </div>
+      </div>
+    </scroll>
+
+    <!-- 顶栏 -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static class="btn" src="/common/images/back.png" @click="goBack" style="left: 6px;top: 6px;"/>
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">捐助</text>
+    </div>
+</template>
+
+<script>
+import { back as navigateBack } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+
+export default {
+  private: {
+    nowTime: "00:00",
+    timer: null
+  },
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 60000);
+  },
+  onDestroy(){
+	  clearInterval(this.timer);
+  },
+  goBack(){
+    vibrate('short');
+    navigateBack();
+  }
+};
+</script>
+
+<style>
+.page {
+	width: 336px;
+	height: 480px;
+	background-color: #000000;
+	overflow: hidden;
+}
+
+.scroll-container {
+	position: absolute;
+	left: 0;
+	width: 336px;
+	height: 480px;
+	flex-direction: column;
+	padding: 86px 6px 84px;
+}
+
+.spacer {
+	height: 0px;
+	flex-shrink: 0;
+}
+
+.item {
+	width: 100%;
+	height: 360px;
+	padding: 14px 20px;
+	margin-bottom: 8px;
+	background-color: #262626;
+	border-radius: 36px;
+	align-items: center;
+  justify-content: space-between;
+	flex-shrink: 0;
+}
+
+.item-small {
+	height: 150px;
+}
+
+.item-wechat {
+	background-color: #1aad19;
+}
+
+.item-alipay {
+	background-color: #1677ff;
+}
+
+.itemtext {
+	font-size: 32px;
+	line-height:40px;
+	width: 100%;
+	font-weight: bold;
+	color: white;
+	text-overflow: ellipsis;
+	lines: 1;
+}
+
+.itemtext2 {
+	font-size: 24px;
+	line-height:40px;
+	width: 100%;
+	font-weight: bold;
+	color: white;
+	text-overflow: ellipsis;
+	lines: 1;
+}
+
+.item-content {
+	height: 100%;
+	flex:1;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.btn {
+	position: absolute;
+	width: 72px;
+	height: 72px;
+}
+
+.topbar-bg {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	width: 336px;
+	height: 102px;
+}
+
+.time-text {
+	position: absolute;
+	left: 78px;
+	top: 7px;
+	width: 180px;
+	line-height: 32px;
+	font-weight: bold;
+	font-size: 24px;
+	color: rgba(255,255,255,0.6);
+	text-align: center;
+}
+
+.title-text {
+	position: absolute;
+	left: 78px;
+	top: 35px;
+	width: 180px;
+	line-height: 42px;
+	font-weight: bold;
+	font-size: 32px;
+	color: white;
+	text-align: center;
+}
+</style>

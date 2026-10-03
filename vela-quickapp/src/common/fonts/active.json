@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "name": "Ubuntu Mono",
+  "sourceName": "UbuntuMono-Misans-v2.ttf",
+  "format": "ttf",
+  "family": "JSLabActive",
+  "lineHeightRatio": 1,
+  "lineHeightOffset": 0,
+  "asciiWidthRatio": 0.5,
+  "wideWidthRatio": 1
+}

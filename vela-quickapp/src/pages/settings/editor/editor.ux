@@ -1,0 +1,183 @@
+<template>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true" bounces="true">
+      <div class="item" @click="selectEditorVersion">
+        <div class="item-content">
+          <text class="itemtext">编辑器版本</text>
+          <text class="itemtext2">当前：{{ editorVersionLabel }}</text>
+        </div>
+        <img src="/common/images/enter.png" class="enter-icon" />
+      </div>
+      <div class="item" @click="setFontsize">
+        <div class="item-content">
+          <text class="itemtext">字号</text>
+          <text class="itemtext2">{{fontSizeDescription}}</text>
+        </div>
+        <img if="{{fontSizeAvailable}}" src="/common/images/enter.png" class="enter-icon" />
+      </div>
+      <div class="item" @click="openHighlightSettings">
+        <div class="item-content">
+          <text class="itemtext">语法高亮</text>
+          <text class="itemtext2">{{highlightDescription}}</text>
+        </div>
+        <img if="{{highlightAvailable}}" src="/common/images/enter.png" class="enter-icon" />
+      </div>
+      <div class="item" @click="openFontSettings">
+        <div class="item-content">
+          <text class="itemtext">字体</text>
+          <text class="itemtext2">{{fontsDescription}}</text>
+        </div>
+        <img if="{{fontsAvailable}}" src="/common/images/enter.png" class="enter-icon" />
+      </div>
+    </scroll>
+
+    <img static src="/common/images/hd.png" class="topbar" />
+    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">编辑器设置</text>
+  </div>
+</template>
+
+<script>
+import configManager from '../../../utils/core/configManager.js';
+import { back, push } from '../../../utils/core/routeManager.js';
+import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+import { DEFAULT_EDITOR_VERSION, normalizeEditorVersion } from '../../../utils/editor/editorVersion.js';
+import { DEFAULT_FONT_SIZE, MAX_FONT_SIZE, MIN_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/fontSize.js';
+
+const EDITOR_VERSION_OPTIONS = [
+  { id: 'v0', label: 'v0 · 1.1.2' },
+  { id: 'v1', label: 'v1 · 1.2.3' },
+  { id: 'v2', label: 'v2 · 当前版本' }
+];
+
+function getEditorVersionOption(id) {
+  for (let index = 0; index < EDITOR_VERSION_OPTIONS.length; index += 1) {
+    if (EDITOR_VERSION_OPTIONS[index].id === id) return EDITOR_VERSION_OPTIONS[index];
+  }
+  return EDITOR_VERSION_OPTIONS[2];
+}
+
+function getEditorVersionLabel(version) {
+  return getEditorVersionOption(version).label;
+}
+
+function supportsFontSize(version) { return version === 'v1' || version === 'v2'; }
+function supportsV2Only(version) { return version === 'v2'; }
+
+export default {
+  private: { nowTime: '00:00', timer: null, currentFontSize: DEFAULT_FONT_SIZE, editorVersion: DEFAULT_EDITOR_VERSION, editorVersionLabel: getEditorVersionLabel(DEFAULT_EDITOR_VERSION), fontSizeAvailable: true, highlightAvailable: true, fontsAvailable: true, fontSizeDescription: '当前：16px', highlightDescription: '开关、阈值与配色', fontsDescription: '当前字体与更换教程', settingsLoading: false, settingsWritePending: false, pageActive: true },
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+    this.loadSettings();
+  },
+  onShow() { this.loadSettings(); },
+  onDestroy() {
+    this.pageActive = false;
+    if (this.timer) clearInterval(this.timer);
+  },
+  updateTime() { this.nowTime = getCurrentClock(); },
+  loadSettings() {
+    if (this.settingsLoading) return;
+    this.settingsLoading = true;
+    Promise.all([
+      configManager.get('editor.font.size', DEFAULT_FONT_SIZE),
+      configManager.get('editor.version', DEFAULT_EDITOR_VERSION)
+    ]).then((values) => {
+      this.settingsLoading = false;
+      this.currentFontSize = normalizeFontSize(values[0], DEFAULT_FONT_SIZE);
+      this.applyEditorVersion(normalizeEditorVersion(values[1]));
+    }).catch(() => {
+      this.settingsLoading = false;
+      showToast('读取编辑器设置失败');
+    });
+  },
+  selectEditorVersion() {
+    vibrate('short');
+    this.$app.$def.openDialog('select', {
+      title: '编辑器版本',
+      message: '新设置会在下次打开编辑器时生效',
+      options: EDITOR_VERSION_OPTIONS.map(option => option.label),
+      initialValue: this.editorVersionLabel,
+      callbacks: { onSelect: label => this.saveEditorVersion(label) }
+    });
+  },
+  saveEditorVersion(label) {
+    let option = EDITOR_VERSION_OPTIONS[2];
+    for (let index = 0; index < EDITOR_VERSION_OPTIONS.length; index += 1) {
+      if (EDITOR_VERSION_OPTIONS[index].label === label) {
+        option = EDITOR_VERSION_OPTIONS[index];
+        break;
+      }
+    }
+    configManager.set('editor.version', option.id).then(() => {
+      this.applyEditorVersion(option.id);
+      showToast('编辑器将在下次打开时切换');
+    }).catch(() => showToast('编辑器版本保存失败'));
+  },
+  applyEditorVersion(version) {
+    this.editorVersion = normalizeEditorVersion(version);
+    this.editorVersionLabel = getEditorVersionLabel(this.editorVersion);
+    this.fontSizeAvailable = supportsFontSize(this.editorVersion);
+    this.highlightAvailable = supportsV2Only(this.editorVersion);
+    this.fontsAvailable = supportsV2Only(this.editorVersion);
+    this.fontSizeDescription = this.fontSizeAvailable ? '当前：' + this.currentFontSize + 'px' : 'v0 不支持';
+    this.highlightDescription = this.highlightAvailable ? '开关、阈值与配色' : '仅 v2 支持';
+    this.fontsDescription = this.fontsAvailable ? '当前字体与更换教程' : '仅 v2 支持';
+  },
+  setFontsize() {
+    if (!this.fontSizeAvailable) { showToast('v0 编辑器不支持字号设置'); return; }
+    vibrate('short');
+    this.$app.$def.openDialog('number', {
+      title: '设置字号',
+      message: '请输入编辑器字号（' + MIN_FONT_SIZE + '-' + MAX_FONT_SIZE + '）',
+      initialValue: this.currentFontSize,
+      callbacks: { onConfirm: value => this.saveFontSize(value) }
+    });
+  },
+  saveFontSize(value) {
+    if (!this.fontSizeAvailable || this.settingsWritePending) return;
+    const previous = this.currentFontSize;
+    const size = normalizeFontSize(value, this.currentFontSize);
+    this.currentFontSize = size;
+    this.fontSizeDescription = '当前：' + size + 'px';
+    this.settingsWritePending = true;
+    configManager.set('editor.font.size', size)
+      .then(() => { if (this.pageActive) showToast('字号已设为 ' + size + 'px'); })
+      .catch(() => { if (!this.pageActive) return; this.currentFontSize = previous; this.fontSizeDescription = '当前：' + previous + 'px'; showToast('设置字号失败'); })
+      .then(() => { if (this.pageActive) this.settingsWritePending = false; });
+  },
+  openHighlightSettings() {
+    if (!this.highlightAvailable) { showToast('当前编辑器不支持语法高亮'); return; }
+    this.routerTo('settingsHighlight');
+  },
+  openFontSettings() {
+    if (!this.fontsAvailable) { showToast('当前编辑器不支持字体设置'); return; }
+    this.routerTo('settingsFonts');
+  },
+  routerTo(route) {
+    vibrate('short');
+    push(route);
+  },
+  goBack() {
+    vibrate('short');
+    back();
+  }
+};
+</script>
+
+<style>
+.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 84px; flex-direction:column; }
+.item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-shrink:0; align-items:center; justify-content:space-between; }
+.item-content { width:244px; height:84px; flex-shrink:0; flex-direction:column; justify-content:space-between; }
+.itemtext { width:244px; font-size:32px; line-height:40px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }
+.itemtext2 { width:244px; font-size:24px; line-height:32px; font-weight:bold; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:1; }
+.enter-icon { width:40px; height:40px; flex-shrink:0; }
+.topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
+.back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
+.title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
+</style>

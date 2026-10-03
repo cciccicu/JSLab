@@ -1,0 +1,349 @@
+<template>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true" bounces="true">
+      <div class="item">
+        <div class="item-content">
+          <text class="item-title">高亮开关</text>
+          <text class="item-description">编辑器彩色代码</text>
+        </div>
+        <switch class="setting-switch" checked="{{highlightEnabled}}" @change="onHighlightChange"></switch>
+      </div>
+
+      <div class="item" @click="setCharThreshold">
+        <div class="item-content">
+          <text class="item-title">字符阈值</text>
+          <text class="item-description">最多 {{charThreshold}} 字符</text>
+        </div>
+        <img src="/common/images/enter.png" class="enter-icon" />
+      </div>
+
+      <div class="item" @click="setLineThreshold">
+        <div class="item-content">
+          <text class="item-title">行数阈值</text>
+          <text class="item-description">最多 {{lineThreshold}} 行</text>
+        </div>
+        <img src="/common/images/enter.png" class="enter-icon" />
+      </div>
+
+      <div class="item" @click="selectPalette">
+        <div class="item-content">
+          <text class="item-title">配色预设</text>
+          <text class="item-description">当前：{{paletteLabel}}</text>
+        </div>
+        <img src="/common/images/enter.png" class="enter-icon" />
+      </div>
+    </scroll>
+
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">高亮设置</text>
+  </div>
+</template>
+
+<script>
+import configManager from '../../../../utils/core/configManager.js';
+import { back as navigateBack } from '../../../../utils/core/routeManager.js';
+import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../../utils/core/time.js';
+import {
+  DEFAULT_HIGHLIGHT_PALETTE,
+  getHighlightPalettePresets,
+  normalizeHighlightPalette
+} from '../../../../utils/editor/javascriptHighlighter.js';
+
+const DEFAULT_CHAR_THRESHOLD = 12 * 1024;
+const DEFAULT_LINE_THRESHOLD = 240;
+const MIN_CHAR_THRESHOLD = 512;
+const MAX_CHAR_THRESHOLD = 100000;
+const MIN_LINE_THRESHOLD = 40;
+const MAX_LINE_THRESHOLD = 2000;
+const PALETTE_PRESETS = getHighlightPalettePresets();
+
+function normalizeThreshold(value, fallback, minimum, maximum) {
+  const parsed = Number(value);
+  if (isNaN(parsed)) return fallback;
+  return Math.min(maximum, Math.max(minimum, Math.round(parsed)));
+}
+
+function getPaletteLabel(id) {
+  for (let index = 0; index < PALETTE_PRESETS.length; index += 1) {
+    if (PALETTE_PRESETS[index].id === id) return PALETTE_PRESETS[index].label;
+  }
+  return PALETTE_PRESETS[0].label;
+}
+
+function getPaletteId(label) {
+  for (let index = 0; index < PALETTE_PRESETS.length; index += 1) {
+    if (PALETTE_PRESETS[index].label === label) return PALETTE_PRESETS[index].id;
+  }
+  return DEFAULT_HIGHLIGHT_PALETTE;
+}
+
+export default {
+  private: {
+    nowTime: '00:00',
+    timer: null,
+    settingsLoading: false,
+    pendingWrites: 0,
+    highlightEnabled: true,
+    charThreshold: DEFAULT_CHAR_THRESHOLD,
+    lineThreshold: DEFAULT_LINE_THRESHOLD,
+    paletteId: DEFAULT_HIGHLIGHT_PALETTE,
+    paletteLabel: getPaletteLabel(DEFAULT_HIGHLIGHT_PALETTE),
+    highlightChangeId: 0,
+    pageActive: true
+  },
+
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+    this.loadSettings();
+  },
+
+  onShow() {
+    this.loadSettings();
+  },
+
+  onDestroy() {
+    this.pageActive = false;
+    if (this.timer) clearInterval(this.timer);
+  },
+
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
+
+  loadSettings() {
+    if (this.settingsLoading || this.pendingWrites > 0) return;
+    this.settingsLoading = true;
+    Promise.all([
+      configManager.get('editor.highlight.enabled', true),
+      configManager.get('editor.highlight.maxChars', DEFAULT_CHAR_THRESHOLD),
+      configManager.get('editor.highlight.maxLines', DEFAULT_LINE_THRESHOLD),
+      configManager.get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)
+    ]).then((values) => {
+      if (!this.pageActive) return;
+      this.settingsLoading = false;
+      this.highlightEnabled = values[0] !== false;
+      this.charThreshold = normalizeThreshold(values[1], DEFAULT_CHAR_THRESHOLD,
+        MIN_CHAR_THRESHOLD, MAX_CHAR_THRESHOLD);
+      this.lineThreshold = normalizeThreshold(values[2], DEFAULT_LINE_THRESHOLD,
+        MIN_LINE_THRESHOLD, MAX_LINE_THRESHOLD);
+      this.paletteId = normalizeHighlightPalette(values[3]);
+      this.paletteLabel = getPaletteLabel(this.paletteId);
+    }).catch((error) => {
+      if (!this.pageActive) return;
+      this.settingsLoading = false;
+      console.error('Failed to load highlight settings:', error);
+      showToast('读取高亮设置失败');
+    });
+  },
+
+  onHighlightChange(eventData) {
+    const previous = this.highlightEnabled;
+    const enabled = eventData && typeof eventData.checked !== 'undefined'
+      ? !!eventData.checked
+      : !!(eventData && eventData.detail && eventData.detail.checked);
+    const changeId = this.highlightChangeId + 1;
+    this.highlightChangeId = changeId;
+    this.highlightEnabled = enabled;
+    this.pendingWrites += 1;
+    configManager.set('editor.highlight.enabled', enabled).then(() => {
+      this.pendingWrites -= 1;
+      if (changeId === this.highlightChangeId) showToast('语法高亮已' + (enabled ? '开启' : '关闭'));
+    }).catch((error) => {
+      this.pendingWrites -= 1;
+      console.error('Failed to save syntax highlighting:', error);
+      if (changeId === this.highlightChangeId) this.highlightEnabled = previous;
+      showToast('保存高亮设置失败');
+    });
+  },
+
+  setCharThreshold() {
+    vibrate('short');
+    const opened = this.$app.$def.openDialog('number', {
+      title: '字符阈值',
+      message: '输入 512-100000',
+      initialValue: this.charThreshold,
+      callbacks: { onConfirm: value => this.saveCharThreshold(value) }
+    });
+    if (!opened) showToast('当前有其他操作待处理');
+  },
+
+  saveCharThreshold(value) {
+    const nextValue = normalizeThreshold(value, this.charThreshold,
+      MIN_CHAR_THRESHOLD, MAX_CHAR_THRESHOLD);
+    this.charThreshold = nextValue;
+    this.saveSetting('editor.highlight.maxChars', nextValue, '字符阈值已更新');
+  },
+
+  setLineThreshold() {
+    vibrate('short');
+    const opened = this.$app.$def.openDialog('number', {
+      title: '行数阈值',
+      message: '输入 40-2000',
+      initialValue: this.lineThreshold,
+      callbacks: { onConfirm: value => this.saveLineThreshold(value) }
+    });
+    if (!opened) showToast('当前有其他操作待处理');
+  },
+
+  saveLineThreshold(value) {
+    const nextValue = normalizeThreshold(value, this.lineThreshold,
+      MIN_LINE_THRESHOLD, MAX_LINE_THRESHOLD);
+    this.lineThreshold = nextValue;
+    this.saveSetting('editor.highlight.maxLines', nextValue, '行数阈值已更新');
+  },
+
+  selectPalette() {
+    vibrate('short');
+    const opened = this.$app.$def.openDialog('select', {
+      title: '配色预设',
+      message: '选择编辑器高亮配色',
+      options: PALETTE_PRESETS.map(item => item.label),
+      initialValue: this.paletteLabel,
+      callbacks: { onSelect: label => this.savePalette(label) }
+    });
+    if (!opened) showToast('当前有其他操作待处理');
+  },
+
+  savePalette(label) {
+    const nextId = getPaletteId(label);
+    this.paletteId = nextId;
+    this.paletteLabel = getPaletteLabel(nextId);
+    this.saveSetting('editor.highlight.palette', nextId, '配色已切换为' + this.paletteLabel);
+  },
+
+  saveSetting(key, value, successMessage) {
+    this.pendingWrites += 1;
+    configManager.set(key, value).then(() => {
+      this.pendingWrites -= 1;
+      showToast(successMessage);
+    }).catch((error) => {
+      this.pendingWrites -= 1;
+      console.error('Failed to save highlight setting:', error);
+      showToast('保存高亮设置失败');
+      this.loadSettings();
+    });
+  },
+
+  goBack() {
+    vibrate('short');
+    navigateBack();
+  }
+};
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.scroll {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 480px;
+  padding: 86px 6px 84px;
+  flex-direction: column;
+}
+
+.item {
+  width: 324px;
+  height: 112px;
+  margin-bottom: 8px;
+  padding: 14px 20px;
+  background-color: #262626;
+  border-radius: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.item-content {
+  height: 84px;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.item-title {
+  width: 100%;
+  height: 40px;
+  line-height: 40px;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.item-description {
+  width: 100%;
+  height: 34px;
+  line-height: 34px;
+  color: rgba(255,255,255,0.6);
+  font-size: 24px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.setting-switch {
+  width: 72px;
+  height: 42px;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.enter-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.topbar-bg {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
+
+.back-button {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  color: rgba(255,255,255,0.6);
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: bold;
+  text-align: center;
+}
+</style>

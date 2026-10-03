@@ -1,0 +1,184 @@
+<template>
+  <div class="page" style="flex-direction: column;">
+    <scroll class="message-scroll" scroll-y="true" bounces="true">
+      <text class="message">{{dialog.message}}</text>
+    </scroll>
+
+    <!-- 按钮组 -->
+    <div class="btn-group">
+      <div class="btn-item" @click="onReject">
+        <text class="btn-text">拒绝</text>
+      </div>
+      <div class="btn-item confirm" @click="onConfirm">
+        <text class="btn-text">确认</text>
+      </div>
+    </div>
+
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+  </div>
+</template>
+
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { getDialog, recoverInvalidDialog, settleDialog } from '../../../utils/core/dialogState.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+
+export default {
+  private: {
+    // 设置默认值，防止渲染错误
+    dialog: {
+      type: 'confirm',
+      title: '',
+      message: ''
+    },
+    nowTime: '00:00',
+    timer: null,
+    closing: false,
+    invalidState: false
+  },
+  onInit() {
+    const dialog = getDialog(this.$app.$def, 'confirm', null);
+    if (dialog) {
+      this.dialog = dialog;
+    } else {
+      console.error('Confirm dialog state is invalid or missing.');
+      recoverInvalidDialog(this.$app.$def);
+      this.invalidState = true;
+    }
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+  },
+  onReady() {
+    if (this.invalidState) back();
+  },
+  onDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  },
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
+  close(callbackName) {
+    if (this.closing) return;
+    this.closing = true;
+    settleDialog(this.$app.$def, this.dialog, callbackName);
+    back();
+  },
+  onConfirm() {
+    vibrate('short');
+    this.close('onConfirm');
+  },
+  onReject() {
+    vibrate('short');
+    this.close('onReject');
+  },
+  onCancel() {
+    vibrate('short');
+    this.close('onCancel');
+  },
+  onBackPress() {
+    this.onCancel();
+    return true;
+  }
+}
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+}
+
+.btn {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+}
+
+.btn-back { left: 6px; top: 6px; }
+
+.topbar-bg {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
+.title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  color: rgba(255,255,255,0.6);
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.message-scroll {
+  position: absolute;
+  left: 6px;
+  top: 102px;
+  width: 324px;
+  height: 270px;
+  padding: 12px 16px;
+  flex-direction: column;
+}
+
+.message {
+  width: 292px;
+  flex-shrink: 0;
+  color: white;
+  font-size: 28px;
+  line-height: 38px;
+  text-align: left;
+}
+
+.btn-group {
+  position: absolute;
+  bottom: 20px; /* 距离底部 */
+  width: 100%;
+  padding: 0 20px;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.btn-item {
+  width: 120px;
+  height: 60px;
+  background-color: #262626;
+  border-radius: 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-item.confirm {
+  background-color: #0D6EFF;
+}
+
+.btn-text {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+}
+</style>

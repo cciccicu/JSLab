@@ -1,0 +1,116 @@
+<template>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true">
+      <div class="item search" @click="search"><text class="search-text">{{query ? query : '搜索 JS 市场'}}</text></div>
+      <div if="{{loading}}" class="empty"><text class="empty-text">正在加载...</text></div>
+      <div if="{{!loading && !paired}}" class="empty"><text class="empty-text">请先在云设置页登录并配对设备</text></div>
+      <div if="{{!loading && paired && scripts.length === 0}}" class="empty"><text class="empty-text">暂无可用脚本</text></div>
+      <div for="{{script in visibleScripts}}" tid="id" class="script {{busy ? 'busy' : ''}}" @click="download(script)">
+        <text class="name">{{script.name}}</text>
+        <text class="description">{{script.description || '没有说明'}}</text>
+        <text class="meta">点击下载到本地</text>
+      </div>
+      <div if="{{shownCount < scripts.length}}" class="item load-more" @click="loadMore">
+        <text class="load-more-text">加载更多（{{shownCount}}/{{scripts.length}}）</text>
+      </div>
+    </scroll>
+    <img static src="/common/images/hd.png" class="header" />
+    <img static src="/common/images/back.png" class="back" @click="goBack" />
+    <img src="/common/images/upload.png" class="refresh {{busy ? 'busy' : ''}}" @click="load" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="heading">JS 市场</text>
+  </div>
+</template>
+
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import cloudService from '../../../utils/cloud/cloudService.js';
+import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+
+const PAGE_SIZE = 10;
+
+export default {
+  private: { scripts: [], visibleScripts: [], shownCount: 0, loading: false, busy: false, paired: false, query: '', nowTime: '00:00', timer: null, pageActive: true },
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+  },
+  onShow() { this.load(); },
+  onDestroy() {
+    this.pageActive = false;
+    if (this.timer) clearInterval(this.timer);
+  },
+  updateTime() { this.nowTime = getCurrentClock(); },
+  load() {
+    if (this.loading || this.busy) return;
+    this.loading = true;
+    cloudService.getState().then((state) => {
+      if (!this.pageActive) return [];
+      this.paired = state.paired;
+      if (!state.paired) return [];
+      return cloudService.market(this.query);
+    }).then((scripts) => {
+      if (!this.pageActive) return;
+      this.scripts = scripts;
+      this.shownCount = Math.min(PAGE_SIZE, scripts.length);
+      this.visibleScripts = scripts.slice(0, this.shownCount);
+      this.loading = false;
+    }).catch((error) => { if (!this.pageActive) return; this.loading = false; showToast(cloudService.errorMessage(error, '无法连接云市场')); });
+  },
+  loadMore() {
+    this.shownCount = Math.min(this.shownCount + PAGE_SIZE, this.scripts.length);
+    this.visibleScripts = this.scripts.slice(0, this.shownCount);
+  },
+  search() { const opened = this.$app.$def.openDialog('text', { title: '搜索市场', initialValue: this.query, callbacks: { onConfirm: value => { this.query = value || ''; this.load(); } } }); if (!opened) showToast('当前有其他操作待处理'); },
+  download(script) {
+    if (!script || this.busy) return;
+    this.busy = true;
+    cloudService.downloadMarketScript(script.id, false).then(() => {
+      if (!this.pageActive) return;
+      showToast('已下载 ' + script.name);
+      this.busy = false;
+    }).catch((error) => {
+      if (!this.pageActive) return;
+      if (error.message !== 'file_exists') {
+        this.busy = false;
+        showToast(cloudService.errorMessage(error, '下载失败'));
+        return;
+      }
+      this.busy = false;
+      const opened = this.$app.$def.openDialog('confirm', {
+        title: '文件已存在',
+        message: '是否覆盖本地文件？',
+        callbacks: {
+          onConfirm: () => {
+            if (this.busy) return;
+            this.busy = true;
+            cloudService.downloadMarketScript(script.id, true)
+              .then(() => { if (this.pageActive) showToast('已覆盖本地文件'); })
+              .catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '下载失败')); })
+              .then(() => { if (this.pageActive) this.busy = false; });
+          }
+        }
+      });
+      if (!opened) showToast('当前有其他操作待处理');
+    });
+  },
+  goBack() { vibrate('short'); back(); }
+};
+</script>
+
+<style>
+.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 84px; flex-direction:column; }
+.header { position:absolute; left:0px; top:0px; width:336px; height:102px; }
+.back,.refresh { position:absolute; top:6px; width:72px; height:72px; }
+.back { left:6px; }.refresh { left:258px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
+.heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#fff; text-align:center; }
+.item,.script,.empty { width:100%; height:112px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
+.search { justify-content:center; }.search-text { width:100%; color:rgba(255,255,255,0.6); font-size:28px; line-height:36px; text-overflow:ellipsis; lines:1; }
+.script { justify-content:space-between; }.name { width:100%; color:#fff; font-size:28px; line-height:34px; font-weight:bold; text-overflow:ellipsis; lines:1; }.description { width:100%; color:rgba(255,255,255,0.6); font-size:19px; line-height:25px; text-overflow:ellipsis; lines:1; }.meta { width:100%; color:rgba(255,255,255,0.6); font-size:17px; line-height:22px; text-overflow:ellipsis; lines:1; }
+.empty { justify-content:center; }.empty-text { width:100%; text-align:center; color:rgba(255,255,255,0.6); font-size:24px; }
+.load-more { justify-content:center; }.load-more-text { width:100%; color:#ffffff; font-size:24px; font-weight:bold; text-align:center; }
+.busy { opacity:0.5; }
+</style>

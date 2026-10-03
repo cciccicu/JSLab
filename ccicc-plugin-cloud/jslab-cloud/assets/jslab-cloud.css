@@ -1,0 +1,464 @@
+.jslab-cloud-page {
+  --jslab-cloud-gap: var(--ui-content-gap, var(--app-space-6));
+}
+
+.jslab-cloud-page .plugin-page-header {
+  align-items: flex-start;
+}
+
+.jslab-cloud-page .plugin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-page .plugin-page-eyebrow {
+  margin: 0 0 var(--app-space-2);
+  color: var(--app-text-soft);
+  font-size: var(--app-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.jslab-cloud-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jslab-cloud-gap);
+  margin: var(--jslab-cloud-gap) 0;
+}
+
+.jslab-cloud-search {
+  display: flex;
+  flex: 1 1 32rem;
+  gap: var(--app-space-2);
+  max-width: 42rem;
+}
+
+.jslab-cloud-search .form-control {
+  min-width: 0;
+}
+
+.jslab-cloud-search .btn {
+  flex: 0 0 auto;
+  min-width: 5rem;
+  white-space: nowrap;
+}
+
+.jslab-cloud-summary-grid,
+.jslab-cloud-market-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--jslab-cloud-gap);
+  margin-bottom: var(--jslab-cloud-gap);
+}
+
+.jslab-cloud-summary-grid .card-body {
+  display: grid;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-summary-grid span,
+.jslab-cloud-market-meta,
+.jslab-cloud-pair-card span {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+}
+
+.jslab-cloud-summary-grid strong {
+  display: block;
+  font-size: var(--app-font-size-xl);
+}
+
+.jslab-cloud-modal .modal-body .jslab-cloud-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.jslab-cloud-activation-summary > h3,
+.jslab-cloud-redeem > h3 {
+  margin-bottom: var(--app-space-3);
+}
+
+.jslab-cloud-activation-summary .jslab-cloud-summary-grid {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+.jslab-cloud-activation-summary .jslab-cloud-summary-grid > div {
+  min-width: 0;
+  padding: var(--app-space-4);
+}
+
+.jslab-cloud-activation-summary .jslab-cloud-summary-grid > div + div {
+  border-left: 1px solid var(--app-border);
+}
+
+.jslab-cloud-activation-summary dt {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  font-weight: 400;
+}
+
+.jslab-cloud-activation-summary dd {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text);
+  font-size: var(--app-font-size-xl);
+  font-weight: 700;
+}
+
+.jslab-cloud-redeem {
+  margin-top: var(--app-space-6);
+  padding-top: var(--app-space-5);
+  border-top: 1px solid var(--app-border);
+}
+
+.jslab-cloud-redeem > p {
+  margin: calc(-1 * var(--app-space-1)) 0 var(--app-space-3);
+  font-size: var(--app-font-size-sm);
+}
+
+.jslab-cloud-modal .modal-body .table {
+  min-width: 32rem;
+}
+
+.jslab-cloud-page [aria-busy="true"] {
+  opacity: 0.65;
+}
+
+.jslab-cloud-inline-form {
+  display: flex;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-pair-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-market-grid {
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+
+.jslab-cloud-market-item .card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--app-space-3);
+  min-width: 0;
+  padding: var(--app-space-4);
+}
+
+.jslab-cloud-market-content {
+  display: grid;
+  gap: var(--app-space-1);
+  min-width: 0;
+}
+
+.jslab-cloud-market-item .jslab-cloud-market-title,
+.jslab-cloud-market-item h2,
+.jslab-cloud-market-item p {
+  min-width: 0;
+}
+
+.jslab-cloud-market-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-market-item .plugin-actions {
+  justify-content: flex-end;
+}
+
+.jslab-cloud-market-actions {
+  max-width: 25rem;
+  padding-left: var(--app-space-4);
+  border-left: 1px solid var(--app-border);
+}
+
+.jslab-cloud-market-item .plugin-actions form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.jslab-cloud-market-item h2,
+.jslab-cloud-market-item p {
+  margin: 0;
+}
+
+.jslab-cloud-market-description {
+  max-width: 48rem;
+  color: var(--app-text-muted);
+  line-height: 1.45;
+}
+
+.jslab-cloud-market-byline {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+}
+
+.jslab-cloud-market-tabs {
+  margin-bottom: var(--app-space-4);
+}
+
+.jslab-cloud-activation-card {
+  margin-top: var(--jslab-cloud-gap);
+}
+
+.jslab-cloud-admin {
+  display: grid;
+  gap: var(--ui-content-gap);
+}
+
+.jslab-cloud-admin-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--app-space-3);
+}
+
+.jslab-cloud-admin-summary > div {
+  display: grid;
+  gap: var(--app-space-2);
+  padding: var(--app-space-4);
+  background: var(--app-bg-subtle);
+  border: 1px solid var(--app-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+.jslab-cloud-admin-summary span {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+}
+
+.jslab-cloud-admin-summary strong {
+  font-size: var(--app-font-size-xl);
+}
+
+.jslab-cloud-admin-section .card-header {
+  background: var(--app-bg-subtle);
+}
+
+.jslab-cloud-admin-actions {
+  display: inline-flex;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-table-card,
+.jslab-cloud-source-card {
+  overflow: hidden;
+}
+
+.jslab-cloud-table-card .table {
+  min-width: 48rem;
+}
+
+.jslab-cloud-table-card th {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.jslab-cloud-table-card td {
+  color: var(--app-text);
+}
+
+.jslab-cloud-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--app-space-2);
+  padding: clamp(var(--app-space-8), 8vw, 5rem) var(--app-space-6);
+  text-align: center;
+}
+
+.jslab-cloud-empty h2 {
+  margin: 0;
+  font-size: var(--app-font-size-lg);
+}
+
+.jslab-cloud-empty p {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.jslab-cloud-modal [data-cloud-editor-modal] > .plugin-actions,
+.jslab-cloud-modal [data-cloud-publish-form] > .btn[type="submit"] {
+  position: sticky;
+  bottom: calc(-1 * var(--ui-card-padding, var(--app-space-6)));
+  z-index: 2;
+  width: 100%;
+  margin-top: var(--app-space-4);
+  padding-block: var(--app-space-3);
+  background: var(--app-bg-elevated);
+  box-shadow: 0 calc(-1 * var(--app-space-4)) var(--app-space-4) var(--app-bg-elevated);
+}
+
+.jslab-cloud-modal .modal-body .jslab-cloud-code {
+  min-height: min(42vh, 25rem);
+}
+
+.jslab-cloud-code,
+.jslab-cloud-source {
+  font-family: var(--app-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  tab-size: 2;
+}
+
+.jslab-cloud-code {
+  min-height: 28rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.jslab-cloud-source-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  min-width: 0;
+  padding: var(--app-space-3) var(--app-space-4);
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.jslab-cloud-source-toolbar > span {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--app-space-2);
+}
+
+.jslab-cloud-source-toolbar strong {
+  flex: 0 0 auto;
+  color: var(--app-text-muted);
+  font-size: inherit;
+}
+
+.jslab-cloud-source-toolbar code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--app-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jslab-cloud-source {
+  max-height: 48rem;
+  margin: 0;
+  padding: var(--app-space-6);
+  overflow: auto;
+  color: var(--app-text);
+  background: var(--app-bg-subtle);
+  border-top: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--app-border);
+  white-space: pre;
+}
+
+@media (max-width: 900px) {
+  .jslab-cloud-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .jslab-cloud-modal .modal-body .jslab-cloud-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .jslab-cloud-activation-summary .jslab-cloud-summary-grid > div + div {
+    border-top: 1px solid var(--app-border);
+    border-left: 0;
+  }
+
+  .jslab-cloud-admin-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .jslab-cloud-toolbar,
+  .jslab-cloud-search,
+  .jslab-cloud-inline-form,
+  .jslab-cloud-pair-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .jslab-cloud-market-item .card-body {
+    grid-template-columns: 1fr;
+  }
+
+  .jslab-cloud-market-actions {
+    max-width: none;
+    justify-content: flex-start !important;
+    padding-top: var(--app-space-3);
+    padding-left: 0;
+    border-top: 1px solid var(--app-border);
+    border-left: 0;
+  }
+
+  .jslab-cloud-search .btn {
+    width: 100%;
+  }
+
+  .jslab-cloud-pair-form {
+    display: flex;
+  }
+
+  .jslab-cloud-page .plugin-actions {
+    width: 100%;
+  }
+
+  .jslab-cloud-page .plugin-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .jslab-cloud-market-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .jslab-cloud-market-item .card-body {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .jslab-cloud-market-item .plugin-actions {
+    justify-content: flex-start;
+  }
+
+  .jslab-cloud-admin-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .jslab-cloud-code {
+    min-height: 22rem;
+  }
+
+  .jslab-cloud-table-card .jslab-cloud-files-table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .jslab-cloud-files-table .jslab-cloud-updated-column,
+  .jslab-cloud-files-table td:nth-child(2) {
+    display: none;
+  }
+
+  .jslab-cloud-files-table td:last-child {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  .jslab-cloud-files-table .plugin-actions {
+    width: auto;
+  }
+
+  .jslab-cloud-files-table .plugin-actions .btn {
+    flex: 0 0 auto;
+  }
+}

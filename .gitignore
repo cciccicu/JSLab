@@ -1,20 +1,43 @@
-node_modules
-build
-dist
-sign
-VelaDocs
+# Vela QuickApp
+/vela-quickapp/node_modules/
+/vela-quickapp/build/
+/vela-quickapp/dist/
+/vela-quickapp/sign/
+/vela-quickapp/VelaDocs/
+/vela-quickapp/src.bac/
+
+# AstroBox plugin
+/astrobox-plugin-sync/target/
+/astrobox-plugin-sync/dist/
+/astrobox-plugin-sync/*.abp
+
+# ccicc.icu development kit and cloud plugin outputs
+/ccicc-plugin-cloud/development-kit/node_modules/
+/ccicc-plugin-cloud/development-kit/dist/
+/ccicc-plugin-cloud/node_modules/
+/ccicc-plugin-cloud/dist/
+/ccicc-plugin-cloud/jslab-cloud/node_modules/
+/ccicc-plugin-cloud/jslab-cloud/dist/
+
+# Lua watchface build outputs (the source is part of this repository).
+/vela-luawatchface/node_modules/
+/vela-luawatchface/build/
+/vela-luawatchface/dist/
+/vela-luawatchface/bin/
+/vela-luawatchface/watchface/data/
+/vela-luawatchface/watchface/fprj/output/
+/vela-luawatchface/watchface/tools/__pycache__/
+/vela-luawatchface/.venv/
+/watchfaces/
+.codex-temp/
 
 .DS_Store
 Thumbs.db
-package-lock.json
-
 *.log
 *.iml
 .idea/
 .vscode/
-
-.nyc_output
-/coverage
-
-/logs
+.nyc_output/
+coverage/
+logs/
 

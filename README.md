@@ -1,98 +1,136 @@
 <div align="center">
-  <img src="https://socialify.git.ci/cciccicu/JSLab/image?custom_description=%E4%B8%80%E4%B8%AA+Vela+%E5%BF%AB%E5%BA%94%E7%94%A8+-+%E9%80%9A%E8%BF%87%E6%AD%A4%E5%BF%AB%E5%BA%94%E7%94%A8%EF%BC%8C%E4%BD%A0%E5%8F%AF%E4%BB%A5%E5%9C%A8%E6%89%8B%E7%8E%AF%E4%B8%8A%E7%BC%96%E5%86%99%E5%92%8C%E8%BF%90%E8%A1%8C+JavaScript&description=1&font=JetBrains+Mono&forks=1&issues=1&language=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fcciccicu%2FJSLab%2Fmaster%2Fsrc%2Fcommon%2Flogo.png&name=1&owner=1&pattern=Transparent&pulls=1&stargazers=1&theme=Auto" alt="JSLab" width="100%" />
+  <img src="vela-quickapp/src/common/logo.png" width="96" alt="JSLab Logo" />
+  <h1>JSLab</h1>
+  <p>在手腕上编写、运行和管理 JavaScript</p>
+  <p>
+    <a href="https://github.com/cciccicu/JSLab"><img src="https://img.shields.io/badge/平台-Xiaomi%20Vela-111827?style=flat-square" alt="平台：Xiaomi Vela" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-GPL--3.0-2563eb?style=flat-square" alt="许可证：GPL-3.0" /></a>
+    <a href="docs/architecture.md"><img src="https://img.shields.io/badge/架构-四项目协作-0f766e?style=flat-square" alt="架构：四项目协作" /></a>
+  </p>
 </div>
 
-<br/>
+JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编辑器、脚本运行时、AstroBox 配套端和云端工作区组合成一条完整的创作链路：脚本可以在手环上编写和运行，也可以通过电脑传输、保存到云空间并发布到市场。
 
-<div align="center">
-  <strong>在手腕上运行 JavaScript。随时，随地。</strong>
-</div>
+> 本项目仍处于持续开发阶段。构建命令不会自动连接模拟器或实体设备；任何设备部署和 ADB 操作都需要单独授权。
 
-<br/>
+## 目录
 
-## ✨ 界面概览
+- [你可以用 JSLab 做什么](#你可以用-jslab-做什么)
+- [界面预览](#界面预览)
+- [项目组成](#项目组成)
+- [快速开始](#快速开始)
+- [开发边界](#开发边界)
+- [文档](#文档)
+
+## 你可以用 JSLab 做什么
+
+| 场景 | 能力 |
+| --- | --- |
+| 手环编程 | 创建、编辑、运行、保存、重命名和删除 `.js` / `.ui.js` 文件 |
+| 两种运行模式 | `.js` 使用 Console 模式；`.ui.js` 使用声明式 UI 模式。UI 脚本不注入 `console`，退出和提示统一使用 `script.exit()`、`script.toast()` |
+| 编辑体验 | V2 编辑器支持字体、字号、语法高亮和高亮阈值；大文件或高亮关闭时自动采用低节点文本渲染 |
+| 电脑协作 | AstroBox 插件支持脚本和字体的浏览、新建、编辑、上传、下载、重命名与删除，并提供分块传输和断线恢复 |
+| 云端工作区 | 云空间按网盘模型保存当前文件；仅在用户主动操作时上传或下载，不执行自动同步 |
+| JS 市场 | 浏览详情、查看作者、下载源码、保存到云空间；从云空间发布时自动填充代码，其余市场信息仍由用户填写 |
+| 设备与账户 | 手环发起配对，网页输入配对码或扫描二维码确认；支持激活、充值、AI 代码生成和 Token 计费 |
+| 表盘协作 | JSLab Helper Lua 表盘显示时间与动画，并从快应用端发起字体安装和表盘存活检测 |
+
+## 界面预览
 
 <div align="center">
   <table>
     <tr>
-      <td align="center" width="25%">
-        <img src="/images/mainInterface.png" width="100%" />
-        <br/>
-        <sub>主页</sub>
-      </td>
-      <td align="center" width="25%">
-        <img src="/images/newFile.png" width="100%" />
-        <br/>
-        <sub>新建文件</sub>
-      </td>
-      <td align="center" width="25%">
-        <img src="/images/editorInterface.png" width="100%" />
-        <br/>
-        <sub>编辑器</sub>
-      </td>
-      <td align="center" width="25%">
-        <img src="/images/settingsInterface.png" width="100%" />
-        <br/>
-        <sub>设置</sub>
-      </td>
+      <td align="center"><img src="vela-quickapp/images/mainInterface.png" width="220" alt="JSLab 主页" /><br /><sub>主页</sub></td>
+      <td align="center"><img src="vela-quickapp/images/newFile.png" width="220" alt="新建文件" /><br /><sub>新建文件</sub></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="vela-quickapp/images/editorInterface.png" width="220" alt="代码编辑器" /><br /><sub>代码编辑器</sub></td>
+      <td align="center"><img src="vela-quickapp/images/settingsInterface.png" width="220" alt="设置" /><br /><sub>设置</sub></td>
     </tr>
   </table>
 </div>
 
-> **注意**：本应用专为运行 VelaOS 的 **小米手环 9 Pro** 设计。
+## 项目组成
 
-## 功能特性
-
-**核心运行时**
-- 基于 QuickJS 引擎的完整 JavaScript 执行环境。
-- 原生系统 API 调用支持 (文件系统、传感器、震动反馈等)。
-- 专为vela设备优化的 `console.log` 实现。
-
-**编辑器体验**
-- **智能光标**：基于字宽计算的光标定位，指哪打哪。
-- **定制输入法**：针对代码符号优化的键盘布局。
-
-**工作流**
-- 代码持久化存储。
-- 支持 `input()` 函数获取用户交互输入。
-
-## TODO
-
-- [ ] 输入法集成 JS 关键字快捷补全。
-- [ ] 脚本分享与在线市场。
-
-## 开发指南
-
-**环境准备**
-- Node.js 环境
-- 小米快应用开发环境 (AIoT IDE)
-
-**安装依赖**
-
-```bash
-npm install
-npm run start
+```text
+JSLab/
+├─ vela-quickapp/          手环端 Vela 快应用（.rpk）
+├─ astrobox-plugin-sync/   AstroBox 同步插件（.abp）
+├─ ccicc-plugin-cloud/     ccicc.icu 云端插件与开发 Kit（.zip）
+├─ vela-luawatchface/      JSLab Helper Lua 表盘（.face）
+└─ docs/                   架构、职责和交付说明
 ```
 
-**构建**
+```mermaid
+flowchart LR
+    Watch["小米 Vela 手环<br/>JSLab 快应用"] <-->|Interconnect| AB["AstroBox<br/>同步插件"]
+    Watch <-->|手动上传 / 下载| Cloud["ccicc.icu<br/>JSLab Cloud"]
+    Cloud --> Market[JS 市场]
+    Face["JSLab Helper<br/>Lua 表盘"] -.后台服务与字体检测.- Watch
+```
 
-```bash
-npm run build
+四个项目各自维护构建系统和运行时边界。详细的所有权关系与交付产物见[项目架构](docs/architecture.md)。
+
+## 快速开始
+
+### 构建手环端
+
+```powershell
+cd vela-quickapp
+npm install
+npm run lint
 npm run release
 ```
 
-**调试**
+输出为 `dist/*.rpk`。需要 Node.js 和 AIoT 快应用工具链。
 
-```bash
-npm run watch
+### 构建 AstroBox 插件
+
+```powershell
+cd ..\astrobox-plugin-sync
+.\build.ps1
 ```
 
----
+输出为 `JSLab-Sync.abp`。Rust 工具链需要安装 `wasm32-wasip2` target。
 
-## 许可证 (License)
+### 打包云端插件
 
-本项目采用 **GPL-3.0 许可证** 开源。
+```powershell
+cd ..\ccicc-plugin-cloud\jslab-cloud
+npm test
+npm run pack -- .\ .\dist\jslab-cloud-0.5.0.zip
+```
 
-> **声明**：自 1.1.0 版本起，本项目许可证由 MIT（含附加条款）变更为 [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0)。任何针对 1.1.0 及更高版本的使用与修改，均需严格遵守 GPL-3.0 条款（包括开源衍生作品的义务）。
+云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。
 
-更多详情请访问 [米坛社区](https://www.bandbbs.cn/resources/3440/)。
+### 构建 Lua 表盘
+
+```powershell
+cd ..\..\vela-luawatchface
+python -m pip install -r requirements.txt
+.\scripts\build_face.ps1
+```
+
+输出为 `bin\JSLab Helper.face`。可选的 `pushlua.ps1` 仅用于获得明确授权后的 ADB 部署和热重载。
+
+## 开发边界
+
+- 手环与云端之间没有自动同步，所有文件传输都由用户明确发起；
+- AstroBox 通过 Host API 和 Interconnect 工作，不读取快应用私有目录；
+- 云端市场条目是独立发布快照，删除云空间文件不会删除已发布内容；
+- 生成 API 和审核 API 分开配置，服务端不会把服务商密钥、系统提示词或设备 Token 下发到脚本；
+- Lua 表盘是独立运行时资源，不会打入手环 `.rpk` 或 AstroBox `.abp`；
+- 构建、测试和打包不会主动连接设备。
+
+## 文档
+
+- [项目架构与职责边界](docs/architecture.md)
+- [手环端 UI 模式 API](vela-quickapp/docs/UI_API.md)
+- [手环端开发说明](vela-quickapp/README.md)
+- [AstroBox 同步插件](astrobox-plugin-sync/README.md)
+- [云端插件与市场](ccicc-plugin-cloud/README.md)
+- [Lua 表盘](vela-luawatchface/README.md)
+
+## 许可证
+
+JSLab 采用 [GPL-3.0](LICENSE) 许可证。使用、修改或分发本项目及其衍生作品时，请遵守许可证条款。

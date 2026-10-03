@@ -1,0 +1,875 @@
+<import name="input-method" src="../../../components/InputMethod/InputMethod.ux"></import>
+<template>
+	<div class="page" style="flex-direction: column;">
+		<!-- 高亮时按源码行渲染，避免 Vela 吞掉 span 内的换行。 -->
+		<scroll 
+		id="code-scroll"
+		class="scroll" 
+		scroll-x="true" 
+		scroll-y="true" 
+		bounces="true"
+		style="position:absolute;top:0px;left:0px;height:480px;width:100%;flex-direction: column;padding: 0px 6px;"
+	  >
+		<div class="code-top-spacer"></div>
+		<div class="code-document" @click="onCodeClick" style="width: {{codeWidth}}px; height: {{codeHeight}}px;">
+		  <text if="{{initialHighlightPending}}" class="rendering-status">正在渲染</text>
+		  <div elif="{{highlightRendering}}" class="code-lines" style="width: {{codeWidth}}px;">
+			<div for="{{line in codeLines}}" tid="id" class="code-line" style="width: {{codeWidth}}px; height: {{cursorHeight}}px;">
+			  <text class="code code-line-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{cursorHeight}}px;"><span for="{{token in line.tokens}}" tid="id" style="color: {{token.color}};">{{token.text}}</span></text>
+			</div>
+		  </div>
+		  <text elif="{{!syntaxHighlightEnabled || largeFileMode}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{codeHeight}}px;">{{plainCodeText}}</text>
+		  <div else class="code-lines" style="width: {{codeWidth}}px;"></div>
+		  <div if="{{showCursor && !initialHighlightPending}}" class="code-cursor" style="left: {{cursorX}}px; top: {{cursorY}}px; width: {{fontSize/6}}px; height: {{cursorHeight}}px;"></div>
+		</div>
+		<div class="code-bottom-spacer"></div>
+	  </scroll>
+
+		<!-- 第三方输入法 -->
+		<input-method if="{{!hideInputMethod}}" 
+			hide="{{hideInputMethod}}"
+			initial-language="en"
+			maxlength="{{maxlength}}" 
+			vibratemode="{{vibrateMode}}"
+			@delete="onInputMethodDelete"
+			@complete="onInputMethodCompleteSelf" 
+		></input-method>
+
+		<!-- 光标方向控制 -->
+		<div if="{{showCursorControls}}" class="cursormove">
+			<img src="/common/images/up.png" class="cursor-btn" @click="move('up')"></img>
+			<img src="/common/images/left.png" class="cursor-btn" @click="move('left')"></img>
+			<img src="/common/images/right.png" class="cursor-btn" @click="move('right')"></img>
+			<img src="/common/images/down.png" class="cursor-btn" @click="move('down')"></img>
+		</div>
+
+		<!-- 底部工具栏 -->
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="savecode" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="runcode" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png" style="left: 174px;top: 402px;" @click="changeMoveCursor" />
+		<img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png" style="left: 258px;top: 402px;" @click="changeKeybord" />
+
+		<!-- 顶栏 -->
+		<img static src="/common/images/hd.png" class="topbar-bg" />
+		<img static class="btn" src="/common/images/back.png" @click="goBack" style="left: 6px;top: 6px;" />
+		<img static if="{{hideInputMethod}}" class="btn" src="/common/images/more.png" @click="openEditorMenu" style="left: 258px;top: 6px;" />
+		<img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="changeKeybord" style="left: 258px;top: 6px;" />
+		<text class="time-text">{{nowTime}}</text>
+		<text class="title-text">编辑JS</text>
+
+		<!-- 编辑菜单属于当前页面，保持在所有页面层之上。 -->
+		<div if="{{showEditorMenu}}" class="editor-menu-layer">
+			<div class="editor-menu-card">
+				<text class="editor-menu-item" @click="openAiGenerator">AI生成</text>
+				<text class="editor-menu-item" @click="handleEditorMenu('另存为')">另存为</text>
+				<text class="editor-menu-item" @click="handleEditorMenu('切换模式')">{{modeSwitchLabel}}</text>
+				<text class="editor-menu-item editor-menu-last" @click="handleEditorMenu('进入设置')">进入设置</text>
+			</div>
+		</div>
+	</div>
+</template>
+
+<script>
+import configManager from '../../../utils/core/configManager.js';
+import fontManager, { DEFAULT_FONT_PROFILE } from '../../../utils/editor/fontManager.js';
+import jsManager from '../../../utils/files/jsManager.js';
+import { back as navigateBack, push } from '../../../utils/core/routeManager.js';
+import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+import {
+  DEFAULT_HIGHLIGHT_PALETTE,
+  highlightJavascriptLines,
+  normalizeHighlightPalette
+} from '../../../utils/editor/javascriptHighlighter.js';
+import {
+	getCursorPosition,
+	getCharacterWidth,
+	getLineHeight,
+	moveCursorToPoint,
+	moveCursorVertically
+} from '../../../utils/editor/codeEditor.js';
+import { DEFAULT_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/fontSize.js';
+
+const CODE_VIEWPORT_HEIGHT = 300;
+const INITIAL_HIGHLIGHT_DELAY = 32;
+const DEFAULT_HIGHLIGHT_CHAR_THRESHOLD = 12 * 1024;
+const DEFAULT_HIGHLIGHT_LINE_THRESHOLD = 240;
+const MIN_HIGHLIGHT_CHAR_THRESHOLD = 512;
+const MAX_HIGHLIGHT_CHAR_THRESHOLD = 100000;
+const MIN_HIGHLIGHT_LINE_THRESHOLD = 40;
+const MAX_HIGHLIGHT_LINE_THRESHOLD = 2000;
+const CODE_WIDTH_SAFETY_RATIO = 1.15;
+const CODE_WIDTH_PADDING = 48;
+const HIGHLIGHT_PROBE_KEY = 'editor.highlight.inFlight';
+const HIGHLIGHT_STABILITY_DELAY = 2500;
+let activeSource = '';
+
+function normalizeThreshold(value, fallback, minimum, maximum) {
+	const parsed = Number(value);
+	if (isNaN(parsed)) return fallback;
+	return Math.min(maximum, Math.max(minimum, Math.round(parsed)));
+}
+
+function measureCodeLayout(source, fontProfile, fontSize, maxChars, maxLines) {
+	const code = String(source || '');
+	let lineCount = 1;
+	let lineWidth = 0;
+	let maxWidth = 0;
+	for (let index = 0; index < code.length; index += 1) {
+		if (code.charCodeAt(index) === 10) {
+			if (lineWidth > maxWidth) maxWidth = lineWidth;
+			lineWidth = 0;
+			lineCount += 1;
+		} else {
+			lineWidth += getCharacterWidth(code[index], fontProfile, fontSize);
+		}
+	}
+	if (lineWidth > maxWidth) maxWidth = lineWidth;
+	return {
+		lineCount,
+		isLarge: code.length > maxChars || lineCount > maxLines,
+		width: Math.max(336, Math.ceil(maxWidth * CODE_WIDTH_SAFETY_RATIO) + CODE_WIDTH_PADDING)
+	};
+}
+
+export default {
+	private: {
+		nowTime: "00:00",
+		timer: null,
+		hideToolbar: false,
+		codeLines: [],
+		plainCodeText: '',
+		highlightRendering: false,
+		initialHighlightPending: false,
+		initialHighlightComplete: false,
+		initialHighlightTimer: null,
+		highlightRevision: 0,
+		highlightStabilityTimer: null,
+		highlightProbePromise: null,
+		highlightRecoveryNotice: false,
+		codeHeight: CODE_VIEWPORT_HEIGHT,
+		largeFileMode: false,
+		syntaxHighlightEnabled: false,
+		highlightCharThreshold: DEFAULT_HIGHLIGHT_CHAR_THRESHOLD,
+		highlightLineThreshold: DEFAULT_HIGHLIGHT_LINE_THRESHOLD,
+		highlightPalette: DEFAULT_HIGHLIGHT_PALETTE,
+		preferencesLoading: false,
+		pageActive: true,
+		pageReady: false,
+		showCursorControls: false,
+		hideInputMethod: true,
+		showEditorMenu: false,
+		modeSwitchLabel: '切换为 UI 模式',
+		maxlength: 5,
+		vibrateMode: "short",
+		fontFamily: 'JSLabActive',
+		fontProfile: DEFAULT_FONT_PROFILE,
+		fontSize: DEFAULT_FONT_SIZE,
+		codeWidth: 336,
+		// 光标状态
+		showCursor: true,
+		cursorX: 0,
+		cursorY: 0,
+		cursorHeight: 20,
+		cursorBlinkTimer: null,
+		lockToken: null,
+		loadedEditorName: '',
+		savedSource: '',
+		editorVisible: false,
+		backPromptOpen: false,
+		pendingBackAfterDialog: false,
+		saveInProgress: false
+	},
+
+	onInit() {
+		this.activateEditorSession();
+		this.loadEditorPreferences();
+		this.updateTime();
+		this.timer = setInterval(() => {
+			this.updateTime();
+		}, 60000);
+		if (!this.largeFileMode) this.startCursorBlink();
+	},
+
+	onReady() {
+		this.pageReady = true;
+		this.scheduleInitialHighlight();
+	},
+
+	onDestroy() {
+		this.pageActive = false;
+		this.cancelInitialHighlight();
+		if (this.timer) clearInterval(this.timer);
+		this.stopCursorBlink();
+		if (this.highlightStabilityTimer) clearTimeout(this.highlightStabilityTimer);
+		this.releaseEditorLock();
+		activeSource = '';
+		this.codeLines = [];
+		this.plainCodeText = '';
+	},
+
+	onShow() {
+		this.editorVisible = true;
+		const editor = this.$app.$def.editor;
+		if (!this.lockToken || editor.name !== this.loadedEditorName) this.activateEditorSession();
+		if (editor.name === this.loadedEditorName && editor.before + editor.after !== activeSource) {
+			this.cancelInitialHighlight();
+			this.initialHighlightComplete = false;
+			this.initialHighlightPending = false;
+			this.prepareInitialCodeDisplay();
+		}
+		if (this.pendingBackAfterDialog) {
+			this.pendingBackAfterDialog = false;
+			this.leaveEditor();
+			return;
+		}
+		this.loadEditorPreferences();
+		this.scheduleInitialHighlight();
+		if (!this.largeFileMode) this.startCursorBlink();
+	},
+
+	onHide() {
+		this.editorVisible = false;
+		this.cancelInitialHighlight(false);
+		this.stopCursorBlink();
+	},
+
+	activateEditorSession() {
+		this.releaseEditorLock();
+		const editor = this.$app.$def.editor;
+		// 偏好读取完成前只走纯文本路径，不能沿用上一次会话的高亮状态。
+		this.syntaxHighlightEnabled = false;
+		this.highlightRendering = false;
+		this.initialHighlightPending = false;
+		this.initialHighlightComplete = false;
+		this.cancelInitialHighlight();
+		this.loadedEditorName = editor.name;
+		if (editor.name) this.lockToken = jsManager.lock(editor.name);
+		if (!editor.before && !editor.after && editor.code) editor.before = editor.code;
+		editor.code = '';
+		this.savedSource = editor.before + editor.after;
+		activeSource = this.savedSource;
+		this.codeLines = [];
+		this.plainCodeText = '';
+		this.codeWidth = 336;
+		this.codeHeight = CODE_VIEWPORT_HEIGHT;
+	},
+
+	releaseEditorLock() {
+		if (this.lockToken && this.loadedEditorName) {
+			jsManager.unlock(this.loadedEditorName, this.lockToken);
+		}
+		this.lockToken = null;
+	},
+
+	loadEditorPreferences() {
+		if (this.preferencesLoading) return;
+		this.preferencesLoading = true;
+		Promise.all([
+			configManager.get('editor.font.size', DEFAULT_FONT_SIZE),
+			fontManager.getProfile(),
+			configManager.get('editor.highlight.enabled', true),
+			configManager.get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD),
+			configManager.get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD),
+			configManager.get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE),
+			configManager.get(HIGHLIGHT_PROBE_KEY, false)
+		]).then((values) => {
+			this.preferencesLoading = false;
+			if (!this.pageActive) return;
+			const nextSize = normalizeFontSize(values[0]);
+			const nextProfile = values[1];
+			const nextHighlightEnabled = values[2] !== false;
+			const nextCharThreshold = normalizeThreshold(values[3], DEFAULT_HIGHLIGHT_CHAR_THRESHOLD,
+				MIN_HIGHLIGHT_CHAR_THRESHOLD, MAX_HIGHLIGHT_CHAR_THRESHOLD);
+			const nextLineThreshold = normalizeThreshold(values[4], DEFAULT_HIGHLIGHT_LINE_THRESHOLD,
+				MIN_HIGHLIGHT_LINE_THRESHOLD, MAX_HIGHLIGHT_LINE_THRESHOLD);
+			const nextPalette = normalizeHighlightPalette(values[5]);
+			const recoveredFromCrash = values[6] === true;
+			if (recoveredFromCrash && values[2] !== false) {
+				configManager.set('editor.highlight.enabled', false).catch(() => {});
+				if (!this.highlightRecoveryNotice) {
+					this.highlightRecoveryNotice = true;
+					showToast('上次高亮导致编辑器异常退出，已自动关闭高亮');
+				}
+			}
+			const preferencesChanged = nextSize !== this.fontSize ||
+				JSON.stringify(nextProfile) !== JSON.stringify(this.fontProfile) ||
+				nextHighlightEnabled !== this.syntaxHighlightEnabled ||
+				nextCharThreshold !== this.highlightCharThreshold ||
+				nextLineThreshold !== this.highlightLineThreshold ||
+				nextPalette !== this.highlightPalette;
+			if (!preferencesChanged &&
+				(this.initialHighlightComplete || this.initialHighlightPending)) return;
+			/*
+			 * A cached config can resolve before the first frame. Only select the
+			 * rendering path here; the expensive first highlight runs after onReady.
+			 */
+			this.fontSize = nextSize;
+			this.fontProfile = nextProfile;
+			this.fontFamily = 'JSLabActive';
+			this.syntaxHighlightEnabled = recoveredFromCrash ? false : nextHighlightEnabled;
+			this.highlightCharThreshold = nextCharThreshold;
+			this.highlightLineThreshold = nextLineThreshold;
+			this.highlightPalette = nextPalette;
+			this.prepareInitialCodeDisplay();
+		}).catch((error) => {
+			this.preferencesLoading = false;
+			console.error('Failed to load editor preferences:', error);
+		});
+	},
+
+	prepareInitialCodeDisplay() {
+		const editor = this.$app.$def.editor;
+		activeSource = editor.before + editor.after;
+		const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize,
+			this.highlightCharThreshold, this.highlightLineThreshold);
+		if (!this.syntaxHighlightEnabled || metrics.isLarge) {
+			this.highlightProbePromise = configManager.set(HIGHLIGHT_PROBE_KEY, false).catch(() => {});
+			this.initialHighlightComplete = true;
+			this.initialHighlightPending = false;
+			this.updateCodeDisplay();
+			return;
+		}
+
+		this.initialHighlightPending = true;
+		this.highlightProbePromise = configManager.set(HIGHLIGHT_PROBE_KEY, true).catch(() => {});
+		this.highlightRendering = false;
+		this.codeLines = [];
+		this.plainCodeText = activeSource;
+		this.scheduleInitialHighlight();
+	},
+
+	scheduleInitialHighlight() {
+		if (!this.initialHighlightPending || this.initialHighlightTimer ||
+			!this.pageReady || !this.editorVisible) return;
+		const revision = this.highlightRevision;
+		const editorName = this.loadedEditorName;
+		this.initialHighlightTimer = setTimeout(() => {
+			this.initialHighlightTimer = null;
+			Promise.resolve(this.highlightProbePromise).then(() => {
+			if (!this.pageActive || !this.editorVisible ||
+				revision !== this.highlightRevision || editorName !== this.loadedEditorName ||
+				!this.initialHighlightPending || !this.syntaxHighlightEnabled) return;
+			this.initialHighlightComplete = true;
+			this.initialHighlightPending = false;
+			this.updateCodeDisplay();
+			this.scheduleHighlightProbeClear();
+			});
+		}, INITIAL_HIGHLIGHT_DELAY);
+	},
+
+	scheduleHighlightProbeClear() {
+		if (this.highlightStabilityTimer) clearTimeout(this.highlightStabilityTimer);
+		this.highlightStabilityTimer = setTimeout(() => {
+			this.highlightStabilityTimer = null;
+			if (this.pageActive && this.initialHighlightComplete) configManager.set(HIGHLIGHT_PROBE_KEY, false).catch(() => {});
+		}, HIGHLIGHT_STABILITY_DELAY);
+	},
+
+	cancelInitialHighlight(invalidate = true) {
+		if (this.initialHighlightTimer) {
+			clearTimeout(this.initialHighlightTimer);
+			this.initialHighlightTimer = null;
+		}
+		if (invalidate) this.highlightRevision += 1;
+	},
+
+	startCursorBlink() {
+		if (this.cursorBlinkTimer) return;
+		this.cursorBlinkTimer = setInterval(() => {
+			this.showCursor = !this.showCursor;
+		}, 500);
+	},
+
+	stopCursorBlink() {
+		if (this.cursorBlinkTimer) {
+			clearInterval(this.cursorBlinkTimer);
+			this.cursorBlinkTimer = null;
+		}
+	},
+
+	routerTo(page) {
+		vibrate('short');
+		push(page);
+	},
+
+	goBack() {
+		vibrate('short');
+		this.requestBack();
+	},
+
+	onBackPress() {
+		if (this.showEditorMenu) {
+			this.showEditorMenu = false;
+			return true;
+		}
+		if (!this.hideInputMethod) {
+			this.hideInputMethod = true;
+			this.hideToolbar = false;
+			return true;
+		}
+		if (this.showCursorControls) {
+			this.showCursorControls = false;
+			return true;
+		}
+		this.requestBack();
+		return true;
+	},
+
+	hasUnsavedChanges() {
+		const editor = this.$app.$def.editor;
+		return editor.before + editor.after !== this.savedSource;
+	},
+
+	requestBack() {
+		if (this.saveInProgress) {
+			showToast('正在保存，请稍候');
+			return;
+		}
+		if (!this.hasUnsavedChanges()) {
+			this.leaveEditor();
+			return;
+		}
+		if (this.backPromptOpen) return;
+		this.backPromptOpen = true;
+		const dialogId = this.$app.$def.openDialog('confirm', {
+			title: '保存修改？',
+			message: '确认：保存并返回\n拒绝：不保存并返回\n返回：继续编辑',
+			callbacks: {
+				onConfirm: () => {
+					this.backPromptOpen = false;
+					this.saveCurrentCode(true);
+				},
+				onReject: () => {
+					this.backPromptOpen = false;
+					this.discardAndLeave();
+				},
+				onCancel: () => {
+					this.backPromptOpen = false;
+				}
+			}
+		});
+		if (!dialogId) this.backPromptOpen = false;
+	},
+
+	discardAndLeave() {
+		const editor = this.$app.$def.editor;
+		editor.before = '';
+		editor.after = this.savedSource;
+		this.pendingBackAfterDialog = true;
+	},
+
+	leaveEditor() {
+		if (!this.editorVisible) {
+			this.pendingBackAfterDialog = true;
+			return;
+		}
+		this.releaseEditorLock();
+		this.loadedEditorName = '';
+		navigateBack();
+	},
+
+	changeKeybord() {
+		vibrate('short');
+		this.hideInputMethod = !this.hideInputMethod;
+		this.hideToolbar = !this.hideInputMethod;
+		if (this.showCursorControls) this.showCursorControls = false;
+	},
+
+	changeMoveCursor() {
+		vibrate('short');
+		this.showCursorControls = !this.showCursorControls;
+	},
+
+	openEditorMenu() {
+		vibrate('short');
+		const isUi = /\.ui\.js$/i.test(this.$app.$def.editor.name);
+		this.modeSwitchLabel = isUi ? '切换为 Console 模式' : '切换为 UI 模式';
+		this.showEditorMenu = !this.showEditorMenu;
+	},
+
+	handleEditorMenu(action) {
+		this.showEditorMenu = false;
+		if (action === '另存为') this.startSaveAs();
+		else if (action === '进入设置') this.routerTo('settingsEditor');
+		else if (action === '切换模式') this.switchExecutionMode(!/\.ui\.js$/i.test(this.$app.$def.editor.name));
+	},
+
+
+	openAiGenerator() {
+		this.showEditorMenu = false;
+		vibrate('short');
+		push('aiGenerate');
+	},
+
+	startSaveAs() {
+		const currentName = this.$app.$def.editor.name;
+		const baseName = /\.ui\.js$/i.test(currentName) ? currentName.slice(0, -6) : currentName.replace(/\.js$/i, '');
+		this.$app.$def.openDialog('text', {
+			title: '另存为',
+			message: '输入新文件名',
+			placeholder: '文件名',
+			initialValue: baseName + '-copy',
+			maxLength: 64,
+			callbacks: { onConfirm: value => this.confirmSaveAs(value) }
+		});
+	},
+
+	confirmSaveAs(inputValue) {
+		vibrate('short');
+		const editor = this.$app.$def.editor;
+		let nextName = String(inputValue || '').trim();
+		if (!nextName) {
+			showToast('文件名不能为空');
+			return;
+		}
+		if (!/\.js$/i.test(nextName)) nextName += /\.ui\.js$/i.test(editor.name) ? '.ui.js' : '.js';
+		if (nextName === editor.name) {
+			showToast('请输入不同的文件名');
+			return;
+		}
+		const source = editor.before + editor.after;
+		jsManager.list().then((files) => {
+			if (files.some(fileInfo => fileInfo.name === nextName)) throw new Error('文件已存在');
+			return jsManager.write(nextName, source);
+		}).then(() => {
+			const oldName = editor.name;
+			jsManager.unlock(oldName, this.lockToken);
+			editor.name = nextName;
+			this.loadedEditorName = nextName;
+			this.lockToken = jsManager.lock(nextName);
+			this.savedSource = source;
+			showToast('已另存为 ' + nextName);
+		}).catch(error => showToast('另存失败: ' + error.message));
+	},
+
+	switchExecutionMode(useUiMode) {
+		const editor = this.$app.$def.editor;
+		const oldName = editor.name;
+		const currentIsUi = /\.ui\.js$/i.test(oldName);
+		if (currentIsUi === useUiMode) return;
+		const baseName = currentIsUi ? oldName.slice(0, -6) : oldName.slice(0, -3);
+		const nextName = baseName + (useUiMode ? '.ui.js' : '.js');
+		const source = editor.before + editor.after;
+		jsManager.list().then((files) => {
+			if (files.some(fileInfo => fileInfo.name === nextName)) throw new Error('目标文件已存在');
+			return jsManager.rename(oldName, nextName, { token: this.lockToken });
+		}).then(() => {
+			jsManager.unlock(oldName, this.lockToken);
+			editor.name = nextName;
+			this.loadedEditorName = nextName;
+			this.lockToken = jsManager.lock(nextName);
+			return jsManager.write(nextName, source, { token: this.lockToken });
+		}).then(() => {
+			this.savedSource = source;
+			showToast('已切换为 ' + (useUiMode ? 'UI' : 'Console') + ' 模式');
+		}).catch(error => showToast('切换失败: ' + error.message));
+	},
+
+	onInputMethodDelete() {
+		this.del();
+	},
+
+	onInputMethodCompleteSelf(evt) {
+		if (evt && evt.detail && evt.detail.content) {
+			this.add(evt.detail.content);
+		}
+	},
+
+	onCodeClick(event) {
+		this.moveCursorTo(event.offsetX - 6, event.offsetY);
+		vibrate('short');
+	},
+
+	refreshCodeLayout() {
+		this.cursorHeight = getLineHeight(this.fontProfile, this.fontSize);
+		const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize,
+			this.highlightCharThreshold, this.highlightLineThreshold);
+		this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * this.cursorHeight);
+		this.codeWidth = metrics.width;
+		this.calculateCursorPosition();
+	},
+
+	moveCursorTo(x, y) {
+		const editor = this.$app.$def.editor;
+		const cursor = moveCursorToPoint(editor.before + editor.after, x, y, this.fontProfile, this.fontSize);
+		editor.before = cursor.before;
+		editor.after = cursor.after;
+		this.refreshCursorPosition();
+	},
+
+	refreshCursorPosition() {
+		const position = getCursorPosition(this.$app.$def.editor.before, this.fontProfile, this.fontSize);
+		this.applyCursorPosition(position);
+	},
+
+	updateCodeDisplay() {
+		const editor = this.$app.$def.editor;
+		activeSource = editor.before + editor.after;
+		editor.code = '';
+		const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize,
+			this.highlightCharThreshold, this.highlightLineThreshold);
+		const wasLarge = this.largeFileMode;
+		this.largeFileMode = metrics.isLarge;
+		const position = getCursorPosition(editor.before, this.fontProfile, this.fontSize);
+		this.cursorHeight = position.height;
+		this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * position.height);
+		this.codeWidth = metrics.width;
+		if (!this.initialHighlightComplete && !metrics.isLarge && this.syntaxHighlightEnabled) {
+			this.initialHighlightPending = true;
+			this.highlightRendering = false;
+			this.codeLines = [];
+			this.plainCodeText = activeSource;
+			this.applyCursorPosition(position);
+			this.cancelInitialHighlight();
+			this.scheduleInitialHighlight();
+			return;
+		}
+		this.highlightRendering = !metrics.isLarge && this.syntaxHighlightEnabled;
+		if (this.highlightRendering) {
+			this.codeLines = highlightJavascriptLines(activeSource, 'code-line', this.highlightPalette,
+				this.highlightCharThreshold);
+			this.plainCodeText = '';
+		} else {
+			this.codeLines = [];
+			this.plainCodeText = activeSource;
+		}
+		this.applyCursorPosition(position);
+		if (!wasLarge && this.largeFileMode) {
+			this.stopCursorBlink();
+			this.showCursor = true;
+		} else if (wasLarge && !this.largeFileMode) {
+			this.startCursorBlink();
+		}
+	},
+
+	add(str) {
+		this.$app.$def.editor.before += str;
+		this.updateCodeDisplay();
+	},
+
+	del() {
+		const editor = this.$app.$def.editor;
+		if (editor.before.length > 0) {
+			editor.before = editor.before.slice(0, -1);
+			this.updateCodeDisplay();
+		}
+	},
+
+	move(direction) {
+		vibrate('short');
+		const editor = this.$app.$def.editor;
+		switch (direction) {
+			case "left":
+				if (editor.before.length > 0) {
+					const charToMove = editor.before.slice(-1);
+					editor.before = editor.before.slice(0, -1);
+					editor.after = charToMove + editor.after;
+					this.refreshCursorPosition();
+				}
+				break;
+			case "right":
+				if (editor.after.length > 0) {
+					const charToMove = editor.after.charAt(0);
+					editor.after = editor.after.slice(1);
+					editor.before += charToMove;
+					this.refreshCursorPosition();
+				}
+				break;
+			case "up":
+				this.moveVertical(-1);
+				break;
+			case "down":
+				this.moveVertical(1);
+				break;
+		}
+	},
+
+	moveVertical(direction) {
+		const editor = this.$app.$def.editor;
+		const cursor = moveCursorVertically(editor.before, editor.after, direction);
+		if (!cursor) return;
+		editor.before = cursor.before;
+		editor.after = cursor.after;
+		this.refreshCursorPosition();
+	},
+
+	calculateCursorPosition() {
+		const position = getCursorPosition(this.$app.$def.editor.before, this.fontProfile, this.fontSize);
+		this.applyCursorPosition(position);
+	},
+
+	applyCursorPosition(position) {
+		this.cursorX = position.x;
+		this.cursorY = position.y;
+		this.cursorHeight = position.height;
+	},
+
+	savecode() {
+		vibrate('short');
+		this.saveCurrentCode(false);
+	},
+
+	saveCurrentCode(leaveAfterSave) {
+		if (this.saveInProgress) return;
+		const editor = this.$app.$def.editor;
+		const code = editor.before + editor.after;
+		this.saveInProgress = true;
+		jsManager.write(editor.name, code, { token: this.lockToken })
+			.then(() => {
+				this.saveInProgress = false;
+				this.savedSource = code;
+				showToast('代码已保存');
+				if (leaveAfterSave) this.leaveEditor();
+			})
+			.catch((error) => {
+				this.saveInProgress = false;
+				showToast('保存失败: ' + error.message);
+			});
+	},
+
+	runcode() {
+		vibrate('short');
+		const editor = this.$app.$def.editor;
+		this.$app.$def.openRunner(editor.name, editor.before + editor.after);
+	},
+
+	updateTime() {
+		this.nowTime = getCurrentClock();
+	},
+};
+</script>
+
+<style>
+	@font-face {
+		font-family: 'JSLabActive';
+		src: url('../../../common/fonts/active.ttf');
+		font-weight: normal;
+		font-style: normal;
+	}
+	.page {
+		width: 336px;
+		height: 480px;
+		background-color: #000000;
+		position: relative; 
+		overflow: hidden;
+	}
+
+	.code {
+    	color: #ffffff;
+		flex-shrink: 0;
+  	}
+
+	.code-plain-text {
+		flex-shrink: 0;
+		text-overflow: clip;
+	}
+
+	.code-lines {
+		flex-direction: column;
+		flex-shrink: 0;
+	}
+
+	.code-line {
+		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.code-line-text {
+		flex-shrink: 0;
+		text-overflow: clip;
+		lines: 1;
+	}
+
+	.rendering-status {
+		width: 324px;
+		height: 48px;
+		line-height: 48px;
+		color: rgba(255,255,255,0.6);
+		font-size: 20px;
+		text-align: center;
+		flex-shrink: 0;
+	}
+
+	.code-top-spacer {
+		height: 102px;
+		flex-shrink: 0;
+	}
+
+	.code-document {
+		position: relative;
+		flex-direction: column;
+		flex-shrink: 0;
+	}
+
+	.code-cursor {
+		position: absolute;
+		background-color: #ffffff;
+	}
+
+	.code-bottom-spacer {
+		height: 78px;
+		flex-shrink: 0;
+	}
+
+	.btn {
+		position: absolute;
+		width: 72px;
+		height: 72px;
+	}
+
+	.topbar-bg {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		width: 336px;
+		height: 102px;
+	}
+
+	.time-text {
+		position: absolute;
+		left: 78px;
+		top: 7px;
+		width: 180px;
+		line-height: 32px;
+		font-weight: bold;
+		font-size: 24px;
+		color: rgba(255,255,255,0.6);
+		text-align: center;
+	}
+
+	.title-text {
+		position: absolute;
+		left: 78px;
+		top: 35px;
+		width: 180px;
+		line-height: 42px;
+		font-weight: bold;
+		font-size: 32px;
+		color: white;
+		text-align: center;
+	}
+
+	.cursormove {
+		position: absolute;
+		left: 6px;
+		top: 300px;
+		width: 324px;
+		height: 90px;
+		border-radius: 36px;
+		background-color: #333;
+		flex-direction: row;
+		justify-content: space-around;
+		align-items: center;
+	}
+
+	.cursor-btn {
+		width: 72px;
+		height: 72px;
+	}
+
+	.editor-menu-layer { position: absolute; left: 0px; top: 78px; width: 336px; height: 402px; background-color: rgba(0,0,0,0.58); justify-content: flex-start; align-items: flex-start; }
+	.editor-menu-card { width: 260px; height: 248px; margin-left: 70px; padding: 8px 12px; border-radius: 28px; background-color: #262626; flex-direction: column; flex-shrink: 0; }
+	.editor-menu-item { width: 236px; height: 58px; border-bottom-width: 2px; border-bottom-color: #3d3d3d; color: #ffffff; font-size: 22px; font-weight: bold; text-align: left; padding-left: 18px; }
+	.editor-menu-last { border-bottom-width: 0px; }
+</style>

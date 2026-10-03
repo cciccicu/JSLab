@@ -1,0 +1,259 @@
+<template>
+  <div class="page">
+
+    <!-- 滚动区域 -->
+    <scroll class="scroll" scroll-y="true" bounces="true">
+
+      <text class="message">{{ dialog.message }}</text>
+
+      <div
+        for="{{ dialog.options }}"
+        class="item {{ selectedIndex === $idx ? 'item-selected' : '' }}"
+        @click="onSelect($idx)"
+      >
+        <div class="item-content">
+          <text class="itemtext">{{ $item }}</text>
+        </div>
+        <img
+          static
+          src="/common/images/check.png"
+          class="check-icon"
+          if="{{ selectedIndex === $idx }}"
+        />
+      </div>
+    </scroll>
+
+    <!-- 顶栏背景 -->
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+
+    <!-- 返回按钮 -->
+    <img static src="/common/images/back.png" class="btn-back" @click="onCancel" />
+    
+    <!-- 确认按钮 -->
+    <img static src="/common/images/conform.png" class="btn-confirm" @click="onConfirm" />
+    
+    <!-- 时间 -->
+    <text class="time-text">{{ nowTime }}</text>
+    
+    <!-- 标题 -->
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{ dialog.title }}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{ dialog.title }}</marquee>
+  </div>
+</template>
+
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { getDialog, recoverInvalidDialog, settleDialog } from '../../../utils/core/dialogState.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+
+export default {
+  private: {
+    dialog: {
+      type: 'select',
+      title: '',
+      message: '',
+      options: [],
+      initialValue: ''
+    },
+    selectedIndex: -1,
+    nowTime: "00:00",
+    timer: null,
+    closing: false,
+    invalidState: false
+  },
+
+  onInit() {
+    const dialog = getDialog(this.$app.$def, 'select', null);
+    if (dialog && Array.isArray(dialog.options)) {
+      this.dialog = dialog;
+      this.selectedIndex = this.getInitialSelectedIndex();
+    } else {
+      console.error('dialog_select: Invalid or missing global dialog');
+      this.dialog.options = [];
+      recoverInvalidDialog(this.$app.$def);
+      this.invalidState = true;
+    }
+
+    this.updateTime();
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 60000);
+  },
+
+  onReady() {
+    if (this.invalidState) back();
+  },
+
+  onDestroy() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  },
+
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
+
+  getInitialSelectedIndex() {
+    if (typeof this.dialog.initialValue === 'undefined') return -1;
+    for (let index = 0; index < this.dialog.options.length; index += 1) {
+      if (this.dialog.options[index] === this.dialog.initialValue) return index;
+    }
+    return -1;
+  },
+
+  onCancel() {
+    vibrate('short');
+    this.close('onCancel');
+  },
+
+  onSelect(index) {
+    vibrate('short');
+    this.selectedIndex = index;
+  },
+
+  onConfirm() {
+    vibrate('short');
+    if (this.selectedIndex >= 0 && this.selectedIndex < this.dialog.options.length) {
+      const selectedValue = this.dialog.options[this.selectedIndex];
+      this.close('onSelect', selectedValue);
+    } else {
+      this.close('onCancel');
+    }
+  },
+
+  close(callbackName, value) {
+    if (this.closing) return;
+    this.closing = true;
+    settleDialog(this.$app.$def, this.dialog, callbackName, value);
+    back();
+  },
+
+  onBackPress() {
+    this.onCancel();
+    return true;
+  }
+};
+</script>
+
+<style>
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  flex-direction: column;
+	  overflow: hidden;
+}
+
+.topbar-bg {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 102px;
+}
+
+.btn-back {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.btn-confirm {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  font-size: 24px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
+.title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
+
+.message {
+  width: 100%;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 20px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+	  flex-shrink: 0;
+}
+
+.scroll {
+  position:absolute;
+  left:0px;
+	height: 480px;
+	width:336px;
+  flex-direction: column;
+  padding: 86px 6px 84px;
+}
+
+.item {
+  width: 100%;
+  min-height: 112px;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 8px;
+  background-color: #262626;
+  border-radius: 36px;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row;
+	  flex-shrink: 0;
+}
+
+.item-selected {
+  background-color: #0D6EFF;
+}
+
+.item-content {
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.itemtext {
+  font-size: 32px;
+  line-height: 40px;
+  width: 100%;
+  font-weight: bold;
+  color: white;
+  text-overflow: ellipsis;
+  lines: 2;
+}
+
+.check-icon {
+  width: 40px;
+  height: 40px;
+}
+</style>

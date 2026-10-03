@@ -1,0 +1,208 @@
+<template>
+  <div class="page">
+    <scroll if="{{scrollVisible}}" class="scroll" scroll-y="true" bounces="true">
+      <div if="{{viewMode === 'directory'}}" class="directory-view">
+        <div class="directory-header">
+          <text class="directory-kicker">{{directoryKicker}}</text>
+          <text class="directory-title">{{directoryHeading}}</text>
+          <text class="directory-description">{{directoryDescription}}</text>
+        </div>
+
+        <div if="{{canGoUp}}" class="up-row" @click="goUp">
+          <text class="up-arrow">‹</text>
+          <text class="up-text">返回上一级</text>
+        </div>
+
+        <div class="menu-card" for="{{directoryItems}}" tid="id" @click="openItem($item.id)">
+          <div if="{{$item.type === 'directory'}}" class="menu-marker marker-directory"></div>
+          <div else class="menu-marker marker-document"></div>
+          <div class="menu-copy">
+            <text class="menu-title">{{$item.title}}</text>
+            <text class="menu-summary">{{$item.summary}}</text>
+          </div>
+          <text class="chevron">›</text>
+        </div>
+      </div>
+
+      <div if="{{viewMode === 'article'}}" class="article-view">
+        <div class="article-header">
+          <text class="article-kicker">{{articleKicker}}</text>
+          <text class="article-title">{{activeDocument.title}}</text>
+          <text class="article-summary">{{activeDocument.summary}}</text>
+          <text class="article-intro">{{activeDocument.intro}}</text>
+        </div>
+
+        <div class="method-card" for="{{activeDocument.methods}}" tid="id">
+          <text class="method-name">{{$item.name}}</text>
+          <text class="method-description">{{$item.description}}</text>
+          <text if="{{$item.example}}" class="code-label">示例</text>
+          <text if="{{$item.example}}" class="code-block">{{$item.example}}</text>
+          <text if="{{$item.note}}" class="method-note">{{$item.note}}</text>
+        </div>
+
+        <div if="{{activeDocument.note}}" class="article-note-card">
+          <text class="article-note">{{activeDocument.note}}</text>
+        </div>
+      </div>
+    </scroll>
+
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <img static src="/common/images/back.png" class="btn" @click="goBack" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{pageTitle.length <= 5}}" class="title-text">{{pageTitle}}</text>
+    <marquee if="{{pageTitle.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{pageTitle}}</marquee>
+  </div>
+</template>
+
+<script>
+import { back as navigateBack } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock } from '../../../utils/core/time.js';
+import { scheduleAfterRender } from '../../../utils/core/runtimeCompat.js';
+import { HELP_ROOT, findHelpNode, getDirectoryItems } from '../../../data/helpDocs.js';
+
+const ROOT_TITLE = '帮助';
+const ROOT_DESCRIPTION = '从脚本模式、JSLab API 到系统能力与云端功能。';
+
+export default {
+  private: {
+    nowTime: '00:00',
+    timer: null,
+    viewMode: 'directory',
+    currentDirectoryId: '',
+    directoryTrail: [],
+    directoryItems: HELP_ROOT,
+    activeDocument: null,
+    pageTitle: ROOT_TITLE,
+    directoryKicker: 'JSLab 文档',
+    directoryHeading: ROOT_TITLE,
+    directoryDescription: ROOT_DESCRIPTION,
+    articleKicker: 'JSLab 文档',
+    canGoUp: false,
+    scrollVisible: true
+  },
+
+  onInit() {
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 60000);
+    this.restoreDirectory('');
+  },
+
+  onShow() {
+    this.updateTime();
+  },
+
+  onDestroy() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  },
+
+  onBackPress() {
+    this.goBack();
+    return true;
+  },
+
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
+
+  resetScroll() {
+    this.scrollVisible = false;
+    scheduleAfterRender(this, () => {
+      this.scrollVisible = true;
+    });
+  },
+
+  openItem(id) {
+    const node = findHelpNode(id);
+    if (!node) return;
+    vibrate('short');
+    if (node.type === 'directory') {
+      this.openDirectory(node);
+      return;
+    }
+    this.activeDocument = node;
+    this.viewMode = 'article';
+    this.pageTitle = node.title;
+    this.articleKicker = this.currentDirectoryId ? (findHelpNode(this.currentDirectoryId) || {}).title || 'JSLab 文档' : 'JSLab 文档';
+    this.resetScroll();
+  },
+
+  openDirectory(node) {
+    this.directoryTrail = this.directoryTrail.concat(this.currentDirectoryId);
+    this.restoreDirectory(node.id);
+  },
+
+  restoreDirectory(id) {
+    const node = id ? findHelpNode(id) : null;
+    this.currentDirectoryId = id;
+    this.directoryItems = getDirectoryItems(id);
+    this.viewMode = 'directory';
+    this.activeDocument = null;
+    this.pageTitle = node ? node.title : ROOT_TITLE;
+    this.directoryKicker = id ? '文档分类' : 'JSLab 文档';
+    this.directoryHeading = node ? node.title : ROOT_TITLE;
+    this.directoryDescription = node ? node.summary : ROOT_DESCRIPTION;
+    this.canGoUp = this.directoryTrail.length > 0;
+    this.resetScroll();
+  },
+
+  goUp(feedback) {
+    if (!this.directoryTrail.length) return;
+    if (feedback !== false) vibrate('short');
+    const previousId = this.directoryTrail[this.directoryTrail.length - 1];
+    this.directoryTrail = this.directoryTrail.slice(0, this.directoryTrail.length - 1);
+    this.restoreDirectory(previousId);
+  },
+
+  goBack() {
+    vibrate('short');
+    if (this.viewMode === 'article') {
+      this.restoreDirectory(this.currentDirectoryId);
+      return;
+    }
+    if (this.directoryTrail.length) {
+      this.goUp(false);
+      return;
+    }
+    navigateBack();
+  }
+};
+</script>
+
+<style>
+.page { width: 336px; height: 480px; background-color: #000000; overflow: hidden; }
+.scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 102px 6px 84px; }
+.directory-view, .article-view { width: 324px; flex-direction: column; flex-shrink: 0; }
+.directory-header, .article-header { width: 324px; flex-direction: column; flex-shrink: 0; padding: 10px 14px 18px; }
+.directory-kicker, .article-kicker, .code-label { font-size: 18px; line-height: 24px; color: #6aa9ff; }
+.directory-title, .article-title { width: 296px; margin-top: 2px; font-size: 28px; line-height: 36px; font-weight: bold; color: #ffffff; lines: -1; }
+.directory-description { width: 296px; margin-top: 6px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.6); lines: -1; }
+.up-row { width: 324px; height: 64px; flex-shrink: 0; padding: 0px 18px; margin-bottom: 8px; flex-direction: row; align-items: center; background-color: #262626; border-radius: 32px; }
+.up-arrow { width: 24px; font-size: 32px; line-height: 40px; color: #7db8ff; }
+.up-text { margin-left: 6px; font-size: 22px; color: #ffffff; }
+.menu-card { width: 324px; min-height: 96px; flex-shrink: 0; padding: 14px 16px; margin-bottom: 8px; flex-direction: row; align-items: center; background-color: #262626; border-radius: 36px; }
+.menu-marker { width: 5px; height: 44px; margin-right: 12px; border-radius: 3px; }
+.marker-directory { background-color: #4e91ec; }
+.marker-document { background-color: #3fbd8a; }
+.menu-copy { width: 250px; flex-direction: column; }
+.menu-title { width: 250px; font-size: 24px; line-height: 32px; font-weight: bold; color: #ffffff; text-overflow: ellipsis; lines: 1; }
+.menu-summary { width: 250px; margin-top: 3px; font-size: 18px; line-height: 25px; color: rgba(255,255,255,0.6); text-overflow: ellipsis; lines: 1; }
+.chevron { width: 18px; margin-left: 5px; font-size: 31px; line-height: 38px; color: rgba(255,255,255,0.45); text-align: center; }
+.article-header { padding-bottom: 14px; }
+.article-summary { width: 296px; margin-top: 5px; font-size: 20px; line-height: 28px; color: #8cbcff; lines: -1; }
+.article-intro { width: 296px; margin-top: 12px; font-size: 21px; line-height: 31px; color: #edf2f8; lines: -1; }
+.method-card { width: 324px; flex-direction: column; flex-shrink: 0; padding: 18px 16px; margin-bottom: 8px; background-color: #262626; border-radius: 24px; }
+.method-name { width: 296px; font-family: UbuntuMono; font-size: 21px; line-height: 30px; font-weight: bold; color: #79b6ff; lines: -1; }
+.method-description { width: 296px; margin-top: 7px; font-size: 20px; line-height: 29px; color: #ffffff; lines: -1; }
+.code-label { margin-top: 12px; }
+.code-block { width: 296px; padding: 10px; margin-top: 5px; background-color: #101215; border-radius: 6px; font-family: UbuntuMono; font-size: 17px; line-height: 24px; color: #c7e0ff; lines: -1; }
+.method-note { width: 296px; margin-top: 10px; font-size: 18px; line-height: 26px; color: #ffc56e; lines: -1; }
+.article-note-card { width: 324px; flex-direction: column; flex-shrink: 0; padding: 16px; margin-bottom: 8px; background-color: #30281d; border-radius: 24px; }
+.article-note { width: 296px; font-size: 18px; line-height: 27px; color: #ffd99b; lines: -1; }
+.topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+.btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
+.time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-weight: bold; font-size: 24px; color: rgba(255,255,255,0.6); text-align: center; }
+.title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-weight: bold; font-size: 30px; color: #ffffff; text-align: center; text-overflow: ellipsis; lines: 1; }
+.title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-weight: bold; font-size: 30px; color: #ffffff; text-align: center; }
+</style>

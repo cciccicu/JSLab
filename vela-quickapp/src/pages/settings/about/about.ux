@@ -1,0 +1,156 @@
+<template>
+	<div class="page">
+    <scroll class="scroll" scroll-y="true" bounces="true">
+      <div class="app-card">
+        <img src="/common/logo.png" class="logo" />
+        <div class="app-text-group">
+          <text class="app-name">{{appName}}</text>
+          <text class="app-version">版本 {{appVer}}</text>
+        </div>
+      </div>
+
+      <text class="section-title">开发与支持</text>
+      <div class="info-card">
+        <text class="card-title">@ccicc.icu</text>
+        <text class="card-description">JSLab 开发者</text>
+      </div>
+      <div class="info-card">
+        <text class="card-title">@juyinandxinyi</text>
+        <text class="card-description">支持人员，一个用爱发电的好人</text>
+      </div>
+
+      <text class="section-title">参考和使用的项目</text>
+      <div class="info-card resource-card">
+        <text class="resource-text">使用：@NEORUAA 输入法</text>
+        <text class="resource-text">参考：@NEORUAA 电子书</text>
+        <text class="resource-text">参考：@无源流沙 UI 设计</text>
+      </div>
+
+      <text class="section-title">交流与反馈</text>
+      <div class="qrcode-card">
+        <text class="card-title centered">QQ群 1067265942</text>
+        <qrcode value="https://qm.qq.com/q/jiknQFvvA" class="feedback-qrcode"></qrcode>
+      </div>
+
+      <div class="license-card">
+        <text class="license-text">本项目使用 GPL-3.0 许可证</text>
+        <text class="joke-text">免费开源，欢迎倒卖</text>
+      </div>
+    </scroll>
+
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{bigTitle.length <= 5}}" class="title-text">{{bigTitle}}</text>
+    <marquee if="{{bigTitle.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{bigTitle}}</marquee>
+    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
+	</div>
+</template>
+  
+<script>
+  import app from '@system.app' 
+  import { back as navigateBack } from '../../../utils/core/routeManager.js';
+  import { vibrate } from '../../../utils/core/uiFeedback.js';
+  import { getCurrentClock } from '../../../utils/core/time.js';
+
+  
+  export default {
+	private: {
+    nowTime:'00:00',
+	  bigTitle:'关于',
+    appName:'JSLab',
+    appVer:'0.0.0',
+    timer:null
+	},
+	onInit() {
+    this.updateTime();
+		this.timer = setInterval(() => this.updateTime(), 60000);
+    this.appName=app.getInfo().name;
+    this.appVer=app.getInfo().versionName;
+	},
+  onShow(){
+	  this.updateTime();
+  },
+  onDestroy(){
+	  if (this.timer) clearInterval(this.timer);
+  },
+	goBack(){
+		vibrate('short');
+		navigateBack();
+	},
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  }
+  
+  }
+</script>
+  
+<style>
+  .page {
+	  width: 336px;
+	  height: 480px;
+	  background-color: #000000;
+	  overflow: hidden;
+  }
+  .scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 102px 6px 84px; }
+  .app-card {
+    width: 324px;
+    height: 128px;
+    padding: 14px 20px;
+    margin-bottom: 8px;
+    border-radius: 36px;
+    background-color: #262626;
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  .app-text-group {
+    width: 194px;
+    margin-left: 14px;
+    flex-direction: column;
+  }
+  .app-name {
+    width: 194px;
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: bold;
+    color: #ffffff;
+  }
+  .app-version {
+    width: 194px;
+    margin-top: 4px;
+    font-size: 22px;
+    line-height: 30px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .logo {
+    width: 76px;
+    height: 76px;
+  }
+  .section-title { width: 324px; margin: 10px 0px 4px; font-size: 21px; line-height: 29px; font-weight: bold; color: rgba(255,255,255,0.6); flex-shrink: 0; }
+  .info-card { width: 324px; min-height: 96px; padding: 14px 20px; margin-bottom: 8px; border-radius: 36px; background-color: #262626; flex-direction: column; flex-shrink: 0; justify-content: center; }
+  .card-title { width: 284px; font-size: 27px; line-height: 35px; font-weight: bold; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+  .card-description { width: 284px; margin-top: 3px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.6); lines: -1; }
+  .resource-card { min-height: 142px; }
+  .resource-text { width: 284px; font-size: 20px; line-height: 32px; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+  .qrcode-card {
+    width: 324px;
+    height: 300px;
+    padding: 18px 20px;
+    margin-bottom: 8px;
+    background-color: #262626;
+    border-radius: 36px;
+    align-items: center;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .centered { text-align: center; }
+  .feedback-qrcode { width: 220px; height: 220px; margin-top: 12px; color: #000000; background-color: #ffffff; }
+  .license-card { width: 324px; min-height: 120px; padding: 16px 20px; margin: 2px 0px 16px; border-radius: 36px; background-color: #262626; flex-direction: column; flex-shrink: 0; align-items: center; justify-content: center; }
+  .license-text { width: 284px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.65); text-align: center; }
+  .joke-text { width: 284px; margin-top: 7px; font-size: 28px; line-height: 36px; font-weight: bold; color: #ff5b5b; text-align: center; }
+  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+  .back-button { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
+  .time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
+  .title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }
+  .title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
+</style>

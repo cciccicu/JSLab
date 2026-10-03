@@ -1,0 +1,30 @@
+{
+  "name": "JSLab",
+  "version": "1.8.5",
+  "description": "",
+  "engines": {
+    "node": ">=8.10"
+  },
+  "scripts": {
+    "start": "aiot server --watch --open-nuttx",
+    "build": "aiot build --enable-jsc",
+    "release": "aiot release --enable-jsc",
+    "watch": "aiot watch --open-nuttx",
+    "lint": "eslint --format codeframe --ext .ux,.js src/",
+    "test:dialogs": "node tests/dialogState.test.cjs",
+    "test:highlighter": "node tests/javascriptHighlighter.test.cjs",
+    "test:metadata": "node tests/fileMetadata.test.cjs",
+    "test:config": "node tests/configManager.test.cjs",
+    "test:integrity": "node tests/transferIntegrity.test.cjs",
+    "test:cloud": "node tests/cloudService.test.cjs",
+    "test:structure": "node tests/projectStructure.test.cjs",
+    "test:device": "node tests/deviceInfo.test.cjs"
+  },
+  "devDependencies": {
+    "@aiot-toolkit/jsc": "^1.0.7",
+    "aiot-toolkit": "^2.0.5",
+    "babel-eslint": "^10.0.1",
+    "eslint": "^6.8.0",
+    "eslint-plugin-ux": "^0.0.4"
+  }
+}

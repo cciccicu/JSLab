@@ -1,0 +1,494 @@
+<template>
+  <div class="page" show="{{!hide}}">
+    <div class="keyboard-panel">
+      <div static class="keyboard-background"></div>
+
+      <!-- 中文和英文页面共享 QWERTY 物理布局。 -->
+      <scroll if="{{currentState==='cnLetters' || currentState==='enLetters'}}" id="letterKeyboard" class="keyboard-body" scroll-x="true">
+        <div class="letter-rows">
+          <div static class="letter-row row-1">
+            <text class="letter-key" for="{{item in keys['letters'][0]}}" @click="onSelect(item)">{{item}}</text>
+          </div>
+          <div static class="letter-row row-2">
+            <text class="letter-key" for="{{item in keys['letters'][1]}}" @click="onSelect(item)">{{item}}</text>
+          </div>
+          <div class="letter-row row-3">
+            <div if="{{currentState==='cnLetters'}}" class="letter-row-spacer"></div>
+            <div if="{{currentState==='enLetters' && shiftState==='off'}}" class="shift-key" @click="onBtnClick('shift')">
+              <img static class="shift-glyph" src="./assets/horizontal/shift.png" />
+            </div>
+            <div if="{{currentState==='enLetters' && shiftState==='once'}}" class="shift-key shift-key-on" @click="onBtnClick('shift')">
+              <img static class="shift-glyph" src="./assets/horizontal/shift.png" />
+            </div>
+            <div if="{{currentState==='enLetters' && shiftState==='locked'}}" class="shift-key shift-key-locked" @click="onBtnClick('shift')">
+              <img static class="shift-glyph" src="./assets/horizontal/shift.png" />
+              <div static class="shift-lock-dot"></div>
+            </div>
+            <text class="letter-key" for="{{item in keys['letters'][2]}}" @click="onSelect(item)">{{item}}</text>
+            <img static class="key-image" src="./assets/horizontal/space.png" @click="onBtnClick('space')" />
+            <img static class="key-image" src="./assets/horizontal/enter.png" @click="onBtnClick('enter')" />
+          </div>
+        </div>
+      </scroll>
+
+      <!-- 数字页面固定为三行五列：左侧 3×3 数字，右侧 0 与常用运算符。 -->
+      <div if="{{currentState==='numbers'}}" class="numeric-pad">
+        <div class="numeric-row" for="{{row in keys['numbers']}}">
+          <div class="number-digit-group">
+            <text class="number-key" for="{{item in row['digits']}}" @click="onSelect(item)">{{item}}</text>
+          </div>
+          <div class="number-extra-group">
+            <text class="number-key" for="{{item in row['extras']}}" @click="onSelect(item)">{{item}}</text>
+          </div>
+        </div>
+      </div>
+
+      <!-- 两组符号保持完整按键尺寸，向右滑动进入中文符号区。 -->
+      <scroll if="{{currentState==='symbols'}}" class="keyboard-page-scroll" scroll-x="true" bounces="true">
+        <div static class="symbol-content">
+          <div class="symbol-section">
+            <text class="keyboard-section-heading">英文符号</text>
+            <div class="symbol-row" for="{{row in keys['enSymbols']}}">
+              <text class="symbol-key" for="{{item in row}}" @click="onSelect(item)">{{item}}</text>
+            </div>
+          </div>
+          <div class="symbol-section symbol-section-cn">
+            <text class="keyboard-section-heading">中文符号</text>
+            <div class="symbol-row" for="{{row in keys['cnSymbols']}}">
+              <text class="symbol-key" for="{{item in row}}" @click="onSelect(item)">{{item}}</text>
+            </div>
+          </div>
+        </div>
+      </scroll>
+
+      <!-- JS 页使用不等宽模板键，整页可横向滑动。 -->
+      <scroll if="{{currentState==='snippets'}}" class="keyboard-page-scroll" scroll-x="true" bounces="true">
+        <div static class="snippet-content">
+          <div class="snippet-row" for="{{row in keys['snippets']}}">
+            <text class="snippet-key" for="{{item in row}}" style="width: {{item.width}}px;" @click="onSelect(item.value)">{{item.label}}</text>
+          </div>
+        </div>
+      </scroll>
+
+      <!-- 中文页面保留最大候选宽度；蓝色“中”表示当前模式并打开模式菜单。 -->
+      <div if="{{currentState==='cnLetters'}}" class="action-row-cn">
+        <text class="state-button-active mode-button-cn" @click="onBtnClick('toggleStateMenu')">中</text>
+        <div class="candidate-bar">
+          <scroll id="candidateScroll" class="candidate-scroll" scroll-x="true">
+            <div static class="candidate-content">
+              <text class="candidate" @click="pushCval">{{cval}}</text>
+              <text for="{{cvalList}}" show="{{resultList.length > $idx}}" class="candidate" @click="onRsSelect(resultList[$idx])">{{resultList[$idx]}}</text>
+            </div>
+          </scroll>
+          <img if="{{resultList.length > 0}}" class="candidate-expand" src="./assets/horizontal/down2.png" @click="onBtnClick('toggleCandidates')" />
+        </div>
+        <img class="delete-button-spaced" src="./assets/horizontal/del.png" @click="onBtnClick('delete')" />
+      </div>
+
+      <!-- 非中文候选页面固定为 ABC / 中 / 符号 / 123 / 退格，位置永不变化。 -->
+      <div if="{{currentState!=='cnLetters'}}" class="action-row-five">
+        <text if="{{currentState==='enLetters'}}" class="state-button state-button-compact state-button-active" @click="onBtnClick('toggleStateMenu')">ABC</text>
+        <text else class="state-button state-button-compact" @click="goToState('enLetters')">ABC</text>
+
+        <text class="state-button" @click="goToState('cnLetters')">中</text>
+
+        <text if="{{currentState==='symbols'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">符</text>
+        <text else class="state-button" @click="goToState('symbols')">符</text>
+
+        <text if="{{currentState==='snippets'}}" class="state-button state-button-active" @click="onBtnClick('toggleStateMenu')">JS</text>
+        <text else class="state-button" @click="goToState('snippets')">JS</text>
+
+        <text if="{{currentState==='numbers'}}" class="state-button state-button-compact state-button-active" @click="onBtnClick('toggleStateMenu')">123</text>
+        <text else class="state-button state-button-compact" @click="goToState('numbers')">123</text>
+
+        <img class="toolbar-delete" src="./assets/horizontal/del.png" @click="onBtnClick('delete')" />
+      </div>
+
+      <!-- 任意当前模式按钮都打开同一五态菜单；蓝色项就是当前页面。 -->
+      <div if="{{stateMenuVisible}}" class="state-menu">
+        <text if="{{currentState==='enLetters'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">ABC</text>
+        <text else class="menu-button" @click="goToState('enLetters')" style="font-size:18px;">ABC</text>
+
+        <text if="{{currentState==='cnLetters'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">中</text>
+        <text else class="menu-button" @click="goToState('cnLetters')">中</text>
+
+        <text if="{{currentState==='symbols'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">符</text>
+        <text else class="menu-button" @click="goToState('symbols')">符</text>
+
+        <text if="{{currentState==='snippets'}}" class="menu-button menu-button-active" @click="onBtnClick('toggleStateMenu')">JS</text>
+        <text else class="menu-button" @click="goToState('snippets')">JS</text>
+
+        <text if="{{currentState==='numbers'}}" class="menu-button-last menu-button-active" @click="onBtnClick('toggleStateMenu')">123</text>
+        <text else class="menu-button-last" @click="goToState('numbers')">123</text>
+      </div>
+
+      <!-- 完整候选列表最后渲染，覆盖其它交互层。 -->
+      <div if="{{candidateExpanded}}" class="candidate-overlay">
+        <div static class="candidate-list">
+          <list static class="candidate-list-view">
+            <list-item type="candidateRow" class="candidate-row" for="{{itemArray in resultList2}}">
+              <div class="candidate-cell" for="{{item in itemArray}}">
+                <input class="candidate-button" type="button" value="{{item}}" @click="onRsSelect(item)" />
+              </div>
+            </list-item>
+          </list>
+        </div>
+        <img static class="candidate-collapse" src="./assets/horizontal/up2.png" @click="onBtnClick('toggleCandidates')" />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import vibrator from '@system.vibrator';
+import { SimpleInputMethod } from './assets/dicUtil.js';
+
+function deleteLast(value) {
+  return value ? value.substr(0, value.length - 1) : '';
+}
+
+export default {
+  props: {
+    hide: { default: true },
+    maxlength: { default: 5 },
+    vibratemode: { default: '' },
+    initialLanguage: { default: 'cn' }
+  },
+
+  data: {
+    cval: '',
+    resultList: [],
+    resultList2: [],
+    cvalList: [0, 1, 2, 3, 4],
+    currentState: 'cnLetters',
+    shiftState: 'off',
+    stateMenuVisible: false,
+    candidateExpanded: false,
+    keys: {
+      letters: [
+        ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+        ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+        ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+      ],
+      numbers: [
+        { digits: ['1', '2', '3'], extras: ['+', '-'] },
+        { digits: ['4', '5', '6'], extras: ['*', '/'] },
+        { digits: ['7', '8', '9'], extras: ['0', '.'] }
+      ],
+      cnSymbols: [
+        ['，', '。', '？', '！', '：', '；'],
+        ['、', '“', '”', '‘', '’', '（', '）'],
+        ['《', '》', '【', '】', '…', '—', '·']
+      ],
+      enSymbols: [
+        ['(', ')', '{', '}', '[', ']', '<', '>', '!', '?', '@'],
+        ['.', ',', ':', ';', "'", '"', '`', '#', '$', '%', '\\'],
+        ['=', '/', '+', '-', '*', '_', '&', '|', '^', '~']
+      ],
+      snippets: [
+        [
+          { label: 'console.log(', value: 'console.log(', width: 138 },
+          { label: 'console.error(', value: 'console.error(', width: 148 },
+          { label: 'const value =', value: 'const value = ', width: 138 },
+          { label: 'let value =', value: 'let value = ', width: 126 },
+          { label: 'function', value: 'function name() {\n  \n}', width: 112 },
+          { label: 'arrow function', value: '() => {\n  \n}', width: 142 },
+          { label: 'input(', value: 'input(', width: 92 }
+        ],
+        [
+          { label: 'for loop', value: 'for (let i = 0; i < length; i += 1) {\n  \n}', width: 104 },
+          { label: '.forEach(', value: '.forEach(', width: 108 },
+          { label: '.map(', value: '.map(', width: 84 },
+          { label: '.filter(', value: '.filter(', width: 92 },
+          { label: '.find(', value: '.find(', width: 84 },
+          { label: '.reduce(', value: '.reduce(', width: 98 },
+          { label: 'setTimeout(', value: 'setTimeout(', width: 126 },
+          { label: 'setInterval(', value: 'setInterval(', width: 126 },
+          { label: 'try / catch', value: 'try {\n  \n} catch (error) {\n  console.error(error);\n}', width: 126 },
+          { label: 'Promise.resolve(', value: 'Promise.resolve(', width: 156 }
+        ],
+        [
+          { label: 'JSON.stringify(', value: 'JSON.stringify(', width: 148 },
+          { label: 'JSON.parse(', value: 'JSON.parse(', width: 122 },
+          { label: 'Object.keys(', value: 'Object.keys(', width: 124 },
+          { label: 'Array.isArray(', value: 'Array.isArray(', width: 138 },
+          { label: 'ui.signal(', value: 'ui.signal(', width: 108 },
+          { label: 'ui.render(', value: 'ui.render(', width: 114 },
+          { label: 'ui.text(', value: 'ui.text(', width: 96 },
+          { label: 'ui.button(', value: 'ui.button(', width: 112 },
+          { label: 'prompt.showToast(', value: 'prompt.showToast(', width: 154 },
+          { label: 'fetch.fetch(', value: 'fetch.fetch(', width: 122 }
+        ]
+      ]
+    }
+  },
+
+  onInit() {
+    this.currentState = this.initialLanguage === 'en' ? 'enLetters' : 'cnLetters';
+    this.syncCandidateSlots(this.maxlength);
+    // 部分实体机框架未提供 $watch；模板绑定仍会正常处理 hide，
+    // 固定的 maxlength 初始值已在上方同步。
+    if (typeof this.$watch === 'function') {
+      this.$watch('hide', 'watchHidePropsChange');
+      this.$watch('maxlength', 'watchMaxLengthPropsChange');
+    }
+  },
+
+  addAllTxt(text) {
+    this.$emit('complete', { content: text });
+  },
+
+  isChineseState() {
+    return this.currentState === 'cnLetters';
+  },
+
+  commitComposition() {
+    if (!this.cval) return false;
+    const text = this.resultList.length > 0 ? this.resultList[0] : this.cval;
+    this.cval = '';
+    this.clearResults();
+    this.addAllTxt(text);
+    return true;
+  },
+
+  goToState(target) {
+    const validStates = ['cnLetters', 'enLetters', 'symbols', 'snippets', 'numbers'];
+    if (validStates.indexOf(target) < 0 || target === this.currentState) {
+      this.closeOverlays();
+      return;
+    }
+    this.onVibrate();
+    if (this.isChineseState()) this.commitComposition();
+    this.currentState = target;
+    this.closeOverlays();
+  },
+
+  closeOverlays() {
+    this.stateMenuVisible = false;
+    this.candidateExpanded = false;
+  },
+
+  onRsSelect(text) {
+    this.onVibrate();
+    this.cval = '';
+    this.clearResults();
+    this.addAllTxt(text);
+  },
+
+  onBtnClick(action) {
+    this.onVibrate();
+    if (action === 'toggleStateMenu') {
+      this.stateMenuVisible = !this.stateMenuVisible;
+      this.candidateExpanded = false;
+    } else if (action === 'delete') {
+      this.stateMenuVisible = false;
+      if (this.cval.length > 0) {
+        this.cval = deleteLast(this.cval);
+        this.resetResults();
+      } else {
+        this.$emit('delete', {});
+      }
+    } else if (action === 'space') {
+      this.stateMenuVisible = false;
+      if (!(this.isChineseState() && this.commitComposition())) {
+        this.addAllTxt(' ');
+      }
+    } else if (action === 'enter') {
+      this.stateMenuVisible = false;
+      if (this.isChineseState()) this.commitComposition();
+      this.addAllTxt('\n');
+    } else if (action === 'toggleCandidates') {
+      if (this.resultList.length > 0) {
+        this.candidateExpanded = !this.candidateExpanded;
+        this.stateMenuVisible = false;
+      }
+    } else if (action === 'shift') {
+      if (this.shiftState === 'off') {
+        this.shiftState = 'once';
+      } else if (this.shiftState === 'once') {
+        this.shiftState = 'locked';
+      } else {
+        this.shiftState = 'off';
+      }
+    }
+  },
+
+  onSelect(key) {
+    this.$emit('keyDown', { content: key });
+    this.onVibrate();
+    this.stateMenuVisible = false;
+    if (this.currentState === 'cnLetters') {
+      this.cval += key.toLowerCase();
+      this.resetResults();
+    } else if (this.currentState === 'enLetters') {
+      this.addAllTxt(this.shiftState === 'off' ? key.toLowerCase() : key.toUpperCase());
+      if (this.shiftState === 'once') this.shiftState = 'off';
+    } else {
+      this.addAllTxt(key);
+    }
+  },
+
+  pushCval() {
+    if (!this.cval) return;
+    this.onVibrate();
+    const value = this.cval;
+    this.cval = '';
+    this.clearResults();
+    this.addAllTxt(value);
+  },
+
+  clearResults() {
+    this.resultList = [];
+    this.resultList2 = [];
+    this.candidateExpanded = false;
+  },
+
+  resetResults() {
+    if (!this.cval || !this.isChineseState()) {
+      this.clearResults();
+      return;
+    }
+    const result = SimpleInputMethod.getHanzi(this.cval);
+    this.resultList = Array.isArray(result) && result[0] ? result[0] : [];
+    this.setResultListAll();
+  },
+
+  setResultListAll() {
+    const size = parseInt(this.maxlength) || 5;
+    const groups = [];
+    let group = [];
+    for (let i = 0; i < this.resultList.length; i++) {
+      group.push(this.resultList[i]);
+      if (group.length === size) {
+        groups.push(group);
+        group = [];
+      }
+    }
+    if (group.length > 0) groups.push(group);
+    this.resultList2 = groups;
+  },
+
+  syncCandidateSlots(length) {
+    const slots = [];
+    const size = parseInt(length) || 5;
+    for (let i = 0; i < size; i++) slots.push(i);
+    this.cvalList = slots;
+  },
+
+  watchHidePropsChange(value) {
+    this.$emit('visibilityChange', { visible: !value });
+  },
+
+  watchMaxLengthPropsChange(value) {
+    this.syncCandidateSlots(value);
+    this.setResultListAll();
+  },
+
+  onVibrate() {
+    if (this.vibratemode) vibrator.vibrate({ mode: this.vibratemode });
+  }
+};
+</script>
+
+<style>
+.page {
+  position: absolute;
+  left: 0px;
+  bottom: 0px;
+  width: 336px;
+  height: 255px;
+  background-color: #000000;
+  overflow: hidden;
+}
+.keyboard-panel { width: 336px; height: 255px; background-color: #000000; }
+.keyboard-background { position: absolute; left: 0px; top: 0px; width: 336px; height: 255px; background-color: #000000; }
+.keyboard-body { position: absolute; left: 0px; top: 66px; width: 336px; height: 189px; }
+.letter-rows { left: 6px; flex-direction: column; }
+.letter-row { height: 60px; }
+.row-2 { margin-left: 32px; margin-top: -5px; }
+.row-3 { margin-left: 0px; margin-top: -5px; }
+.letter-row-spacer { width: 64px; height: 60px; }
+.letter-key {
+  width: 60px; height: 60px; margin-right: 4px; border-radius: 30px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 32px; font-weight: bold; text-align: center;
+}
+.key-image { width: 60px; height: 60px; }
+.shift-key {
+  position: relative; width: 60px; height: 60px; margin-right: 4px;
+  border-radius: 30px; border: 3px solid rgba(255,255,255,0.06);
+  background-color: #262626; justify-content: center; align-items: center;
+}
+.shift-key-on { background-color: #0d84ff; }
+.shift-key-locked { background-color: #0d84ff; border-color: #ffffff; }
+.shift-glyph { width: 48px; height: 42px; }
+.shift-lock-dot {
+  position: absolute; left: 27px; bottom: 5px; width: 6px; height: 6px;
+  border-radius: 3px; background-color: #ffffff;
+}
+.numeric-pad { position: absolute; left: 6px; top: 66px; width: 324px; height: 189px; flex-direction: column; }
+.numeric-row { width: 324px; height: 56px; margin-bottom: 4px; justify-content: center; }
+.number-digit-group { width: 188px; height: 52px; justify-content: space-between; }
+.number-extra-group { width: 124px; height: 52px; margin-left: 8px; justify-content: space-between; }
+.number-key {
+  width: 60px; height: 52px; border-radius: 26px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 28px; font-weight: bold; text-align: center;
+}
+.keyboard-page-scroll { position: absolute; left: 6px; top: 66px; width: 324px; height: 189px; }
+.symbol-content { width: 1028px; height: 189px; flex-direction: row; flex-shrink: 0; }
+.symbol-section { width: 616px; height: 189px; flex-direction: column; flex-shrink: 0; }
+.symbol-section-cn { width: 406px; margin-left: 6px; }
+.keyboard-section-heading { width: 100%; height: 24px; color: rgba(255,255,255,0.55); font-size: 17px; font-weight: bold; text-align: left; padding-left: 8px; flex-shrink: 0; }
+.symbol-row { height: 52px; margin-bottom: 4px; flex-shrink: 0; }
+.symbol-key {
+  width: 52px; height: 52px; margin-right: 4px; border-radius: 26px; flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 25px; font-weight: bold; text-align: center;
+}
+.snippet-content { width: 1280px; height: 189px; flex-direction: column; flex-shrink: 0; }
+.snippet-row { height: 56px; margin-bottom: 4px; flex-shrink: 0; }
+.snippet-key { height: 52px; margin-right: 6px; border-radius: 26px; border: 3px solid rgba(255,255,255,0.06); background-color: #262626; color: #ffffff; font-size: 18px; font-weight: bold; text-align: center; flex-shrink: 0; }
+.action-row-cn { position: absolute; left: 6px; top: 3px; width: 324px; height: 60px; flex-direction: row; }
+.action-row-five { position: absolute; left: 6px; top: 3px; width: 324px; height: 60px; flex-direction: row; }
+.candidate-bar { width: 192px; height: 60px; margin-left: 6px; border: 3px solid #333333; border-radius: 30px; background-color: #262626; }
+.candidate-scroll { position: absolute; left: 0px; width: 158px; height: 42px; }
+.candidate-content { position: absolute; left: 0px; height: 42px; padding-left: 12px; padding-right: 8px; }
+.candidate { height: 42px; padding-right: 10px; color: #ffffff; font-size: 28px; text-align: center; }
+.candidate-expand { position: absolute; right: 2px; top: 14px; width: 32px; height: 21px; }
+.delete-button-spaced { width: 60px; height: 60px; margin-left: 6px; }
+.toolbar-delete { width: 60px; height: 60px; margin-left: -6px; }
+.state-button {
+  width: 48px; height: 60px; margin-right: 6px; border-radius: 24px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
+}
+.state-button-compact { font-size: 20px; }
+.state-button-active { background-color: #0d84ff; border-color: rgba(255,255,255,0.24); }
+.mode-button-cn {
+  width: 60px; height: 60px; margin-right: 0px; border-radius: 30px;
+  border: 3px solid rgba(255,255,255,0.24); background-color: #0d84ff;
+  color: #ffffff; font-size: 28px; font-weight: bold; text-align: center;
+}
+.symbol-mode-cn { font-size: 20px; }
+.state-menu {
+  position: absolute; left: 6px; top: 66px; width: 324px; height: 68px;
+  padding-top: 4px; border-radius: 34px; background-color: #000000;
+  flex-direction: row;
+}
+.menu-button, .menu-button-last {
+  width: 60px; height: 60px; border-radius: 30px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
+}
+.menu-button { margin-right: 6px; }
+.menu-button-active { background-color: #0d84ff; border-color: rgba(255,255,255,0.24); }
+.menu-symbol-cn { font-size: 20px; }
+.candidate-overlay { position: absolute; left: 0px; top: 0px; width: 336px; height: 252px; background-color: #000000; justify-content: center; flex-direction: column; align-items: center; }
+.candidate-list { width: 324px; height: 170px; padding: 0px 10px; border: 3px solid rgba(255,255,255,0.06); border-radius: 30px; background-color: #262626; }
+.candidate-list-view { width: 100%; height: 100%; }
+.candidate-row { height: 50px; }
+.candidate-cell { height: 50px; flex: 1; }
+.candidate-button { width: 52px; height: 52px; border-radius: 0px; background-color: rgba(38,38,38,0); color: #ffffff; font-size: 28px; text-align: center; }
+.candidate-collapse { width: 324px; height: 67px; margin-top: 5px; }
+</style>

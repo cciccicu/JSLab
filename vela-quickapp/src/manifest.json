@@ -1,0 +1,135 @@
+{
+  "package": "icu.ccicc.jslab",
+  "name": "JSLab",
+  "versionName": "1.8.5",
+  "versionCode": 185,
+  "minPlatformVersion": 1000,
+  "icon": "/common/logo.png",
+  "deviceTypeList": [
+    "watch"
+  ],
+  "features": [
+    { "name": "system.app" },
+    { "name": "system.device" },
+    { "name": "system.router" },
+    { "name": "system.configuration" },
+    { "name": "system.storage" },
+    { "name": "system.file" },
+    { "name": "system.network" },
+    { "name": "system.brightness" },
+    { "name": "system.battery" },
+    { "name": "system.geolocation" },
+    { "name": "system.vibrator" },
+    { "name": "system.event" },
+    { "name": "system.sensor" },
+    { "name": "system.record" },
+    { "name": "system.fetch" },
+    { "name": "system.interconnect" },
+    { "name": "system.uploadtask" },
+    { "name": "system.request" },
+    { "name": "system.crypto" },
+    { "name": "system.prompt" },
+    { "name": "system.audio" }
+  ],
+  "permissions": [
+    { "name": "hapjs.permission.LOCATION" },
+    { "name": "hapjs.permission.DEVICE_INFO" }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": 336
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index",
+        "path": "/"
+      },
+      "pages/workspace/editor": {
+        "component": "editor",
+        "path": "/workspace/editor"
+      },
+      "pages/workspace/editor/v0": {
+        "component": "v0",
+        "path": "/workspace/editor/v0"
+      },
+      "pages/workspace/editor/v1": {
+        "component": "v1",
+        "path": "/workspace/editor/v1"
+      },
+      "pages/workspace/ai-generate": {
+        "component": "ai-generate",
+        "path": "/workspace/ai-generate"
+      },
+      "pages/workspace/run-console": {
+        "component": "run-console",
+        "path": "/workspace/run-console"
+      },
+      "pages/workspace/run-ui": {
+        "component": "run-ui",
+        "path": "/workspace/run-ui"
+      },
+      "pages/settings": {
+        "component": "settings",
+        "path": "/settings"
+      },
+      "pages/settings/editor": {
+        "component": "editor",
+        "path": "/settings/editor"
+      },
+      "pages/settings/editor/fonts": {
+        "component": "fonts",
+        "path": "/settings/editor/fonts"
+      },
+      "pages/settings/editor/highlight": {
+        "component": "highlight",
+        "path": "/settings/editor/highlight"
+      },
+      "pages/settings/about": {
+        "component": "about",
+        "path": "/settings/about"
+      },
+      "pages/workspace/new": {
+        "component": "new",
+        "path": "/workspace/new"
+      },
+      "pages/tools/market": {
+        "component": "market",
+        "path": "/tools/market"
+      },
+      "pages/tools/money": {
+        "component": "money",
+        "path": "/tools/money"
+      },
+      "pages/settings/help": {
+        "component": "help",
+        "path": "/settings/help"
+      },
+      "pages/settings/cloud": {
+        "component": "cloud",
+        "path": "/settings/cloud"
+      },
+      "pages/settings/cloud/files": {
+        "component": "files",
+        "path": "/settings/cloud/files"
+      },
+      "pages/overlay/select": {
+        "component": "select",
+        "path": "/overlay/select"
+      },
+      "pages/overlay/confirm": {
+        "component": "confirm",
+        "path": "/overlay/confirm"
+      },
+      "pages/overlay/number-input": {
+        "component": "number-input",
+        "path": "/overlay/number-input"
+      },
+      "pages/overlay/text-input": {
+        "component": "text-input",
+        "path": "/overlay/text-input"
+      }
+    }
+  }
+}
