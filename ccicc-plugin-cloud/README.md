@@ -30,6 +30,30 @@ npm run pack -- .\ .\dist\jslab-cloud-0.5.0.zip
 当前快应用开发地址为 `http://192.168.3.17:3000/jslab-cloud`。二维码地址由插件
 运行环境生成，不写死临时开发地址；生产环境使用 `ccicc.icu` 域名。
 
+### 生产环境 HTTP 设备链路
+
+Vela 设备的内置根证书库可能无法验证服务器当前的证书链。生产环境中，设备 API
+固定使用 `http://jslab-api.ccicc.icu`，手机扫码后的登录和配对确认页面仍使用
+`https://ccicc.icu/jslab-cloud/pair`，避免网页账户凭据通过明文 HTTP 传输。
+
+宿主的 `ctx.caddy.registerSubdomain('jslab-api')` 会生成 HTTPS 子域名并在 80 端口
+自动返回 308。需要在主 `/etc/caddy/Caddyfile` 的 managed import 之外保留以下
+独立站点；不要写入由 ccicc.icu 自动生成的 managed Caddyfile：
+
+```caddyfile
+# BEGIN JSLab Vela HTTP API
+http://jslab-api.ccicc.icu {
+  rewrite * /jslab-cloud{uri}
+  reverse_proxy 127.0.0.1:3000
+}
+# END JSLab Vela HTTP API
+```
+
+修改后先执行 `caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`，
+再执行 `caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`。插件配置
+`pairingPublicOrigin` 应设为 `https://ccicc.icu`；设备 API 与二维码网页地址不要
+使用同一个协议来源。
+
 ## AI 配置
 
 管理员在 JSLab Cloud 管理页配置生成和审核 API。生成 API 的主要配置项：
