@@ -610,3 +610,11 @@ end
 
 refresh()
 process_install_request()
+
+-- The helper is commonly already running when JSLab creates the request file.
+-- Poll for new requests so installation does not depend on reopening the watchface.
+local install_request_timer = lvgl.Timer({
+  period = 1000, repeat_count = -1,
+  cb = function() process_install_request() end,
+})
+install_request_timer:resume()
