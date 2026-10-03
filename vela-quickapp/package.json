@@ -9,8 +9,6 @@
     "start": "aiot server --watch --open-nuttx",
     "build": "aiot build --enable-jsc",
     "release": "aiot release --enable-jsc",
-    "release:band10-pro": "aiot release",
-    "release:all": "node scripts/release-all.cjs",
     "watch": "aiot watch --open-nuttx",
     "lint": "eslint --format codeframe --ext .ux,.js src/",
     "test:dialogs": "node tests/dialogState.test.cjs",
