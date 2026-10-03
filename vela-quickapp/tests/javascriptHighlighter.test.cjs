@@ -58,6 +58,10 @@ async function run() {
     assert.strictEqual(reconstruct(lines), source);
     assert.strictEqual(lines.length, source.split('\n').length);
     assert.ok(lines.every(line => line.tokens.every(token => token.text.indexOf('\n') === -1)));
+    assert.strictEqual(new Set(lines.map(line => line.lineKey)).size, lines.length);
+    lines.forEach(line => {
+      assert.strictEqual(new Set(line.tokens.map(token => token.tokenKey)).size, line.tokens.length);
+    });
   });
 
   const syntaxSource = [

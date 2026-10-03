@@ -326,7 +326,7 @@ export function highlightJavascript(source, idPrefix, paletteId, maxTokens) {
 
 export function splitTokensIntoLines(tokens, idPrefix) {
   const prefix = idPrefix || 'code-line';
-  const lines = [{ id: prefix + '-0', index: 0, tokens: [] }];
+  const lines = [{ lineKey: prefix + '-0', index: 0, tokens: [] }];
 
   (tokens || []).forEach((token) => {
     const text = String(token.text == null ? '' : token.text);
@@ -336,21 +336,21 @@ export function splitTokensIntoLines(tokens, idPrefix) {
       if (newline > fragmentStart) {
         const line = lines[lines.length - 1];
         line.tokens.push({
-          id: prefix + '-' + line.index + '-token-' + line.tokens.length,
+          tokenKey: prefix + '-' + line.index + '-token-' + line.tokens.length,
           type: token.type,
           text: text.slice(fragmentStart, newline),
           color: token.color
         });
       }
       const lineIndex = lines.length;
-      lines.push({ id: prefix + '-' + lineIndex, index: lineIndex, tokens: [] });
+      lines.push({ lineKey: prefix + '-' + lineIndex, index: lineIndex, tokens: [] });
       fragmentStart = newline + 1;
       newline = text.indexOf('\n', fragmentStart);
     }
     if (fragmentStart < text.length) {
       const line = lines[lines.length - 1];
       line.tokens.push({
-        id: prefix + '-' + line.index + '-token-' + line.tokens.length,
+        tokenKey: prefix + '-' + line.index + '-token-' + line.tokens.length,
         type: token.type,
         text: text.slice(fragmentStart),
         color: token.color

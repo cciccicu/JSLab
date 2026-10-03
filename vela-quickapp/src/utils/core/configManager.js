@@ -62,7 +62,7 @@ function readConfigFile() {
         });
       },
       fail: (data, code) => {
-        if (code === FILE_NOT_FOUND) {
+        if (Number(code) === FILE_NOT_FOUND) {
           resolve({});
           return;
         }

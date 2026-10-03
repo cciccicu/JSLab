@@ -10,7 +10,7 @@
           <text class="detail">ASCII {{asciiWidthRatio}}x · 宽字符 {{wideWidthRatio}}x</text>
         </div>
         <text class="section-title">更换字体</text>
-        <text class="helper-status" style="color: {{helperOnline ? '#9FE5B0' : '#FFC2C2'}};">表盘状态：{{helperStatus}}</text>
+        <text if="{{helperStatus}}" class="helper-status" style="color: {{helperOnline ? '#9FE5B0' : '#FFC2C2'}};">表盘状态：{{helperStatus}}</text>
         <div class="card">
           <text class="step-title">1. 上传字体</text>
           <text class="detail">在 AstroBox 的 JSLab 同步插件中打开“字体”，选择 TTF 或 OTF 文件。</text>
@@ -19,11 +19,11 @@
           <text class="step-title">2. 填写字体数据</text>
           <text class="detail">按提示填写名称、行高、偏移以及 ASCII 和宽字符字宽。上传完成后字体包即进入待安装状态。</text>
         </div>
-        <div class="install-button" @click="startInstallation">
-          <text class="install-button-title">安装待安装字体</text>
-          <text class="install-button-state">{{installActionText}}</text>
+        <div class="install-button {{installBusy ? 'disabled-item' : ''}}" @click="startInstallation">
+          <text class="install-button-title {{installBusy ? 'disabled-text' : ''}}">安装待安装字体</text>
+          <text class="install-button-state {{installBusy ? 'disabled-text' : ''}}">{{installActionText}}</text>
         </div>
-        <text class="install-status">{{installStatus}}</text>
+        <text if="{{installStatus}}" class="install-status">{{installStatus}}</text>
         <div class="card last-card">
           <text class="step-title">3. 重新打开 JSLab</text>
           <text class="detail">JSLab Helper 会在后台监听并完成安装，无需打开表盘。安装完成后完全退出并重新打开 JSLab。</text>
@@ -42,6 +42,7 @@ import fontManager, { DEFAULT_FONT_PROFILE } from '../../../../utils/editor/font
 import { back } from '../../../../utils/core/routeManager.js';
 import { getCurrentClock } from '../../../../utils/core/time.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
+import { formatError } from '../../../../utils/core/userError.js';
 
 export default {
   private: {
@@ -55,9 +56,9 @@ export default {
     wideWidthRatio: DEFAULT_FONT_PROFILE.wideWidthRatio,
     pageActive: true,
     helperOnline: false,
-    helperStatus: '正在检测',
+    helperStatus: '',
     installActionText: '开始安装',
-    installStatus: '正在检查待安装字体包',
+    installStatus: '',
     installBusy: false
   },
   onInit() {
@@ -83,10 +84,10 @@ export default {
       if (!this.pageActive) return;
       this.helperOnline = heartbeat.online;
       this.helperStatus = heartbeat.online ? '在线，可后台安装' : '未检测到，请确认已安装 JSLab Helper';
-    }).catch(() => {
+    }).catch((error) => {
       if (!this.pageActive) return;
       this.helperOnline = false;
-      this.helperStatus = '检测失败，请稍后重试';
+      this.helperStatus = formatError(error, '读取 JSLab Helper 心跳');
     });
   },
   startInstallationPolling() {
@@ -108,7 +109,7 @@ export default {
       this.lineHeightOffset = profile.lineHeightOffset;
       this.asciiWidthRatio = profile.asciiWidthRatio;
       this.wideWidthRatio = profile.wideWidthRatio;
-    }).catch(error => { if (!this.pageActive) return; console.error('Failed to load active font data:', error); showToast('读取当前字体资料失败'); });
+    }).catch(error => { if (!this.pageActive) return; console.error('Failed to load active font data:', error); showToast(formatError(error, '读取当前编辑器字体资料')); });
   },
   loadInstallationState() {
     Promise.all([fontManager.getPendingInstallationInfo(), fontManager.getInstallationRequest(), fontManager.getInstallationResult(), fontManager.getHelperHeartbeat()])
@@ -133,7 +134,7 @@ export default {
           this.stopInstallationPolling();
         } else if (result && resultMatchesPending && result.status === 'error') {
           this.installActionText = '重新发起安装';
-          this.installStatus = result.message || '安装失败，请稍后重新发起安装。';
+          this.installStatus = result.message || 'JSLab Helper 报告字体安装错误，但没有返回错误详情。';
           this.stopInstallationPolling();
         } else if (pending) {
           this.installActionText = '开始安装';
@@ -145,17 +146,15 @@ export default {
           this.stopInstallationPolling();
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!this.pageActive || this.installBusy) return;
         this.installActionText = '开始安装';
-        this.installStatus = '无法读取字体安装状态，请稍后重试。';
+        this.installStatus = formatError(error, '读取字体安装请求、结果与 Helper 心跳');
       });
   },
   startInstallation() {
     if (this.installBusy) return;
     this.installBusy = true;
-    this.installActionText = '正在发起安装';
-    this.installStatus = '正在发起后台安装请求。';
     fontManager.getHelperHeartbeat()
       .then((heartbeat) => {
         this.helperOnline = heartbeat.online;
@@ -173,7 +172,7 @@ export default {
       .catch((error) => {
         if (!this.pageActive) return;
         this.installActionText = '开始安装';
-        this.installStatus = error && error.message ? error.message : '发起安装失败，请稍后重试。';
+        this.installStatus = formatError(error, '向 JSLab Helper 发起字体安装');
         showToast(this.installStatus);
       })
       .then(() => { this.installBusy = false; });
@@ -193,8 +192,10 @@ export default {
 .step-title { width: 284px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #9ecbff; }
 .detail { width: 284px; margin-top: 6px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
 .install-button { width: 324px; height: 72px; margin-top: 8px; padding: 0px 20px; flex-shrink: 0; align-items: center; justify-content: space-between; background-color: #2f75c7; border-radius: 36px; }
+.disabled-item { background-color: #303030; }
 .install-button-title { width: 190px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #ffffff; text-overflow: ellipsis; lines: 1; }
 .install-button-state { width: 90px; flex-shrink: 0; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.78); text-align: right; text-overflow: ellipsis; lines: 1; }
+.disabled-text { color: #8c8c8c; }
 .install-status { width: 284px; margin: 8px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
 .last-card { margin-bottom: 16px; }
 .topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }

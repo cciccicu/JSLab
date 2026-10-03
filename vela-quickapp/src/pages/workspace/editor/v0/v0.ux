@@ -15,8 +15,8 @@
       <img src="/common/images/down.png" class="cursor-button" @click="move('down')" />
     </div>
 
-    <img if="{{!hideToolbar}}" class="button" src="/common/images/save.png" style="left:6px;top:402px;" @click="save" />
-    <img if="{{!hideToolbar}}" class="button" src="/common/images/run.png" style="left:90px;top:402px;" @click="run" />
+    <img if="{{!hideToolbar}}" class="button {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/save.png" style="left:6px;top:402px;" @click="save" />
+    <img if="{{!hideToolbar}}" class="button {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/run.png" style="left:90px;top:402px;" @click="run" />
     <img if="{{!hideToolbar}}" class="button" src="/common/images/move.png" style="left:174px;top:402px;" @click="toggleCursorControls" />
     <img if="{{!hideToolbar}}" class="button" src="/common/images/edit.png" style="left:258px;top:402px;" @click="toggleKeyboard" />
 
@@ -34,6 +34,7 @@ import jsManager from '../../../../utils/files/jsManager.js';
 import { back as navigateBack, push } from '../../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock } from '../../../../utils/core/time.js';
+import { formatError } from '../../../../utils/core/userError.js';
 
 export default {
   private: {
@@ -111,14 +112,14 @@ export default {
       this.savedSource = source;
       this.$app.$def.updateEditorCode(source); showToast('代码已保存');
       return true;
-    }).catch(() => {
+    }).catch((error) => {
       this.saveInProgress = false;
-      showToast('保存失败');
+      showToast(formatError(error, '保存脚本 ' + this.editorName));
       return false;
     });
   },
   run() {
-    if (this.saveInProgress) { showToast('正在保存，请稍候'); return; }
+    if (this.saveInProgress) return;
     this.save().then((saved) => { if (saved) this.$app.$def.openRunner(this.editorName, this.source()); });
   },
   toggleKeyboard() { vibrate('short'); this.hideInputMethod = !this.hideInputMethod; this.hideToolbar = !this.hideInputMethod; this.showCursorControls = false; },
@@ -152,6 +153,7 @@ export default {
 .code { width:324px; color:#ffffff; font-size:20px; line-height:24px; flex-shrink:0; }
 .code-bottom-space { height:240px; flex-shrink:0; }
 .button { position:absolute; width:72px; height:72px; }
+.disabled-icon { background-color:#303030; border-radius:36px; }
 .topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:30px; font-weight:bold; color:#ffffff; text-align:center; }

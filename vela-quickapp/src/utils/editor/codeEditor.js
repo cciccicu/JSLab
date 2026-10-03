@@ -1,4 +1,5 @@
-const WIDE_CHARACTER = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/;
+// Match the full-width Chinese punctuation metrics in the editor font.
+const WIDE_CHARACTER = /[\u2014\u2018\u2019\u201c\u201d\u2026\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uff60\uffe0-\uffe6]/;
 
 export function getLineHeight(fontProfile, fontSize) {
   const profile = fontProfile || {};

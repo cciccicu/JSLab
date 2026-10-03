@@ -341,12 +341,21 @@ fn button(
     let text = text.into();
     let event_id = event_id.into();
     let button = Element::new(ElementType::Button, Some(&text))
-        .padding(10)
-        .radius(6)
+        .padding(8)
+        .min_height(40)
+        .size(14)
+        .radius(8)
         .bg(if primary { "#1677FF" } else { "#252A33" })
         .text_color("#FFFFFF")
         .on(Event::Click, &event_id);
     if disabled { button.disabled() } else { button }
+}
+
+fn action_grid() -> Element {
+    Element::new(ElementType::Grid, None)
+        .width_full()
+        .grid_template_columns("repeat(auto-fit, minmax(92px, 1fr))")
+        .gap(8)
 }
 
 fn text_input(value: &str, placeholder: &str, event_id: &str) -> Element {
@@ -410,11 +419,11 @@ fn render(element_id: &str) {
     } else {
         button("字体上传", "page-fonts", false, view.busy)
     };
-    let header = Element::new(ElementType::Div, None)
+    let header_identity = Element::new(ElementType::Div, None)
         .flex()
         .flex_direction(FlexDirection::Row)
         .align_center()
-        .gap(10)
+        .gap(8)
         .child(label(
             if fonts_page {
                 "JSLab 字体上传"
@@ -422,43 +431,56 @@ fn render(element_id: &str) {
                 "JSLab 文件同步"
             },
             "#F5F7FA",
-            22,
+            20,
         ))
-        .child(status_badge)
-        .child(page_action)
+        .child(status_badge);
+    let header_actions = action_grid()
+        .child(page_action.width_full())
         // Refresh is the recovery action for a stalled handshake, so it must
         // remain clickable while another request is marked busy.
-        .child(button("刷新设备", "device-refresh", false, false));
+        .child(button("刷新设备", "device-refresh", false, false).width_full());
+    let header = Element::new(ElementType::Div, None)
+        .flex()
+        .flex_direction(FlexDirection::Column)
+        .gap(8)
+        .width_full()
+        .child(header_identity)
+        .child(header_actions);
 
     let status_row = Element::new(ElementType::Div, None)
         .flex()
-        .flex_direction(FlexDirection::Row)
-        .align_center()
-        .gap(8)
+        .flex_direction(FlexDirection::Column)
+        .gap(4)
+        .width_full()
         .child(label("状态", "#7F8998", 13))
-        .child(label(view.status.clone(), "#C8CED8", 14));
+        .child(label(view.status.clone(), "#C8CED8", 14).width_full());
 
     let mut device_row = Element::new(ElementType::Div, None)
         .flex()
-        .flex_direction(FlexDirection::Row)
-        .align_center()
-        .gap(8)
+        .flex_direction(FlexDirection::Column)
+        .gap(6)
+        .width_full()
         .child(label("设备", "#7F8998", 13));
     if view.devices.is_empty() {
-        device_row = device_row.child(label("AstroBox 当前没有已连接设备", "#FFB3B3", 14));
+        device_row = device_row.child(
+            label("AstroBox 当前没有已连接设备", "#FFB3B3", 14).width_full(),
+        );
     } else {
         for (index, (name, addr)) in view.devices.iter().enumerate() {
             let active = view.selected_device.as_deref() == Some(addr.as_str());
-            device_row = device_row.child(button(
-                if active {
-                    format!("{} · 当前", name)
-                } else {
-                    name.clone()
-                },
-                format!("device-select:{index}"),
-                active,
-                view.busy,
-            ));
+            device_row = device_row.child(
+                button(
+                    if active {
+                        format!("{} · 当前", name)
+                    } else {
+                        name.clone()
+                    },
+                    format!("device-select:{index}"),
+                    active,
+                    view.busy,
+                )
+                .width_full(),
+            );
         }
     }
 
@@ -466,8 +488,8 @@ fn render(element_id: &str) {
         .flex()
         .flex_direction(FlexDirection::Column)
         .width_full()
-        .min_height(560)
-        .padding(16)
+        .min_height(520)
+        .padding(12)
         .gap(10)
         .bg("#0B0D10")
         .text_color("#F5F7FA")
@@ -539,11 +561,8 @@ fn render(element_id: &str) {
             .child(label("上传字体", "#DCE2EA", 20))
             .child(label("选择一个 TTF/OTF 文件，并填写该字体配套的名称、行高和字宽数据。上传会覆盖上一个待安装字体包。", "#AEB8C6", 14))
             .child(
-                Element::new(ElementType::Div, None)
-                    .flex()
-                    .flex_direction(FlexDirection::Row)
-                    .gap(6)
-                    .child(button(
+                action_grid().child(
+                    button(
                         if view.font_draft.is_some() {
                             "重新选择字体"
                         } else {
@@ -552,7 +571,9 @@ fn render(element_id: &str) {
                         "font-select",
                         true,
                         view.busy,
-                    )),
+                    )
+                    .width_full(),
+                ),
             );
         if let Some(draft) = &view.font_draft {
             font_panel = font_panel
@@ -592,17 +613,14 @@ fn render(element_id: &str) {
                     "font-wide-width-input",
                 ))
                 .child(
-                    Element::new(ElementType::Div, None)
-                        .flex()
-                        .flex_direction(FlexDirection::Row)
-                        .gap(8)
+                    action_grid()
                         .child(button(
                             "上传待安装字体包",
                             "font-submit",
                             true,
                             view.busy || !connected,
-                        ))
-                        .child(button("取消", "font-cancel", false, view.busy)),
+                        ).width_full())
+                        .child(button("取消", "font-cancel", false, view.busy).width_full()),
                 );
         }
         root = root.child(font_panel);
@@ -611,35 +629,43 @@ fn render(element_id: &str) {
     }
 
     if !editor_open {
+        let list_actions = action_grid()
+            .child(button("新建", "file-new", true, view.busy || !connected).width_full())
+            .child(
+                button(
+                    "上传",
+                    "file-upload",
+                    false,
+                    view.busy || !connected,
+                )
+                .width_full(),
+            )
+            .child(
+                button(
+                    "刷新",
+                    "files-refresh",
+                    false,
+                    view.busy || !connected,
+                )
+                .width_full(),
+            );
         let list_toolbar = Element::new(ElementType::Div, None)
             .flex()
-            .flex_direction(FlexDirection::Row)
-            .align_center()
+            .flex_direction(FlexDirection::Column)
             .gap(8)
+            .width_full()
             .child(label(
                 format!("手环文件 · {}", view.files.len()),
                 "#DCE2EA",
                 17,
-            ))
-            .child(button("新建", "file-new", true, view.busy || !connected))
-            .child(button(
-                "上传",
-                "file-upload",
-                false,
-                view.busy || !connected,
-            ))
-            .child(button(
-                "刷新",
-                "files-refresh",
-                false,
-                view.busy || !connected,
-            ));
+            ).width_full())
+            .child(list_actions);
         let mut file_list = Element::new(ElementType::ScrollArea, None)
             .flex()
             .flex_direction(FlexDirection::Column)
             .gap(8)
             .width_full()
-            .height(480);
+            .height(420);
         if view.files.is_empty() {
             file_list = file_list
                 .child(label("暂无 JavaScript 文件", "#C8CED8", 18))
@@ -667,22 +693,24 @@ fn render(element_id: &str) {
             .selected_file
             .clone()
             .unwrap_or_else(|| "正在载入".into());
-        let editor_title = file_name;
+        let editor_actions = action_grid()
+            .child(button("返回列表", "editor-close", false, view.busy).width_full())
+            .child(button("重命名", "file-rename", false, view.busy).width_full())
+            .child(button("下载", "file-download", false, view.busy).width_full())
+            .child(button("删除", "file-delete", false, view.busy).width_full());
         let editor_toolbar = Element::new(ElementType::Div, None)
             .flex()
-            .flex_direction(FlexDirection::Row)
-            .align_center()
+            .flex_direction(FlexDirection::Column)
             .gap(8)
-            .child(button("返回列表", "editor-close", false, view.busy))
-            .child(label(editor_title, "#DCE2EA", 17))
-            .child(button("重命名", "file-rename", false, view.busy))
-            .child(button("下载", "file-download", false, view.busy))
-            .child(button("删除", "file-delete", false, view.busy));
+            .width_full()
+            .child(label("当前文件", "#7F8998", 13))
+            .child(label(file_name, "#DCE2EA", 17).width_full())
+            .child(editor_actions);
         let editor = Element::new(ElementType::Textarea, Some(&view.editor_text))
             .prop("placeholder", "正在从手环读取文件…")
             .prop("spellcheck", "false")
             .width_full()
-            .height(460)
+            .height(380)
             .padding(12)
             .radius(6)
             .bg("#111419")
@@ -773,6 +801,11 @@ fn picker_file_name(value: &str) -> String {
         .unwrap_or_default()
         .trim()
         .to_string()
+}
+
+fn picker_script_name(value: &str) -> Option<String> {
+    let name = picker_file_name(value);
+    valid_script_name(&name).then_some(name)
 }
 
 fn encode_base64(data: &[u8]) -> String {
@@ -2310,7 +2343,23 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
                 }
                 let content = String::from_utf8(picked.data)
                     .map_err(|_| "上传文件必须是 UTF-8 文本".to_string())?;
-                let name = picker_file_name(&picked.name);
+                let name = if let Some(name) = picker_script_name(&picked.name) {
+                    name
+                } else {
+                    let Some(name) = prompt_text(
+                        "上传脚本",
+                        "Android 未返回原文件名，请输入以 .js 结尾的文件名",
+                    )
+                    .await
+                    else {
+                        set_status("已取消上传", false);
+                        return Ok(());
+                    };
+                    if !valid_script_name(&name) {
+                        return Err("文件名必须是不含路径的 .js 文件名".into());
+                    }
+                    name
+                };
                 let exists = with_state(|state| state.files.iter().any(|file| file.name == name));
                 if exists && !confirm_overwrite(&name).await {
                     set_status("已取消上传", false);
@@ -2390,7 +2439,7 @@ async fn handle_timer(payload: &str) -> Result<(), String> {
 impl LifecycleGuest for Plugin {
     fn on_load() {
         let _ = state();
-        diagnostic("LIFECYCLE on_load version=1.5.5 api_level=3 protocol=2");
+        diagnostic("LIFECYCLE on_load version=1.5.8 api_level=3 protocol=2");
     }
 }
 
@@ -2498,6 +2547,19 @@ mod tests {
             "hello.js"
         );
         assert_eq!(picker_file_name("primary:Download\\hello.js"), "hello.js");
+    }
+
+    #[test]
+    fn requests_a_name_for_opaque_android_document_uris() {
+        assert_eq!(picker_script_name("hello.ui.js"), Some("hello.ui.js".into()));
+        assert_eq!(
+            picker_script_name("content://documents/document/primary%3ADownload%2Fhello.ui.js"),
+            Some("hello.ui.js".into())
+        );
+        assert_eq!(
+            picker_script_name("content://com.android.providers.downloads.documents/document/msf%3A12345"),
+            None
+        );
     }
 
     #[test]

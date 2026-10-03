@@ -130,6 +130,26 @@ ui.render(() => [
 ]);`
   },
   {
+    label: 'UI 布局与二维码',
+    content: `const count = ui.signal(0);
+// 不变的组件可在渲染函数外构造。
+const qr = ui.qrcode('https://ccicc.icu', { id: 'site-qr', size: 160 });
+ui.setTitle('布局示例');
+ui.render(() => ui.column([
+  ui.row([
+    ui.text('访问官网', { width: 140, lines: 1, bold: true }),
+    ui.text('次数 ' + count.get(), { lines: 1, align: 'right', color: '#9cdcfe' })
+  ], { gap: 8 }),
+  ui.column([qr], { align: 'center' }),
+  ui.row([
+    ui.button('+1', () => count.update(value => value + 1), {
+      id: 'add', background: '#176b45', color: '#ffffff'
+    }),
+    ui.button('退出', () => script.exit(), { id: 'exit', background: '#34373d' })
+  ], { gap: 8 })
+], { padding: 12, gap: 12, background: '#20242a', radius: 24 }));`
+  },
+  {
     label: 'UI 2048 游戏',
     content: ui2048Example
   }

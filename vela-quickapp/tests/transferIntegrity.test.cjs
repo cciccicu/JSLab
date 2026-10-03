@@ -13,6 +13,7 @@ async function run() {
   const integrity = await loadModule();
   assert.strictEqual(integrity.adler32(''), '00000001');
   assert.strictEqual(integrity.adler32('font'), '043901b8');
+  assert.strictEqual(integrity.adler32Utf8('中文🙂'), '289406f7');
 
   const first = integrity.updateAdler32('fo', 1, 0);
   const second = integrity.updateAdler32('nt', first.a, first.b);

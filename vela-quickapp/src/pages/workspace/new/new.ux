@@ -46,7 +46,7 @@
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">新建JS</text>
     <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="goBack" />
-    <img if="{{hideInputMethod}}" static src="/common/images/conform.png" class="btn" style="left: 258px;top: 6px;" @click="confirmAdd" />
+    <img if="{{hideInputMethod}}" src="/common/images/conform.png" class="btn {{busy ? 'disabled-icon' : ''}}" style="left: 258px;top: 6px;" @click="confirmAdd" />
     <img if="{{!hideInputMethod}}" static src="/common/images/down.png" class="btn" style="left: 258px;top: 6px;" @click="changeFocus" />
 
   </div>
@@ -59,6 +59,7 @@ import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock } from '../../../utils/core/time.js';
 import { getTemplatesForMode } from '../../../data/scriptTemplates.js';
 import { getConfiguredEditorRoute } from '../../../utils/editor/editorVersion.js';
+import { formatError } from '../../../utils/core/userError.js';
 
 export default {
   private: {
@@ -172,7 +173,7 @@ export default {
       .catch(error => {
         if (!this.pageActive) return;
         console.error(`创建文件 ${fileName} 失败:`, error.message);
-        showToast(`创建文件失败: ${error.message}`);
+        showToast(formatError(error, '创建本地脚本 ' + fileName));
       }).then(() => { if (this.pageActive) this.busy = false; });
   }
 };
@@ -202,6 +203,11 @@ export default {
   position: absolute;
   width: 72px;
   height: 72px;
+}
+
+.disabled-icon {
+  background-color: #303030;
+  border-radius: 36px;
 }
 
 .time-text {

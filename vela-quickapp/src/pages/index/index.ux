@@ -1,9 +1,6 @@
 <template>
   <div class="page" style="flex-direction: column;">
   
-    <img if="{{fileList.length == 0}}" src="/common/images/empty.png" class="empty-img" />
-    <text if="{{fileList.length == 0}}" class="empty-text">啥也没有</text>
-  
     <list bounces="true" class="list">
       <list-item for="{{(index, file) in fileList}}" tid="name" class="item {{selectedFileIndex === index ? 'item2' : ''}}"
         @click="selectFile(index)" type="nook">
@@ -13,6 +10,10 @@
       </list-item>
     </list>
   
+    <img if="{{fileListReady && !fileListError && fileList.length == 0}}" src="/common/images/empty.png" class="empty-img" />
+    <text if="{{fileListError && fileList.length == 0}}" class="empty-text" @click="loadFileList">{{fileListErrorText}}</text>
+    <text elif="{{fileListReady && fileList.length == 0}}" class="empty-text">啥也没有</text>
+
     <img static src="/common/images/hd.png" class="header-img" />
     <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="exit" />
     <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('settings')" />
@@ -24,7 +25,7 @@
     <img if="{{selectedFileIndex === -1}}" src="/common/images/cloud.png" style="left: 132px;top: 402px;" class="btn" @click="routerTo('settingsCloudFiles')"/>
     <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('newFile')"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn" @click="runcode"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" style="left: 90px;top: 402px;" class="btn {{cloudBusy ? 'busy' : ''}}" @click="uploadSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" style="left: 90px;top: 402px;" class="btn {{cloudBusy ? 'disabled-icon' : ''}}" @click="uploadSelected"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 174px;top: 402px;" class="btn" @click="editcode"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn" @click="handleDeleteClick"/>
   
@@ -40,6 +41,7 @@ import { getCurrentClock } from '../../utils/core/time.js';
 import { formatFileSize, formatModifiedDate, utf8ByteLength } from '../../utils/files/fileMetadata.js';
 import { getConfiguredEditorRoute } from '../../utils/editor/editorVersion.js';
 import cloudService from '../../utils/cloud/cloudService.js';
+import { formatError } from '../../utils/core/userError.js';
 
 export default {
   private: {
@@ -49,7 +51,11 @@ export default {
     timer: null,
     fileChangeUnsubscribe: null,
     cloudBusy: false,
-    pageActive: true
+    pageActive: true,
+    fileListReady: false,
+    fileListError: false,
+    fileListErrorText: '脚本目录尚未读取，点击重新读取',
+    fileListRequestId: 0
   },
 
   exit() {
@@ -85,10 +91,14 @@ export default {
   },
 
   loadFileList(preserveSelection = false) {
+    const requestId = this.fileListRequestId + 1;
+    this.fileListRequestId = requestId;
     const selectedName = preserveSelection && this.fileList[this.selectedFileIndex]
       ? this.fileList[this.selectedFileIndex].name
       : '';
+    this.fileListError = false;
     jsManager.list().then(fileList => {
+      if (!this.pageActive || requestId !== this.fileListRequestId) return;
       this.fileList = fileList.map(fileInfo => Object.assign({}, fileInfo, {
         sizeText: formatFileSize(fileInfo.size),
         modifiedText: formatModifiedDate(fileInfo.lastModifiedTime)
@@ -96,9 +106,15 @@ export default {
       this.selectedFileIndex = selectedName
         ? this.fileList.findIndex(fileInfo => fileInfo.name === selectedName)
         : -1;
+      this.fileListReady = true;
+      this.fileListError = false;
     }).catch(error => {
+      if (!this.pageActive || requestId !== this.fileListRequestId) return;
       console.error("获取文件列表失败:", error);
-      showToast('获取文件列表失败');
+      this.fileListReady = true;
+      this.fileListError = true;
+      this.fileListErrorText = formatError(error, '读取本地脚本目录') + '，点击重新读取';
+      showToast(formatError(error, '读取本地脚本目录'));
     });
   },
 
@@ -135,7 +151,7 @@ export default {
         if (error.message.includes('301')) {
           showToast(`文件 ${fileName} 不存在`);
         } else {
-          showToast(`读取文件失败: ${error.message}`);
+          showToast(formatError(error, '读取本地脚本 ' + fileName));
         }
       });
   },
@@ -163,7 +179,7 @@ export default {
         if (error.message.includes('301')) {
           showToast(`文件 ${fileName} 不存在`);
         } else {
-          showToast(`读取文件失败: ${error.message}`);
+          showToast(formatError(error, '读取本地脚本 ' + fileName));
         }
       });
   },
@@ -194,7 +210,7 @@ export default {
       this.performUpload(file.name);
     }).catch((error) => {
       this.cloudBusy = false;
-      showToast(error.message === 'not_paired' ? '请先配对云账户' : error.message === 'activation_required' ? '请先激活云空间' : cloudService.errorMessage(error, '无法读取云空间'));
+      showToast(cloudService.errorMessage(error, '检查上传目标云空间'));
     });
   },
 
@@ -204,7 +220,7 @@ export default {
     cloudService.uploadScript(fileName).then(() => {
       showToast('已上传 ' + fileName);
     }).catch((error) => {
-      showToast(error.message === 'activation_required' ? '请先激活云空间' : cloudService.errorMessage(error, '上传失败'));
+      showToast(cloudService.errorMessage(error, '上传脚本 ' + fileName));
     }).then(() => { this.cloudBusy = false; });
   },
 
@@ -229,7 +245,7 @@ export default {
     }).catch(error => {
       if (!this.pageActive) return;
       console.error(`删除文件 ${fileName} 失败:`, error.message);
-      showToast(`删除失败: ${error.message}`);
+      showToast(formatError(error, '删除本地脚本 ' + fileName));
     });
   }
 };
@@ -237,6 +253,9 @@ export default {
 
 <style>
 .page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
   color: white;
   text-align: center;
 }
@@ -343,7 +362,8 @@ export default {
   lines: 1;
 }
 
-.busy {
-  opacity: 0.5;
+.disabled-icon {
+  background-color: #303030;
+  border-radius: 36px;
 }
 </style>

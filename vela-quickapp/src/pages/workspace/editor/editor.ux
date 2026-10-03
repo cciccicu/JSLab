@@ -14,15 +14,15 @@
 		<div class="code-document" @click="onCodeClick" style="width: {{codeWidth}}px; height: {{codeHeight}}px;">
 		  <text if="{{initialHighlightPending}}" class="rendering-status">正在渲染</text>
 		  <div elif="{{highlightRendering}}" class="code-lines" style="width: {{codeWidth}}px;">
-			<div for="{{line in codeLines}}" tid="id" class="code-line" style="width: {{codeWidth}}px; height: {{cursorHeight}}px;">
-			  <text class="code code-line-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{cursorHeight}}px;"><span for="{{token in line.tokens}}" tid="id" style="color: {{token.color}};">{{token.text}}</span></text>
+			<div for="{{line in codeLines}}" tid="lineKey" class="code-line" style="width: {{codeWidth}}px; height: {{cursorHeight}}px;">
+			  <text class="code code-line-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{cursorHeight}}px;"><span for="{{token in line.tokens}}" tid="tokenKey" style="color: {{token.color}};">{{token.text}}</span></text>
 			</div>
 		  </div>
-		  <text elif="{{!syntaxHighlightEnabled || largeFileMode}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{codeHeight}}px;">{{plainCodeText}}</text>
+		  <text elif="{{!highlightRendering}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{codeTextHeight}}px;">{{plainCodeText}}</text>
 		  <div else class="code-lines" style="width: {{codeWidth}}px;"></div>
 		  <div if="{{showCursor && !initialHighlightPending}}" class="code-cursor" style="left: {{cursorX}}px; top: {{cursorY}}px; width: {{fontSize/6}}px; height: {{cursorHeight}}px;"></div>
 		</div>
-		<div class="code-bottom-spacer"></div>
+		<div class="code-bottom-spacer" style="height: {{hideInputMethod ? 78 : 255}}px;"></div>
 	  </scroll>
 
 		<!-- 第三方输入法 -->
@@ -44,8 +44,8 @@
 		</div>
 
 		<!-- 底部工具栏 -->
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="savecode" />
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="runcode" />
+		<img if="{{!hideToolbar}}" class="btn {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="savecode" />
+		<img if="{{!hideToolbar}}" class="btn {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="runcode" />
 		<img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png" style="left: 174px;top: 402px;" @click="changeMoveCursor" />
 		<img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png" style="left: 258px;top: 402px;" @click="changeKeybord" />
 
@@ -89,6 +89,7 @@ import {
 	moveCursorVertically
 } from '../../../utils/editor/codeEditor.js';
 import { DEFAULT_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/fontSize.js';
+import { formatError } from '../../../utils/core/userError.js';
 
 const CODE_VIEWPORT_HEIGHT = 300;
 const INITIAL_HIGHLIGHT_DELAY = 32;
@@ -100,8 +101,6 @@ const MIN_HIGHLIGHT_LINE_THRESHOLD = 40;
 const MAX_HIGHLIGHT_LINE_THRESHOLD = 2000;
 const CODE_WIDTH_SAFETY_RATIO = 1.15;
 const CODE_WIDTH_PADDING = 48;
-const HIGHLIGHT_PROBE_KEY = 'editor.highlight.inFlight';
-const HIGHLIGHT_STABILITY_DELAY = 2500;
 let activeSource = '';
 
 function normalizeThreshold(value, fallback, minimum, maximum) {
@@ -144,10 +143,8 @@ export default {
 		initialHighlightComplete: false,
 		initialHighlightTimer: null,
 		highlightRevision: 0,
-		highlightStabilityTimer: null,
-		highlightProbePromise: null,
-		highlightRecoveryNotice: false,
 		codeHeight: CODE_VIEWPORT_HEIGHT,
+		codeTextHeight: 20,
 		largeFileMode: false,
 		syntaxHighlightEnabled: false,
 		highlightCharThreshold: DEFAULT_HIGHLIGHT_CHAR_THRESHOLD,
@@ -172,6 +169,7 @@ export default {
 		cursorY: 0,
 		cursorHeight: 20,
 		cursorBlinkTimer: null,
+		cursorRevealTimer: null,
 		lockToken: null,
 		loadedEditorName: '',
 		savedSource: '',
@@ -201,7 +199,7 @@ export default {
 		this.cancelInitialHighlight();
 		if (this.timer) clearInterval(this.timer);
 		this.stopCursorBlink();
-		if (this.highlightStabilityTimer) clearTimeout(this.highlightStabilityTimer);
+		if (this.cursorRevealTimer) clearTimeout(this.cursorRevealTimer);
 		this.releaseEditorLock();
 		activeSource = '';
 		this.codeLines = [];
@@ -253,6 +251,7 @@ export default {
 		this.plainCodeText = '';
 		this.codeWidth = 336;
 		this.codeHeight = CODE_VIEWPORT_HEIGHT;
+		this.codeTextHeight = getLineHeight(this.fontProfile, this.fontSize);
 	},
 
 	releaseEditorLock() {
@@ -271,8 +270,7 @@ export default {
 			configManager.get('editor.highlight.enabled', true),
 			configManager.get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD),
 			configManager.get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD),
-			configManager.get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE),
-			configManager.get(HIGHLIGHT_PROBE_KEY, false)
+			configManager.get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)
 		]).then((values) => {
 			this.preferencesLoading = false;
 			if (!this.pageActive) return;
@@ -284,14 +282,6 @@ export default {
 			const nextLineThreshold = normalizeThreshold(values[4], DEFAULT_HIGHLIGHT_LINE_THRESHOLD,
 				MIN_HIGHLIGHT_LINE_THRESHOLD, MAX_HIGHLIGHT_LINE_THRESHOLD);
 			const nextPalette = normalizeHighlightPalette(values[5]);
-			const recoveredFromCrash = values[6] === true;
-			if (recoveredFromCrash && values[2] !== false) {
-				configManager.set('editor.highlight.enabled', false).catch(() => {});
-				if (!this.highlightRecoveryNotice) {
-					this.highlightRecoveryNotice = true;
-					showToast('上次高亮导致编辑器异常退出，已自动关闭高亮');
-				}
-			}
 			const preferencesChanged = nextSize !== this.fontSize ||
 				JSON.stringify(nextProfile) !== JSON.stringify(this.fontProfile) ||
 				nextHighlightEnabled !== this.syntaxHighlightEnabled ||
@@ -307,7 +297,7 @@ export default {
 			this.fontSize = nextSize;
 			this.fontProfile = nextProfile;
 			this.fontFamily = 'JSLabActive';
-			this.syntaxHighlightEnabled = recoveredFromCrash ? false : nextHighlightEnabled;
+			this.syntaxHighlightEnabled = nextHighlightEnabled;
 			this.highlightCharThreshold = nextCharThreshold;
 			this.highlightLineThreshold = nextLineThreshold;
 			this.highlightPalette = nextPalette;
@@ -324,7 +314,6 @@ export default {
 		const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize,
 			this.highlightCharThreshold, this.highlightLineThreshold);
 		if (!this.syntaxHighlightEnabled || metrics.isLarge) {
-			this.highlightProbePromise = configManager.set(HIGHLIGHT_PROBE_KEY, false).catch(() => {});
 			this.initialHighlightComplete = true;
 			this.initialHighlightPending = false;
 			this.updateCodeDisplay();
@@ -332,7 +321,6 @@ export default {
 		}
 
 		this.initialHighlightPending = true;
-		this.highlightProbePromise = configManager.set(HIGHLIGHT_PROBE_KEY, true).catch(() => {});
 		this.highlightRendering = false;
 		this.codeLines = [];
 		this.plainCodeText = activeSource;
@@ -346,24 +334,13 @@ export default {
 		const editorName = this.loadedEditorName;
 		this.initialHighlightTimer = setTimeout(() => {
 			this.initialHighlightTimer = null;
-			Promise.resolve(this.highlightProbePromise).then(() => {
 			if (!this.pageActive || !this.editorVisible ||
 				revision !== this.highlightRevision || editorName !== this.loadedEditorName ||
 				!this.initialHighlightPending || !this.syntaxHighlightEnabled) return;
 			this.initialHighlightComplete = true;
 			this.initialHighlightPending = false;
 			this.updateCodeDisplay();
-			this.scheduleHighlightProbeClear();
-			});
 		}, INITIAL_HIGHLIGHT_DELAY);
-	},
-
-	scheduleHighlightProbeClear() {
-		if (this.highlightStabilityTimer) clearTimeout(this.highlightStabilityTimer);
-		this.highlightStabilityTimer = setTimeout(() => {
-			this.highlightStabilityTimer = null;
-			if (this.pageActive && this.initialHighlightComplete) configManager.set(HIGHLIGHT_PROBE_KEY, false).catch(() => {});
-		}, HIGHLIGHT_STABILITY_DELAY);
 	},
 
 	cancelInitialHighlight(invalidate = true) {
@@ -423,7 +400,6 @@ export default {
 
 	requestBack() {
 		if (this.saveInProgress) {
-			showToast('正在保存，请稍候');
 			return;
 		}
 		if (!this.hasUnsavedChanges()) {
@@ -474,6 +450,7 @@ export default {
 		this.hideInputMethod = !this.hideInputMethod;
 		this.hideToolbar = !this.hideInputMethod;
 		if (this.showCursorControls) this.showCursorControls = false;
+		if (!this.hideInputMethod) this.scheduleCursorReveal();
 	},
 
 	changeMoveCursor() {
@@ -540,7 +517,7 @@ export default {
 			this.lockToken = jsManager.lock(nextName);
 			this.savedSource = source;
 			showToast('已另存为 ' + nextName);
-		}).catch(error => showToast('另存失败: ' + error.message));
+		}).catch(error => showToast(formatError(error, '另存脚本为 ' + nextName)));
 	},
 
 	switchExecutionMode(useUiMode) {
@@ -563,7 +540,7 @@ export default {
 		}).then(() => {
 			this.savedSource = source;
 			showToast('已切换为 ' + (useUiMode ? 'UI' : 'Console') + ' 模式');
-		}).catch(error => showToast('切换失败: ' + error.message));
+		}).catch(error => showToast(formatError(error, '切换脚本执行模式为 ' + (useUiMode ? 'UI' : 'Console'))));
 	},
 
 	onInputMethodDelete() {
@@ -585,6 +562,7 @@ export default {
 		this.cursorHeight = getLineHeight(this.fontProfile, this.fontSize);
 		const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize,
 			this.highlightCharThreshold, this.highlightLineThreshold);
+		this.codeTextHeight = Math.max(this.cursorHeight, metrics.lineCount * this.cursorHeight);
 		this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * this.cursorHeight);
 		this.codeWidth = metrics.width;
 		this.calculateCursorPosition();
@@ -613,6 +591,7 @@ export default {
 		this.largeFileMode = metrics.isLarge;
 		const position = getCursorPosition(editor.before, this.fontProfile, this.fontSize);
 		this.cursorHeight = position.height;
+		this.codeTextHeight = Math.max(position.height, metrics.lineCount * position.height);
 		this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * position.height);
 		this.codeWidth = metrics.width;
 		if (!this.initialHighlightComplete && !metrics.isLarge && this.syntaxHighlightEnabled) {
@@ -627,9 +606,19 @@ export default {
 		}
 		this.highlightRendering = !metrics.isLarge && this.syntaxHighlightEnabled;
 		if (this.highlightRendering) {
-			this.codeLines = highlightJavascriptLines(activeSource, 'code-line', this.highlightPalette,
-				this.highlightCharThreshold);
-			this.plainCodeText = '';
+			try {
+				this.codeLines = highlightJavascriptLines(activeSource, 'code-line', this.highlightPalette,
+					this.highlightCharThreshold);
+				this.plainCodeText = '';
+			} catch (error) {
+				// Incomplete scripts are normal while editing; highlighting must not crash the page.
+				console.error('Syntax highlighting failed, falling back to plain text:', error);
+				this.highlightRendering = false;
+				this.initialHighlightComplete = true;
+				this.initialHighlightPending = false;
+				this.codeLines = [];
+				this.plainCodeText = activeSource;
+			}
 		} else {
 			this.codeLines = [];
 			this.plainCodeText = activeSource;
@@ -646,6 +635,7 @@ export default {
 	add(str) {
 		this.$app.$def.editor.before += str;
 		this.updateCodeDisplay();
+		this.scheduleCursorReveal();
 	},
 
 	del() {
@@ -653,7 +643,25 @@ export default {
 		if (editor.before.length > 0) {
 			editor.before = editor.before.slice(0, -1);
 			this.updateCodeDisplay();
+			this.scheduleCursorReveal();
 		}
+	},
+
+	scheduleCursorReveal() {
+		if (this.hideInputMethod || !this.pageActive) return;
+		if (this.cursorRevealTimer) clearTimeout(this.cursorRevealTimer);
+		this.cursorRevealTimer = setTimeout(() => {
+			this.cursorRevealTimer = null;
+			if (this.hideInputMethod || !this.pageActive) return;
+			const scroll = this.$element('code-scroll');
+			if (!scroll || typeof scroll.scrollTo !== 'function') return;
+			// The keyboard starts at y=225. Keep the caret in the visible strip below the header.
+			scroll.scrollTo({
+				left: Math.max(0, this.cursorX - 280),
+				top: Math.max(0, this.cursorY - 70),
+				behavior: 'instant'
+			});
+		}, 0);
 	},
 
 	move(direction) {
@@ -724,12 +732,13 @@ export default {
 			})
 			.catch((error) => {
 				this.saveInProgress = false;
-				showToast('保存失败: ' + error.message);
+				showToast(formatError(error, '保存脚本 ' + editor.name));
 			});
 	},
 
 	runcode() {
 		vibrate('short');
+		if (this.saveInProgress) return;
 		const editor = this.$app.$def.editor;
 		this.$app.$def.openRunner(editor.name, editor.before + editor.after);
 	},
@@ -816,6 +825,11 @@ export default {
 		position: absolute;
 		width: 72px;
 		height: 72px;
+	}
+
+	.disabled-icon {
+		background-color: #303030;
+		border-radius: 36px;
 	}
 
 	.topbar-bg {

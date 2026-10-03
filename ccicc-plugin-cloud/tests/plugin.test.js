@@ -5,7 +5,19 @@ const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const plugin = require('../jslab-cloud/index.js');
 const { buildAiSystemPrompt, normalizeAiEnvironment } = require('../jslab-cloud/lib/ai-prompts.js');
+const { withErrorMessage } = require('../jslab-cloud/lib/error-messages.js');
 const browserScript = fs.readFileSync(path.join(__dirname, '..', 'jslab-cloud', 'assets', 'jslab-cloud.js'), 'utf8');
+
+test('every API error receives a concrete public message', () => {
+  assert.deepEqual(withErrorMessage({ error: 'device_auth_required' }), {
+    error: 'device_auth_required',
+    message: '设备令牌无效、已撤销或所属账户不可用，请重新配对设备。'
+  });
+  assert.equal(withErrorMessage({ error: 'future_error' }).message, '请求未完成；服务器错误标识为 future_error。');
+  assert.equal(withErrorMessage({ error: 'rate_limited', message: '自定义限流窗口' }).message, '自定义限流窗口');
+  assert.doesNotMatch(browserScript, /操作失败，请稍后重试|网络请求失败，请稍后重试|title:\s*danger\s*\?\s*['"]操作失败/);
+  assert.match(browserScript, /响应中没有错误详情/);
+});
 
 function router() {
   const registry = new Map();
@@ -123,6 +135,16 @@ test('pairing QR origin is hot reloadable', async () => {
   assert.match(start.body.qrValue, /^https:\/\/ccicc\.icu\/jslab-cloud\/pair\?code=/);
 });
 
+test('production API host keeps the handset API separate from the secure pairing page', async () => {
+  const fixture = context(); plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
+  const start = await invoke(fixture.frontend.registry.get('POST /api/cloud/device/pairing/start'), {
+    body: { name: 'Band Pro' }, query: {}, params: {},
+    headers: { host: 'jslab-api.ccicc.icu', 'x-forwarded-proto': 'http' }
+  });
+  assert.equal(start.body.qrValue.indexOf('https://ccicc.icu/jslab-cloud/pair?code='), 0);
+  assert.equal(start.body.qrValue.indexOf('jslab-cloud/jslab-cloud'), -1);
+});
+
 test('cloud space overwrites current content and deletes without tombstones', async () => {
   const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture); plugin.boot(fixture.ctx);
   const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: 'demo.js', source: 'console.log(1)' }, params: {}, query: {}, headers: {} });
@@ -200,6 +222,29 @@ test('single LLM mode makes the final moderation decision', async () => {
   }
 });
 
+test('single LLM mode rate limits review submissions per user', async () => {
+  const originalFetch = global.fetch;
+  try {
+    const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture);
+    fixture.values.marketModerationMode = 'llm';
+    fixture.values.llmApiUrl = 'https://review.example/v1/chat/completions';
+    fixture.values.llmApiKey = 'review-key';
+    fixture.values.llmModel = 'review-model';
+    global.fetch = async () => ({ ok: true, async json() { return { choices: [{ message: { content: '{"decision":"approve","reason":"ok"}' } }] }; } });
+    plugin.boot(fixture.ctx);
+    const route = fixture.frontend.registry.get('POST /api/cloud/market/submit');
+    for (let index = 0; index < 6; index += 1) {
+      const response = await invoke(route, { user: fixture.user, body: { marketName: `rate-${index}.js`, marketType: 'console', marketDescription: 'test', source: 'console.log(1)' }, params: {}, query: {}, headers: {} });
+      assert.equal(response.statusCode, 200);
+    }
+    const limited = await invoke(route, { user: fixture.user, body: { marketName: 'rate-limited.js', marketType: 'console', marketDescription: 'test', source: 'console.log(1)' }, params: {}, query: {}, headers: {} });
+    assert.equal(limited.statusCode, 429);
+    assert.equal(limited.body.error, 'rate_limited');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('single LLM mode leaves submission pending when provider is unavailable', async () => {
   const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture);
   fixture.values.marketModerationMode = 'llm';
@@ -241,8 +286,10 @@ test('rejected LLM review preserves a published update for manual approval', asy
     fixture.values.llmModel = 'review-model';
     fixture.values.llmModerationPrompt = 'CUSTOM REVIEW RULE';
     let requestBody;
+    let requestSignal;
     global.fetch = async (_url, options) => {
       requestBody = JSON.parse(options.body);
+      requestSignal = options.signal;
       return { ok: true, async json() { return { choices: [{ message: { content: '{"decision":"reject","reason":"manual check needed"}' } }] }; } };
     };
     const edited = await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), { user: fixture.user, body: { marketId: String(published.body.marketId), marketName: 'reviewed.js', marketType: 'console', marketDescription: 'updated', marketTags: '', source: 'console.log("candidate")' }, params: {}, query: {}, headers: {} });
@@ -253,6 +300,11 @@ test('rejected LLM review preserves a published update for manual approval', asy
     assert.equal(rejected.pending_status, 'rejected');
     assert.equal(rejected.source, 'console.log("original")');
     assert.equal(rejected.pending_source, 'console.log("candidate")');
+    assert.ok(requestSignal, 'LLM review request should carry an abort signal');
+    const publicSnapshot = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), { params: { id: String(published.body.marketId) }, query: {}, headers: {} });
+    assert.equal(publicSnapshot.body.script.source, 'console.log("original")');
+    assert.equal(Object.prototype.hasOwnProperty.call(publicSnapshot.body.script, 'pending_source'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(publicSnapshot.body.script, 'pending_status'), false);
 
     const admin = await invoke(fixture.admin.registry.get('GET /'), { user: fixture.user, body: {}, params: {}, query: {}, headers: {} });
     assert.match(admin.body, /LLM 建议拒绝/);
@@ -358,6 +410,8 @@ test('configuration clearly separates moderation and generation APIs', () => {
   assert.match(byKey.llmApiUrl.displayName, /市场审核/);
   assert.equal(byKey.llmModerationPrompt.hotReload, true);
   assert.match(byKey.llmModerationPrompt.displayName, /审核提示词/);
+  assert.equal(byKey.llmRequestTimeoutMs.defaultValue, 90_000);
+  assert.equal(byKey.llmRequestTimeoutMs.hotReload, true);
   assert.match(byKey.aiApiUrl.displayName, /代码生成/);
   assert.equal(byKey.llmApiUrl.hotReload, true);
   assert.equal(byKey.aiApiUrl.hotReload, true);
@@ -377,6 +431,7 @@ test('AI prompt injects the complete JSLab runtime contract', () => {
     'ui.render', 'ui.signal', 'ui.heading', 'ui.text', 'ui.button', 'ui.switch',
     'ui.slider', 'ui.progress', 'ui.grid', 'ui.buttonRow', 'ui.divider',
     'ui.spacer', 'ui.setTitle', 'ui.showHeader', 'ui.scrollTo',
+    'ui.row', 'ui.column', 'ui.stack', 'ui.qrcode',
     'script.exit', 'script.toast', 'script.data', 'script.config',
     'system.files', 'system.http.request', 'system.download.wait',
     'system.sensors', 'system.crypto', 'system.audio'
@@ -386,14 +441,27 @@ test('AI prompt injects the complete JSLab runtime contract', () => {
   assert.match(prompt, /eventName/);
   assert.match(prompt, /336x480px/);
   assert.match(prompt, /49152 bytes/);
-  assert.match(prompt, /根组件 40 个/);
+  assert.match(prompt, /声明节点 40 个/);
+  assert.match(prompt, /ui.version === 2/);
+  assert.match(prompt, /background/);
+  assert.match(prompt, /160个绘制节点/);
   assert.match(prompt, /当前使用配套端桥接/);
   assert.match(prompt, /禁止使用 import、require/);
   assert.match(prompt, /不要输出 \.ux/);
   assert.doesNotMatch(prompt, /ui\.(?:back|toast|fullscreen|setTopBar)/);
   assert.match(prompt, /UI 模式没有 console/);
   assert.match(prompt, /不要使用 console\.log/);
+  assert.match(prompt, /默认禁止.*script\.exit/);
+  assert.match(prompt, /正常完成后保留界面/);
+  assert.doesNotMatch(prompt, /退出统一调用 script\.exit/);
   assert.doesNotMatch(prompt, /\bscriptData\b|\binput\(/);
+});
+
+test('AI prompt keeps Console output visible unless exit is explicitly requested', () => {
+  const prompt = buildAiSystemPrompt('output.js', {});
+  assert.match(prompt, /输出完成后保持运行页/);
+  assert.match(prompt, /不要在末尾、finally 或异步回调完成时调用 script\.exit/);
+  assert.match(prompt, /只有用户明确要求退出/);
 });
 
 test('UI runner does not expose console to user scripts', () => {

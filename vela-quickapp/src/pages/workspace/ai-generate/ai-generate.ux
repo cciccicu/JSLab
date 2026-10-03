@@ -1,23 +1,23 @@
 <template>
   <div class="page">
     <scroll class="scroll" scroll-y="true" bounces="true">
-      <div class="item status-item" @click="loadEntitlement">
-        <text class="item-title">AI 服务</text>
-        <text class="item-description">{{activationText}}</text>
+      <div class="item status-item {{busy ? 'disabled-item' : ''}}" @click="loadEntitlement">
+        <text class="item-title {{busy ? 'disabled-text' : ''}}">AI 服务</text>
+        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{activationText}}</text>
       </div>
-      <div class="item" @click="selectMode">
-        <text class="item-title">生成方式</text>
-        <text class="item-description">{{modeLabel}}</text>
+      <div class="item {{busy ? 'disabled-item' : ''}}" @click="selectMode">
+        <text class="item-title {{busy ? 'disabled-text' : ''}}">生成方式</text>
+        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{modeLabel}}</text>
       </div>
-      <div class="item prompt-item" @click="editPrompt">
-        <text class="item-title">需求</text>
-        <text class="item-description">{{promptDescription}}</text>
+      <div class="item prompt-item {{busy ? 'disabled-item' : ''}}" @click="editPrompt">
+        <text class="item-title {{busy ? 'disabled-text' : ''}}">需求</text>
+        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{promptDescription}}</text>
       </div>
-      <div if="{{active}}" class="item action primary" @click="generate">
-        <text class="action-text">{{busy ? '正在生成...' : '生成并填入编辑器'}}</text>
+      <div if="{{active}}" class="item action {{busy ? 'disabled-item' : 'primary'}}" @click="generate">
+        <text class="action-text {{busy ? 'disabled-text' : ''}}">{{busy ? '正在生成...' : '生成并填入编辑器'}}</text>
       </div>
       <div if="{{!active}}" class="item action disabled-item">
-        <text class="action-text">{{inactiveActionText}}</text>
+        <text class="action-text disabled-text">{{inactiveActionText}}</text>
       </div>
     </scroll>
 
@@ -68,8 +68,8 @@ export default {
       if (!this.pageActive) return;
       this.loading = false;
       this.active = false;
-      this.inactiveActionText = error && error.message === 'device_auth_required' ? '请先登录并配对设备' : cloudService.errorMessage(error, '服务状态不可用');
-      this.activationText = error && error.message === 'device_auth_required' ? '请先在云设置页配对设备' : cloudService.errorMessage(error, '无法验证激活状态，点击重试');
+      this.inactiveActionText = error && error.message === 'device_auth_required' ? '请先登录并配对设备' : cloudService.errorMessage(error, '检查 AI 服务状态');
+      this.activationText = error && error.message === 'device_auth_required' ? '请先在云设置页配对设备' : cloudService.errorMessage(error, '验证 AI 激活状态');
     });
   },
   selectMode() {
@@ -120,7 +120,7 @@ export default {
       if (!this.pageActive) return;
       if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');
       else if (error && error.message === 'ai_credit_insufficient') showToast('AI 余额不足，请在网页端充值');
-      else showToast(cloudService.errorMessage(error, 'AI 生成失败，请稍后重试'));
+      else showToast(cloudService.errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
     }).then(() => { if (this.pageActive) this.busy = false; });
   },
   getAiEnvironment() {
@@ -158,8 +158,9 @@ export default {
 .item-description { width:284px; font-size:20px; line-height:28px; color:rgba(255,255,255,0.68); text-overflow:ellipsis; lines:2; }
 .action { justify-content:center; }
 .primary { background-color:#0D6EFF; }
-.disabled-item { background-color:#3b3b3b; opacity:0.65; }
+.disabled-item { background-color:#303030; }
 .action-text { width:284px; font-size:28px; line-height:36px; font-weight:bold; color:#ffffff; text-align:center; }
+.disabled-text { color:#8c8c8c; }
 .topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
 .back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }

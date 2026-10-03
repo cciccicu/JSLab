@@ -2,6 +2,8 @@
  * Register the inherited-mode SSR workspace. The host supplies the outer
  * Nunjucks layout; this module only returns page fragments and progressive JS.
  */
+const { withErrorMessage } = require('./error-messages');
+
 function registerBrowserPages(ctx, options) {
   const {
     scripts, marketScripts, devices, pairings, entitlementFor, currentUser, escapeHtml, formatCredit,
@@ -15,10 +17,11 @@ function registerBrowserPages(ctx, options) {
   const button = (label, href, className = 'btn btn-outline-primary') => `<a class="${className}" href="${escAttr(href)}">${escapeHtml(label)}</a>`;
   const isAjax = (req) => String(req.headers?.accept || '').includes('application/json') || req.body?.ajax === '1';
   const json = (res, status, body) => {
+    const responseBody = withErrorMessage(body);
     if (typeof res.status === 'function') res.status(status);
-    if (typeof res.json === 'function') return res.json(body);
+    if (typeof res.json === 'function') return res.json(responseBody);
     res.setHeader?.('Content-Type', 'application/json; charset=utf-8');
-    return res.send(JSON.stringify(body));
+    return res.send(JSON.stringify(responseBody));
   };
   const modal = (id, title, body, size = '') => `<div class="modal fade jslab-cloud-modal" id="${id}" tabindex="-1" aria-labelledby="${id}-title" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable ${size}"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="${id}-title">${title}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div><div class="modal-body">${body}</div></div></div></div>`;
   const statusBadge = (status) => {

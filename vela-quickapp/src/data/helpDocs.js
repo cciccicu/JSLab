@@ -45,19 +45,27 @@ const SCRIPT_API = [
 ];
 
 const UI_API = [
-  document('api-ui-runtime', 'ui 渲染与状态', '仅 .ui.js 可用', 'UI 模式必须调用 ui.render。它没有 console；用组件和 script.toast 显示结果。渲染函数中不要创建请求、订阅或计时器等副作用。', [
-    method('ui-render', 'ui.render(view | factory)', '显示一个组件、组件数组或可重绘的函数。', "const count = ui.signal(0)\nui.render(() => [\n  ui.heading('计数器'),\n  ui.text('当前：' + count.get()),\n  ui.button('增加', () => count.update(value => value + 1), { id: 'add' })\n])"),
-    method('ui-refresh', 'ui.refresh()', '重新执行当前渲染函数。signal 写入通常会自动刷新。', 'ui.refresh()'),
-    method('ui-signal', 'ui.signal(initial)', '状态对象提供 get、set 和 update。', "const busy = ui.signal(false)\nbusy.set(true)"),
-    method('ui-page', 'setTitle / showHeader / scroll', '设置标题、隐藏顶栏、滚动到位置/顶部/底部。', "ui.setTitle('设置')\nui.showHeader(false)\nui.scrollTop()")
-  ], '最多 40 个根组件；每段文本最多 1024 字符。动态或会重排的交互组件应提供稳定唯一的 id。'),
-  document('api-ui-components', 'ui 组件', '文本、操作和展示组件', '组件函数返回传给 ui.render 的描述。按钮回调不带参数；switch 和 slider 回调依次收到 boolean、number。', [
-    method('ui-text', 'heading / text', '标题和正文，options 支持 id、size、color、align。字号范围 16 至 36。', "ui.heading('标题', { size: 30 })\nui.text('正文', { align: 'center' })"),
-    method('ui-action', 'button / buttonRow', '主按钮或最多四个同行按钮，tone 为 primary、neutral、danger。', "ui.button('退出', () => script.exit(), { id: 'exit', tone: 'neutral' })"),
-    method('ui-input', 'switch / slider', '状态开关和数值滑块。slider 可设置 min、max、step。', "ui.switch('启用', true, value => script.toast(String(value)), { id: 'enabled' })"),
-    method('ui-display', 'progress / grid', '进度条和只展示的网格。grid 为 2 至 4 列，最多 9 行。', "ui.progress('下载', 68)\nui.grid([{ text: 'A', tone: 'primary' }], { id: 'items', columns: 2 })"),
-    method('ui-layout', 'divider / spacer', '分隔线和固定垂直间距。', 'ui.divider()\nui.spacer(16)')
-  ])
+  document('api-ui-runtime', 'ui 渲染与状态', 'UI API v2', 'UI 模式调用 ui.render 显示界面；用组件和 script.toast 显示结果。渲染函数保持纯函数，不在其中请求网络、创建计时器或更新状态。', [
+    method('ui-render', 'ui.render(view | factory)', '立即显示组件、数组或纯渲染函数的结果。null 和 false 不占位置。', "const count = ui.signal(0)\nui.render(() => [\n  ui.text('当前：' + count.get(), { lines: 1 }),\n  ui.button('增加', () => count.update(n => n + 1), { id: 'add' })\n])"),
+    method('ui-refresh', 'ui.refresh()', '请求重绘；同一轮多次更新合并一次，不立即刷新。', 'ui.refresh()'),
+    method('ui-signal', 'ui.signal(initial)', 'get/set/update 立即读写值。相同值或相同对象引用不刷新；对象请创建新对象。', "const state = ui.signal({ count: 0 })\nstate.update(old => ({ count: old.count + 1 }))"),
+    method('ui-page', 'setTitle / showHeader / scroll', '标题最多10字符；显示顶栏时内容从102px开始，隐藏后从12px开始。', "ui.setTitle('设置')\nui.showHeader(false)\nui.scrollTop()")
+  ], '40个声明节点（含布局、buttonRow按钮，不含grid格子）；布局最多4层；展开后最多160个绘制节点；二维码最多2个。超限显示错误，不截断。id全页唯一、最长56字符且不能以$开头。'),
+  document('api-ui-layout', '行、列与叠放', '少量布局描述，浅层渲染', '布局容器默认不生成原生节点。设置background才绘制背景。尺寸单位为设计像素，页面内容宽324px；默认根节点纵向间距10px。', [
+    method('ui-row', 'ui.row(children, options)', '横向排列；未指定宽度的子项按flex分配剩余宽度，默认等分。', "ui.row([\n  ui.text('左', { width: 100, lines: 1 }),\n  ui.text('右', { lines: 1 })\n], { gap: 8, align: 'center' })"),
+    method('ui-column', 'ui.column(children, options)', '纵向排列；可嵌套row/column。子项默认填满宽度。', "ui.column([ui.heading('标题'), ui.text('内容')], { padding: 12, gap: 8, background: '#24262a', radius: 24 })"),
+    method('ui-stack', 'ui.stack(children, options)', '叠放，后面的子项在上；子项通过x/y定位，需指定较小width才能水平移动。', "ui.stack([\n  ui.text('底层', { lines: 1 }),\n  ui.text('右上', { width: 80, x: 220, y: 0, lines: 1 })\n], { height: 80 })"),
+    method('ui-size', 'width / height / gap / padding', 'width支持像素或百分比；height为像素。gap默认8、范围0–48；padding为统一内边距0–48。背景用background，圆角用radius。', "ui.column([ui.text('居中', { width: '60%', lines: 1 })], { align: 'center' })"),
+    method('ui-align', 'align / justify / flex', '布局align支持start/center/end；justify还支持between。row按高度对齐，column按宽度对齐；justify分配剩余主轴空间。flex只分配row子项的剩余宽度。', "ui.row([ui.text('1', { flex: 1, lines: 1 }), ui.text('2', { flex: 2, lines: 1 })])")
+  ], '不支持CSS、递归原生组件或自动换行row。布局height不会压缩内容；叶子height会裁剪内容。短标签推荐lines:1；自动文本高度采用保守估算，精确面板显式设置lines/lineHeight。'),
+  document('api-ui-components', '组件与颜色', '现有组件 + 二维码', '交互仅支持原来的点击和数值变化；不增加disabled/busy/长按。使用状态判断阻止重复操作，用背景色和文字色表达状态。', [
+    method('ui-text', 'heading / text', 'size为16–36；color文字色；align为left/center/right；支持bold、lines、lineHeight及通用宽高背景。', "ui.text('正文', { lines: 2, color: '#abc', lineHeight: 32 })"),
+    method('ui-action', 'button / buttonRow', '按钮color控制文字、background控制背景。tone仍支持primary/neutral/danger。buttonRow最多4项，子按钮id有效。', "ui.button('操作', run, { id: 'run', background: '#176b45', color: '#fff' })"),
+    method('ui-input', 'switch / slider', 'color为标题色、background为卡片背景、accent为滑轨强调色、thumbColor为滑块色。slider另有trackColor、min/max/step；switch另有detail/detailColor。最小宽160px。', "ui.switch('启用', true, value => script.toast(String(value)), { id: 'enabled', accent: '#176b45' })"),
+    method('ui-display', 'progress / grid', 'progress用accent强调进度，兼容原color进度色；grid为2–4列、最多9行，只展示。格子支持background/color，文字最多8字符。', "ui.progress('下载', 68, { accent: '#176b45' })\nui.grid([{ text: 'A', background: '#174', color: '#fff' }], { columns: 2 })"),
+    method('ui-qr', 'ui.qrcode(value, options)', '内容1–256字符；size为96–288、默认160，包含四周8px空白；color/background默认黑白。同屏最多2个。', "ui.column([ui.qrcode('https://ccicc.icu', { id: 'qr', size: 180 })], { align: 'center' })"),
+    method('ui-layout', 'divider / spacer', 'divider支持color/height；spacer控制垂直间距。', "ui.divider({ color: '#456' })\nui.spacer(16)")
+  ], '推荐不透明#RGB/#RRGGBB/rgb(r,g,b)，兼容有效rgba。没有opacity。未知颜色回退默认值。尺寸过窄、重复id、节点超限会提示具体错误。')
 ];
 
 const SYSTEM_API = [

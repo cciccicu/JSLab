@@ -2,9 +2,11 @@ const crypto = require('crypto');
 const { registerStaticFiles } = require('./lib/static-files');
 const { registerBrowserPages } = require('./lib/browser-pages');
 const { buildAiSystemPrompt } = require('./lib/ai-prompts');
+const { withErrorMessage } = require('./lib/error-messages');
 
 const MAX_SOURCE = 48 * 1024;
 const NAME_RE = /^[^/\\.][^/\\]{0,120}\.(?:js|ui\.js)$/i;
+const DEFAULT_PAIRING_PUBLIC_ORIGIN = 'https://ccicc.icu';
 const INITIAL_AI_CREDIT_CENTS = 200;
 const ACTIVATION_CODE_CREDIT_CENTS = 300;
 const MAX_AI_PROMPT_CHARS = 8000;
@@ -22,11 +24,12 @@ function checksum(source) {
 module.exports = {
   install(ctx) {
     ctx.config.register({ key: 'marketModerationMode', displayName: '市场审核方式', description: '人工审核由管理员决定；单 LLM 审核使用下方审核模型直接给出结论。保存后立即生效。', valueType: 'string', defaultValue: 'manual', enumOptions: ['manual', 'llm'], controlType: 'select', hotReload: true });
-    ctx.config.register({ key: 'pairingPublicOrigin', displayName: '配对二维码：网页地址', description: '手环二维码使用的 ccicc.icu 公网页面地址；留空时根据当前请求自动生成。保存后立即生效。', valueType: 'string', defaultValue: '', hotReload: true });
+    ctx.config.register({ key: 'pairingPublicOrigin', displayName: '配对二维码：网页地址', description: '手机扫描二维码后打开的网页地址；生产环境留空时使用 https://ccicc.icu，本地开发时根据当前请求生成。保存后立即生效。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'llmApiUrl', displayName: '市场审核 LLM：API 地址', description: '仅在审核方式为“单 LLM”时使用，不用于代码生成。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'llmApiKey', displayName: '市场审核 LLM：API 密钥', description: '仅发送给市场审核服务。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'llmModel', displayName: '市场审核 LLM：模型', description: '审核服务使用的模型标识。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'llmModerationPrompt', displayName: '市场审核 LLM：审核提示词', description: '用于定义审核标准；系统会自动追加固定的 JSON 输出格式。保存后立即生效。', valueType: 'string', controlType: 'textarea', defaultValue: DEFAULT_MARKET_MODERATION_PROMPT, hotReload: true });
+    ctx.config.register({ key: 'llmRequestTimeoutMs', displayName: '市场审核 LLM：请求超时（毫秒）', description: '有效范围 1-300000，默认 90000。', valueType: 'number', defaultValue: 90_000, hotReload: true });
     ctx.config.register({ key: 'aiApiUrl', displayName: '代码生成 AI：API 地址', description: '仅用于设备端 AI 代码生成，不用于市场审核。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'aiApiKey', displayName: '代码生成 AI：API 密钥', description: '仅发送给代码生成服务。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'aiModel', displayName: '代码生成 AI：模型', description: '代码生成服务使用的模型标识。', valueType: 'string', defaultValue: DEFAULT_AI_MODEL, hotReload: true });
@@ -114,13 +117,14 @@ module.exports = {
       });
     })();
 
-    // The host maps this frontend entry to https://jslab-api.ccicc.icu when Caddy is enabled.
+    // The host maps this frontend entry to jslab-api.ccicc.icu. Production also
+    // exposes an explicit HTTP listener for Vela devices with an older CA store.
     ctx.caddy.registerSubdomain('jslab-api');
     registerStaticFiles(ctx, { '/assets': 'assets' });
     ctx.navigation.register({ category: '工具', name: 'JSLab Cloud', path: '/jslab-cloud', surface: 'frontend', icon: 'cloud', sortOrder: 40 });
     ctx.navigation.register({ category: '插件', name: 'JSLab Cloud 管理', path: '/admin/jslab-cloud', surface: 'admin', private: true, icon: 'cloud', sortOrder: 40 });
 
-    const json = (res, status, body) => res.status(status).json({ ok: status < 400, ...body });
+    const json = (res, status, body) => res.status(status).json({ ok: status < 400, ...withErrorMessage(body) });
     const wantsJson = (req) => String(req.headers?.accept || '').includes('application/json') || req.body?.ajax === '1';
     const hash = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
     const log = (userId, action, detail) => ctx.db.prepare(`INSERT INTO ${audit} (user_id, action, detail) VALUES (?, ?, ?)`).run(userId || null, action, detail || '');
@@ -367,8 +371,11 @@ module.exports = {
       if (!url || !key || !model || typeof fetch !== 'function') return null;
       const row = ctx.db.prepare(`SELECT COALESCE(pending_name,name) AS name,COALESCE(pending_description,description) AS description,COALESCE(pending_source,source) AS source FROM ${marketScripts} WHERE id=?`).get(scriptId);
       if (!row) return null;
+      let timeout = null;
       try {
-        const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, temperature: 0, thinking: { type: 'disabled' }, messages: [{ role: 'system', content: `${moderationPrompt}\n\n只返回 JSON，不要使用 Markdown：{"decision":"approve|reject","reason":"简短说明"}` }, { role: 'user', content: `Name: ${row.name}\nDescription: ${row.description}\nSource:\n${row.source}` }] }) });
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        timeout = controller ? setTimeout(() => controller.abort(), getPositiveInteger('llmRequestTimeoutMs', 90_000, 300_000)) : null;
+        const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, signal: controller ? controller.signal : undefined, body: JSON.stringify({ model, temperature: 0, thinking: { type: 'disabled' }, messages: [{ role: 'system', content: `${moderationPrompt}\n\n只返回 JSON，不要使用 Markdown：{"decision":"approve|reject","reason":"简短说明"}` }, { role: 'user', content: `Name: ${row.name}\nDescription: ${row.description}\nSource:\n${row.source}` }] }) });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json(); const content = String(payload?.choices?.[0]?.message?.content || ''); const parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ''));
         if (parsed.decision !== 'approve' && parsed.decision !== 'reject') throw new Error('Invalid moderation decision');
@@ -376,6 +383,7 @@ module.exports = {
         ctx.db.prepare(`INSERT INTO ${reviews} (script_id,model,decision,reason) VALUES (?, ?, ?, ?)`).run(scriptId, model, decision, reason);
         return { decision, reason };
       } catch (error) { ctx.logger.warn({ scriptId, error: error.message }, 'LLM moderation failed; leaving script pending'); return null; }
+      finally { if (timeout) clearTimeout(timeout); }
     };
     const escapeHtml = (value) => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const formatCredit = (cents) => (Math.max(0, Number(cents) || 0) / 100).toFixed(2);
@@ -485,6 +493,7 @@ module.exports = {
       const forwarded = String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
       const protocol = forwarded || (req.protocol ? String(req.protocol) : 'http');
       const host = String(req.headers?.host || '192.168.3.17:3000').split(',')[0].trim();
+      if (/^jslab-api\.ccicc\.icu(?::\d+)?$/i.test(host)) return DEFAULT_PAIRING_PUBLIC_ORIGIN;
       return protocol + '://' + host;
     };
     ctx.routes.frontend.post('/api/cloud/device/pairing/start', (req, res) => {
@@ -546,11 +555,13 @@ module.exports = {
     ctx.routes.frontend.get('/api/cloud/devices', ctx.users.requireAuth, (req, res) => { const user = currentUser(req); const rows = ctx.db.prepare(`SELECT id,name,last_used_at,created_at,revoked_at FROM ${devices} WHERE user_id=? ORDER BY id DESC`).all(user.id); json(res, 200, { devices: rows }); });
     ctx.routes.frontend.post('/api/cloud/devices/:id/revoke', ctx.users.requireAuth, ctx.security.csrfProtection, (req, res) => { const user = currentUser(req); const result = ctx.db.prepare(`UPDATE ${devices} SET revoked_at=datetime('now') WHERE id=? AND user_id=? AND revoked_at IS NULL`).run(Number(req.params.id), user.id); if (!result.changes) return json(res, 404, { error: 'not_found' }); log(user.id, 'device.revoke', String(req.params.id)); json(res, 200, { id: Number(req.params.id) }); });
     ctx.routes.frontend.get('/api/cloud/market', (req, res) => { const q = `%${String(req.query.q || '').slice(0, 80)}%`; const rows = ctx.db.prepare(`SELECT id,name,type,description,tags,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(q, q); json(res, 200, { scripts: rows }); });
-    ctx.routes.frontend.get('/api/cloud/market/:id/source', (req, res) => { const row = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id)); if (!row) return json(res, 404, { error: 'not_found' }); json(res, 200, { script: row }); });
+    ctx.routes.frontend.get('/api/cloud/market/:id/source', (req, res) => { const row = ctx.db.prepare(`SELECT id,owner_user_id,name,type,description,tags,source,hash,checksum,updated_at FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id)); if (!row) return json(res, 404, { error: 'not_found' }); json(res, 200, { script: row }); });
     ctx.routes.frontend.post('/api/cloud/market/:id/report', ctx.users.requireAuth, ctx.security.csrfProtection, (req, res) => { const user = currentUser(req); const reason = String(req.body?.reason || '').trim().slice(0, 500); if (!reason) return json(res, 400, { error: 'reason_required' }); const row = ctx.db.prepare(`SELECT id FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id)); if (!row) return json(res, 404, { error: 'not_found' }); ctx.db.prepare(`INSERT INTO ${reports} (script_id,user_id,reason) VALUES (?, ?, ?)`).run(row.id, user.id, reason); log(user.id, 'market.report', String(row.id)); if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`); json(res, 200, { reported: true, message: '举报已提交。' }); });
     ctx.routes.frontend.post('/api/cloud/market/submit', ctx.users.requireAuth, ctx.security.csrfProtection, async (req, res) => {
       const user = currentUser(req);
       if (!hasCloudAccess(user)) return json(res, 403, { error: 'activation_required', message: '请先激活云空间。' });
+      const llmModeration = ctx.config.get('marketModerationMode') === 'llm';
+      if (llmModeration && !consume(`market-review:${user.id}`, 6, 60_000)) return json(res, 429, { error: 'rate_limited', message: '提交审核过于频繁，请稍后重试。' });
       const source = sourceFromBody(req.body);
       const sourceIssue = marketSourceIssue(source);
       if (sourceIssue) return json(res, 400, { error: 'market_source_rejected', reason: sourceIssue, message: '代码包含市场不允许的内容，请修改后重试。' });
@@ -576,7 +587,7 @@ module.exports = {
       }
       log(user.id, 'market.submit', String(submittedId));
       let review = null;
-      if (ctx.config.get('marketModerationMode') === 'llm') {
+      if (llmModeration) {
         review = await llmReview(submittedId);
         if (review) applyMarketDecision(submittedId, review.decision);
       }

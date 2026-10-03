@@ -1,30 +1,30 @@
 <template>
   <div class="page">
-    <img if="{{!loading && !loadError && paired && activated && cloudScripts.length === 0}}" src="/common/images/empty.png" class="empty-img" />
-    <text if="{{!loading && !loadError && paired && activated && cloudScripts.length === 0}}" class="empty-text">云空间为空</text>
-    <text if="{{!paired}}" class="state-text">请先配对设备</text>
-    <text if="{{paired && !activated}}" class="state-text">请先在网页激活云空间</text>
+    <img if="{{stateReady && !loading && !loadError && paired && activated && cloudScripts.length === 0}}" src="/common/images/empty.png" class="empty-img" />
+    <text if="{{stateReady && !loading && !loadError && paired && activated && cloudScripts.length === 0}}" class="empty-text">云空间为空</text>
     <text if="{{loading}}" class="state-text">正在读取云空间...</text>
-    <text if="{{loadError}}" class="state-text" @click="loadFiles">{{loadErrorText}}</text>
+    <text elif="{{loadError}}" class="state-text" @click="loadFiles">{{loadErrorText}}</text>
+    <text elif="{{stateReady && !paired}}" class="state-text">请先配对设备</text>
+    <text elif="{{stateReady && paired && !activated}}" class="state-text">请先在网页激活云空间</text>
 
-    <list if="{{paired && activated && !loading && !loadError}}" bounces="true" class="list">
+    <list if="{{stateReady && paired && activated && !loading && !loadError}}" bounces="true" class="list">
       <list-item for="{{(index, script) in cloudScripts}}" tid="id" type="cloud-file"
-        class="item {{selectedFileIndex === index ? 'item-selected' : ''}}" @click="selectFile(index)">
-        <text class="item-name">{{script.name}}</text>
-        <text class="item-meta">类型：{{script.typeText}}</text>
-        <text class="item-meta">更新时间：{{script.updatedText}}</text>
+        class="item {{selectedFileIndex === index ? 'item-selected' : ''}} {{busy ? 'disabled-item' : ''}}" @click="selectFile(index)">
+        <text class="item-name {{busy ? 'disabled-text' : ''}}">{{script.name}}</text>
+        <text class="item-meta {{busy ? 'disabled-text' : ''}}">类型：{{script.typeText}}</text>
+        <text class="item-meta {{busy ? 'disabled-text' : ''}}">更新时间：{{script.updatedText}}</text>
       </list-item>
     </list>
 
     <img static src="/common/images/hd.png" class="header" />
     <img static src="/common/images/back.png" class="btn top-left" @click="goBack" />
-    <img static src="/common/images/push.png" class="btn top-right" @click="loadFiles" />
+    <img src="/common/images/push.png" class="btn top-right {{loading || busy ? 'disabled-icon' : ''}}" @click="loadFiles" />
     <text class="time-text">{{nowTime}}</text>
     <text class="heading">云空间</text>
 
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/download.png" class="btn action-left" @click="downloadSelected" />
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/save.png" class="btn action-center" @click="saveAsSelected" />
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" class="btn action-right" @click="removeSelected" />
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/download.png" class="btn action-left {{busy ? 'disabled-icon' : ''}}" @click="downloadSelected" />
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/save.png" class="btn action-center {{busy ? 'disabled-icon' : ''}}" @click="saveAsSelected" />
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" class="btn action-right {{busy ? 'disabled-icon' : ''}}" @click="removeSelected" />
   </div>
 </template>
 
@@ -39,9 +39,11 @@ export default {
     paired: false,
     activated: false,
     loading: false,
+    checkingState: false,
+    stateReady: false,
     busy: false,
     loadError: false,
-    loadErrorText: '读取失败，点击重试',
+    loadErrorText: '云空间文件尚未读取，点击重新读取',
     cloudScripts: [],
     selectedFileIndex: -1,
     nowTime: '00:00',
@@ -60,16 +62,19 @@ export default {
     return text ? text.slice(0, 16) : '未知';
   },
   loadFiles() {
-    if (this.loading || this.busy) return;
+    if (this.loading || this.checkingState || this.busy) return;
     const selected = this.cloudScripts[this.selectedFileIndex];
     const selectedId = selected ? selected.id : null;
-    this.loading = true;
+    this.checkingState = true;
+    this.stateReady = false;
     this.loadError = false;
     cloudService.getState().then((state) => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
       if (!state.paired) return null;
+      this.loading = true;
       return cloudService.getEntitlements().then((entitlement) => {
+        if (!this.pageActive) return null;
         this.activated = entitlement.cloudEnabled;
         return this.activated ? cloudService.listCloudScripts() : null;
       });
@@ -90,10 +95,15 @@ export default {
     }).catch((error) => {
       if (!this.pageActive) return;
       this.loadError = true;
-      this.loadErrorText = cloudService.errorMessage(error, '读取失败，点击重试');
+      this.loadErrorText = cloudService.errorMessage(error, '读取云空间文件列表') + '，点击重新读取';
       this.selectedFileIndex = -1;
-      showToast(cloudService.errorMessage(error, '无法读取云空间'));
-    }).then(() => { if (this.pageActive) this.loading = false; });
+      showToast(cloudService.errorMessage(error, '读取云空间文件列表'));
+    }).then(() => {
+      if (!this.pageActive) return;
+      this.loading = false;
+      this.checkingState = false;
+      this.stateReady = true;
+    });
   },
   selectFile(index) {
     if (this.busy) return;
@@ -114,7 +124,7 @@ export default {
     }).catch((error) => {
       if (!this.pageActive) return;
       this.busy = false;
-      if (error.message !== 'file_exists') { showToast(cloudService.errorMessage(error, '下载失败')); return; }
+      if (error.message !== 'file_exists') { showToast(cloudService.errorMessage(error, '下载云空间文件 ' + script.name)); return; }
       const opened = this.$app.$def.openDialog('confirm', {
         title: '本地文件已存在',
         message: '覆盖本地同名文件？',
@@ -129,7 +139,7 @@ export default {
     cloudService.downloadScript(script.id, script.name, true).then(() => {
       if (!this.pageActive) return;
       showToast('已覆盖本地文件');
-    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '下载失败')); }).then(() => { if (this.pageActive) this.busy = false; });
+    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '覆盖本地文件 ' + script.name)); }).then(() => { if (this.pageActive) this.busy = false; });
   },
   saveAsSelected() {
     const script = this.selectedFile();
@@ -151,7 +161,7 @@ export default {
       showToast('已另存为 ' + target);
     }).catch((error) => {
       if (!this.pageActive) return;
-      showToast(error.message === 'file_exists' ? '本地已有同名文件' : cloudService.errorMessage(error, '另存失败'));
+      showToast(error.message === 'file_exists' ? '另存云空间文件：本地已有同名文件 ' + target : cloudService.errorMessage(error, '另存云空间文件为 ' + target));
     }).then(() => { if (this.pageActive) this.busy = false; });
   },
   removeSelected() {
@@ -173,7 +183,7 @@ export default {
       this.busy = false;
       showToast('已从云空间删除');
       this.loadFiles();
-    }).catch((error) => { if (!this.pageActive) return; this.busy = false; showToast(cloudService.errorMessage(error, '删除失败')); });
+    }).catch((error) => { if (!this.pageActive) return; this.busy = false; showToast(cloudService.errorMessage(error, '删除云空间文件 ' + script.name)); });
   },
   goBack() { vibrate('short'); back(); }
 };
@@ -184,8 +194,10 @@ export default {
 .list { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 86px; }
 .item { width:100%; height:138px; padding:12px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; justify-content:space-between; }
 .item-selected { background-color:#0D6EFF; }
+.disabled-item { background-color:#303030; }
 .item-name { width:100%; font-size:32px; line-height:40px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }
 .item-meta { width:100%; font-size:18px; line-height:27px; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:1; }
+.disabled-text { color:#8c8c8c; }
 .empty-img { position:absolute; left:104px; top:146px; width:128px; height:128px; }
 .empty-text { position:absolute; left:0px; top:298px; width:336px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
 .state-text { position:absolute; left:18px; top:205px; width:300px; line-height:36px; font-size:26px; font-weight:bold; color:#ffffff; text-align:center; }
@@ -193,6 +205,7 @@ export default {
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
 .btn { position:absolute; width:72px; height:72px; }
+.disabled-icon { background-color:#303030; border-radius:36px; }
 .top-left { left:6px; top:6px; }
 .top-right { left:258px; top:6px; }
 .action-left { left:6px; top:402px; }
