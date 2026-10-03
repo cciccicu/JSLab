@@ -2,10 +2,10 @@
 
 | 项目 | 职责 | 构建产物 | 设备交互 |
 | --- | --- | --- | --- |
-| `vela-quickapp` | JSLab Vela 手环应用 | `.rpk` | 仅通过明确授权的 AIoT 工具操作 |
+| `vela-quickapp` | JSLab Vela 手环应用 | `.rpk` | 通过 AIoT 工具安装与调试 |
 | `astrobox-plugin-sync` | AstroBox 文件和字体同步插件 | `.abp` | 通过 Host API 和 Interconnect 操作 |
 | `ccicc-plugin-cloud` | ccicc.icu 云空间、市场、配对和 AI 插件 | `jslab-cloud/dist/*.zip` | 服务端插件，不直接部署到手环 |
-| `vela-luawatchface` | JSLab Helper Lua 表盘 | `.face` | ADB 部署和热重载必须明确授权 |
+| `vela-luawatchface` | JSLab Helper Lua 表盘 | `.face` | 支持 ADB 部署和热重载 |
 
 ## 所有权边界
 
