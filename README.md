@@ -11,7 +11,7 @@
 
 JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编辑器、脚本运行时、AstroBox 配套端和云端工作区组合成一条完整的创作链路：脚本可以在手环上编写和运行，也可以通过电脑传输、保存到云空间并发布到市场。
 
-> 本项目仍处于持续开发阶段。构建命令不会自动连接模拟器或实体设备；任何设备部署和 ADB 操作都需要单独授权。
+> 本项目仍处于持续开发阶段。
 
 ## 目录
 
@@ -111,7 +111,7 @@ python -m pip install -r requirements.txt
 .\scripts\build_face.ps1
 ```
 
-输出为 `bin\JSLab Helper.face`。可选的 `pushlua.ps1` 仅用于获得明确授权后的 ADB 部署和热重载。
+输出为 `bin\JSLab Helper.face`。`pushlua.ps1` 可用于 ADB 部署和热重载。
 
 ## 开发边界
 
@@ -120,7 +120,6 @@ python -m pip install -r requirements.txt
 - 云端市场条目是独立发布快照，删除云空间文件不会删除已发布内容；
 - 生成 API 和审核 API 分开配置，服务端不会把服务商密钥、系统提示词或设备 Token 下发到脚本；
 - Lua 表盘是独立运行时资源，不会打入手环 `.rpk` 或 AstroBox `.abp`；
-- 构建、测试和打包不会主动连接设备。
 
 ## 文档
 
