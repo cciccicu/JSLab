@@ -17,7 +17,7 @@ let installRequestSequence = 0;
 export const DEFAULT_FONT_PROFILE = {
   version: 1,
   name: 'Ubuntu Mono',
-  sourceName: 'UbuntuMono-Misans-v2.ttf',
+  sourceName: 'UbuntuMono-MiSans-Editor-v4.ttf',
   format: 'ttf',
   family: 'JSLabActive',
   lineHeightRatio: 1,

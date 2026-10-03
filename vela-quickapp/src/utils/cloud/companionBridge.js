@@ -2,9 +2,10 @@ import interconnect from '@system.interconnect';
 import brightness from '@system.brightness';
 import jsManager from '../files/jsManager.js';
 import fontManager from '../editor/fontManager.js';
+import { sliceUtf8Chunk, utf8ByteLength } from '../files/fileMetadata.js';
 
 const PROTOCOL_VERSION = 2;
-const READ_CHUNK_CHARS = 4096;
+const READ_CHUNK_BYTES = 4096;
 const MAX_WRITE_SESSIONS = 2;
 const WRITE_SESSION_TTL_MS = 2 * 60 * 1000;
 const FONT_CHUNK_BYTES = 3 * 1024;
@@ -53,20 +54,6 @@ function messageSize(value) {
   } catch (error) {
     return -1;
   }
-}
-
-function utf8ByteLength(value) {
-  let bytes = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code < 0x80) bytes += 1;
-    else if (code < 0x800) bytes += 2;
-    else if (code >= 0xd800 && code <= 0xdbff && i + 1 < value.length) {
-      bytes += 4;
-      i += 1;
-    } else bytes += 3;
-  }
-  return bytes;
 }
 
 function parseMessage(event) {
@@ -328,14 +315,13 @@ function handleRequest(request) {
     case 'read':
       return jsManager.read(payload.name).then((content) => {
         const offset = Math.max(0, Number(payload.offset) || 0);
-        const chunk = content.slice(offset, offset + READ_CHUNK_CHARS);
-        const nextOffset = offset + chunk.length;
+        const chunk = sliceUtf8Chunk(content, offset, READ_CHUNK_BYTES);
         return {
           name: payload.name,
-          content: chunk,
-          nextOffset,
-          done: nextOffset >= content.length,
-          size: utf8ByteLength(content)
+          content: chunk.content,
+          nextOffset: chunk.nextOffset,
+          done: chunk.done,
+          size: chunk.size
         };
       });
     case 'writeStart':

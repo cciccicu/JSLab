@@ -38,10 +38,14 @@ npm install
 npm run lint
 npm run build
 npm run release
+npm run release:all
 ```
 
 构建需要 Node.js 和 AIoT 快应用工具链，输出为 `dist/*.rpk`。设备部署不属于构建
 命令，必须由用户单独授权。
+
+`npm run release:all` 会生成两份发布包：默认设备使用 `.jsc.rpk` 字节码包，小米手环
+10 Pro 使用 `.band10-pro.rpk` JavaScript 包（不启用 JSC）。
 
 ## API 文档
 

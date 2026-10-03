@@ -46,6 +46,7 @@ import configManager from '../../../../utils/core/configManager.js';
 import { back as navigateBack } from '../../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock } from '../../../../utils/core/time.js';
+import { formatError } from '../../../../utils/core/userError.js';
 import {
   DEFAULT_HIGHLIGHT_PALETTE,
   getHighlightPalettePresets,
@@ -136,7 +137,7 @@ export default {
       if (!this.pageActive) return;
       this.settingsLoading = false;
       console.error('Failed to load highlight settings:', error);
-      showToast('读取高亮设置失败');
+      showToast(formatError(error, '读取语法高亮开关、阈值与配色'));
     });
   },
 
@@ -156,7 +157,7 @@ export default {
       this.pendingWrites -= 1;
       console.error('Failed to save syntax highlighting:', error);
       if (changeId === this.highlightChangeId) this.highlightEnabled = previous;
-      showToast('保存高亮设置失败');
+      showToast(formatError(error, '保存语法高亮开关'));
     });
   },
 
@@ -223,7 +224,7 @@ export default {
     }).catch((error) => {
       this.pendingWrites -= 1;
       console.error('Failed to save highlight setting:', error);
-      showToast('保存高亮设置失败');
+      showToast(formatError(error, '保存高亮设置 ' + key));
       this.loadSettings();
     });
   },

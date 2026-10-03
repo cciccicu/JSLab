@@ -1,9 +1,10 @@
 import file from '@system.file';
-import { sortFilesNewestFirst } from './fileMetadata.js';
+import { sortFilesNewestFirst, utf8ByteLength } from './fileMetadata.js';
 
 const SCRIPT_DIRECTORY_URI = 'internal://files/js/';
 const changeListeners = [];
 const fileLocks = {};
+let scriptDirectoryPromise = null;
 
 function notifyChange(change) {
   changeListeners.slice().forEach((listener) => {
@@ -64,20 +65,45 @@ function getScriptUri(name) {
 }
 
 function ensureScriptDirectory() {
-  return new Promise((resolve, reject) => {
+  if (scriptDirectoryPromise) return scriptDirectoryPromise;
+  const initialization = new Promise((resolve, reject) => {
     file.access({
       uri: SCRIPT_DIRECTORY_URI,
       success: () => resolve(),
-      fail: () => {
+      fail: (data, accessCode) => {
         file.mkdir({
           uri: SCRIPT_DIRECTORY_URI,
           recursive: true,
           success: () => resolve(),
-          fail: (data, code) => reject(new Error('Failed to create script directory: ' + code))
+          fail: (mkdirData, mkdirCode) => {
+            // Another caller may have created it between access and mkdir.
+            file.access({
+              uri: SCRIPT_DIRECTORY_URI,
+              success: () => resolve(),
+              fail: () => reject(new Error('Failed to create script directory: ' + String(mkdirCode || accessCode)))
+            });
+          }
         });
       }
     });
   });
+  scriptDirectoryPromise = initialization.then((result) => {
+    scriptDirectoryPromise = null;
+    return result;
+  }, (error) => {
+    scriptDirectoryPromise = null;
+    throw error;
+  });
+  return scriptDirectoryPromise;
+}
+
+function validateNewScriptName(name) {
+  validateScriptName(name);
+  // AstroBox's name limit counts UTF-8 bytes. Apply it to new writes while
+  // keeping existing longer names readable and removable.
+  if (utf8ByteLength(name) > 128) {
+    throw new Error('文件名含扩展名不能超过 128 个 UTF-8 字节（一个汉字通常占 3 字节）');
+  }
 }
 
 function toScriptMeta(fileInfo) {
@@ -94,9 +120,16 @@ function listScripts() {
     .then(() => new Promise((resolve, reject) => {
       file.list({
         uri: SCRIPT_DIRECTORY_URI,
-        success: (data) => resolve(sortFilesNewestFirst(data.fileList
-          .filter((fileInfo) => fileInfo.uri.endsWith('.js'))
-          .map(toScriptMeta))),
+        success: (data) => {
+          try {
+            if (!data || !Array.isArray(data.fileList)) throw new Error('Invalid script directory response');
+            resolve(sortFilesNewestFirst(data.fileList
+              .filter(fileInfo => fileInfo && typeof fileInfo.uri === 'string' && /\.js$/i.test(fileInfo.uri))
+              .map(toScriptMeta)));
+          } catch (error) {
+            reject(error);
+          }
+        },
         fail: (data, code) => reject(new Error('Failed to list scripts: ' + code))
       });
     }));
@@ -117,6 +150,7 @@ function writeScript(name, content, options) {
   let safeContent;
   try {
     assertWritable(name, options && options.token);
+    validateNewScriptName(name);
     safeContent = validateScriptContent(content);
   } catch (error) {
     return Promise.reject(error);
@@ -141,6 +175,7 @@ function renameScript(name, newName, options) {
   try {
     assertWritable(name, options && options.token);
     assertWritable(newName, options && options.token);
+    if (name !== newName) validateNewScriptName(newName);
     srcUri = getScriptUri(name);
     dstUri = getScriptUri(newName);
   } catch (error) {

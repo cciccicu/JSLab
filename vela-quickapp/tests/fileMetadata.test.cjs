@@ -25,6 +25,31 @@ async function run() {
   assert.strictEqual(metadata.formatFileSize('invalid'), '0 B');
   assert.strictEqual(metadata.utf8ByteLength('a中😀'), 8);
 
+  const content = 'ab中😀cd';
+  const chunks = [];
+  let offset = 0;
+  while (offset < metadata.utf8ByteLength(content)) {
+    const chunk = metadata.sliceUtf8Chunk(content, offset, 4);
+    chunks.push(chunk.content);
+    assert(chunk.nextOffset > offset);
+    assert.strictEqual(chunk.size, 11);
+    offset = chunk.nextOffset;
+    if (chunk.done) break;
+  }
+  assert.strictEqual(chunks.join(''), content);
+  assert.strictEqual(offset, 11);
+  assert.throws(() => metadata.sliceUtf8Chunk(content, 3, 4), /UTF-8/);
+
+  const boundaryContent = 'a'.repeat(4095) + '中😀';
+  const firstChunk = metadata.sliceUtf8Chunk(boundaryContent, 0, 4096);
+  assert.strictEqual(firstChunk.content, 'a'.repeat(4095));
+  assert.strictEqual(firstChunk.nextOffset, 4095);
+  assert.strictEqual(firstChunk.done, false);
+  const secondChunk = metadata.sliceUtf8Chunk(boundaryContent, firstChunk.nextOffset, 4096);
+  assert.strictEqual(secondChunk.content, '中😀');
+  assert.strictEqual(secondChunk.nextOffset, 4102);
+  assert.strictEqual(secondChunk.done, true);
+
   const timestamp = new Date(2026, 6, 26, 9, 5).getTime();
   assert.strictEqual(metadata.formatModifiedDate(timestamp), '2026-07-26 09:05');
   assert.strictEqual(metadata.formatModifiedDate(0), '未知');

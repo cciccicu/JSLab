@@ -1,24 +1,24 @@
 <template>
   <div class="page">
     <scroll class="scroll" scroll-y="true">
-      <div if="{{loadError}}" class="item error-item" @click="loadState">
-        <text class="item-title">无法读取云账户</text>
-        <text class="item-description">{{loadErrorText}}</text>
+      <div if="{{loadError}}" class="item error-item {{busy ? 'disabled-item' : ''}}" @click="loadState">
+        <text class="item-title {{busy ? 'disabled-text' : ''}}">无法读取云账户</text>
+        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{loadErrorText}}</text>
       </div>
-      <div class="item transport-item" @click="selectTransport">
-        <text class="item-title">传输方式</text>
-        <text class="item-description">{{transportLabel}}</text>
+      <div class="item transport-item {{busy ? 'disabled-item' : ''}}" @click="selectTransport">
+        <text class="item-title {{busy ? 'disabled-text' : ''}}">传输方式</text>
+        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{transportLabel}}</text>
       </div>
       <div class="item device-item">
         <text class="item-title">当前设备</text>
         <text class="item-description">{{deviceName}}</text>
       </div>
-      <div if="{{paired}}" class="item status-item" @click="loadState">
-        <text class="item-title">JSLab Cloud 与 AI</text>
-        <text class="item-description">{{activationText}}</text>
+      <div if="{{paired}}" class="item status-item {{busy ? 'disabled-item' : ''}}" @click="loadState">
+        <text class="item-title {{busy ? 'disabled-text' : ''}}">JSLab Cloud 与 AI</text>
+        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{activationText}}</text>
       </div>
-      <div if="{{!paired && !pairingCode}}" class="item action {{busy ? 'busy' : ''}}" @click="startPairing">
-        <text class="action-text">{{busy ? '正在生成...' : '生成配对二维码'}}</text>
+      <div if="{{!paired && !pairingCode}}" class="item action {{busy ? 'disabled-item' : ''}}" @click="startPairing">
+        <text class="action-text {{busy ? 'disabled-text' : ''}}">{{busy ? '正在生成...' : '生成配对二维码'}}</text>
       </div>
       <div if="{{pairingCode}}" class="pairing-card">
         <qrcode value="{{pairingQr}}" class="pairing-qr"></qrcode>
@@ -27,10 +27,10 @@
         <div class="pairing-cancel" @click="cancelPairing"><text class="pairing-cancel-text">取消配对</text></div>
       </div>
       <div if="{{paired && !activated && !loadError}}" class="item action disabled-item">
-        <text class="action-text">请在网页端激活云空间</text>
+        <text class="action-text disabled-text">请在网页端激活云空间</text>
       </div>
-      <div if="{{paired}}" class="item action danger {{busy ? 'busy' : ''}}" @click="logout">
-        <text class="action-text">退出设备</text>
+      <div if="{{paired}}" class="item action danger {{busy ? 'disabled-item' : ''}}" @click="logout">
+        <text class="action-text {{busy ? 'disabled-text' : ''}}">退出设备</text>
       </div>
     </scroll>
     <img static src="/common/images/hd.png" class="header" />
@@ -48,6 +48,7 @@ import { getCurrentClock } from '../../../utils/core/time.js';
 import configManager from '../../../utils/core/configManager.js';
 import companionBridge from '../../../utils/cloud/companionBridge.js';
 import { getDeviceName } from '../../../utils/core/deviceInfo.js';
+import { formatError } from '../../../utils/core/userError.js';
 
 export default {
   private: {
@@ -57,9 +58,9 @@ export default {
     busy: false,
     transport: 'fetch',
     transportLabel: 'fetch 直连',
-    deviceName: '正在读取设备名称',
+    deviceName: '',
     loadError: false,
-    loadErrorText: '点击重试',
+    loadErrorText: '云账户状态尚未读取，点击重新读取',
     nowTime: '00:00',
     timer: null,
     pairingTimer: null,
@@ -68,6 +69,7 @@ export default {
     pairingStatusText: '',
     pairingExpiresAt: 0,
     pairingPollBusy: false,
+    pairingPollError: false,
     pairingPollTick: 0,
     pageActive: true,
     transportChangeId: 0
@@ -91,6 +93,7 @@ export default {
     });
   },
   loadState() {
+    if (this.busy) return;
     cloudService.getState().then((state) => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
@@ -108,18 +111,35 @@ export default {
         this.activationText = entitlement.cloudEnabled ? ('已激活，AI 余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2)) : '未激活，请在网页端兑换激活码';
       }).catch((error) => {
         if (!this.pageActive) return;
+        if (this.isAuthenticationExpired(error)) {
+          this.paired = false;
+          this.activated = false;
+          this.loadError = false;
+          this.activationText = '配对已失效，请重新配对';
+          return;
+        }
         this.activated = false;
         this.loadError = true;
-        this.loadErrorText = cloudService.errorMessage(error, '验证失败，点击重试');
-        this.activationText = cloudService.errorMessage(error, '无法验证激活状态，点击重试');
+        this.loadErrorText = cloudService.errorMessage(error, '读取云账户激活状态') + '，点击重新读取';
+        this.activationText = cloudService.errorMessage(error, '验证云账户激活状态');
       });
     }).catch((error) => {
       if (!this.pageActive) return;
+      if (this.isAuthenticationExpired(error)) {
+        this.paired = false;
+        this.activated = false;
+        this.loadError = false;
+        this.activationText = '配对已失效，请重新配对';
+        return;
+      }
       this.loadError = true;
       this.activated = false;
-      this.loadErrorText = cloudService.errorMessage(error, '验证失败，点击重试');
-      this.activationText = cloudService.errorMessage(error, '无法读取云账户，点击重试');
+      this.loadErrorText = cloudService.errorMessage(error, '读取云账户配置') + '，点击重新读取';
+      this.activationText = cloudService.errorMessage(error, '读取云账户配置');
     });
+  },
+  isAuthenticationExpired(error) {
+    return !!error && (error.status === 401 || error.message === 'device_auth_required');
   },
   startPairing() {
     if (this.busy || this.pairingCode) return;
@@ -130,11 +150,12 @@ export default {
       this.pairingQr = result.qrValue;
       this.pairingExpiresAt = Date.now() + Number(result.expiresIn || 600) * 1000;
       this.pollPairing();
-    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '无法生成配对码')); }).then(() => { if (this.pageActive) this.busy = false; });
+    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '生成配对二维码')); }).then(() => { if (this.pageActive) this.busy = false; });
   },
   pollPairing() {
     if (this.pairingTimer) clearInterval(this.pairingTimer);
     this.pairingPollTick = 0;
+    this.pairingPollError = false;
     this.updatePairingStatus('等待网页确认');
     this.checkPairing();
     this.pairingTimer = setInterval(() => {
@@ -143,7 +164,7 @@ export default {
       this.pairingPollTick += 1;
       if (this.pairingPollBusy) {
         this.updatePairingStatus('正在连接云端');
-      } else if (this.pairingStatusText.indexOf('需要联网后重试') === -1) {
+      } else if (!this.pairingPollError) {
         this.updatePairingStatus('等待网页确认');
       }
       if (this.pairingPollTick % 2 === 0) this.checkPairing();
@@ -162,6 +183,7 @@ export default {
     cloudService.pollPairing(code).then((result) => {
       if (!this.pageActive) return null;
       if (code !== this.pairingCode) return null;
+      this.pairingPollError = false;
       if (result.status === 'claimed') {
         this.updatePairingStatus('网页已确认，正在完成配对');
         return cloudService.exchangePairing(code, this.deviceName).then(() => {
@@ -172,10 +194,14 @@ export default {
         });
       }
       if (result.status === 'expired' || result.status === 'used') { this.clearPairing(); showToast('配对码已失效，请重新生成'); }
+      else this.updatePairingStatus('等待网页确认');
       return null;
     }).catch((error) => {
       if (!this.pageActive) return;
-      if (code === this.pairingCode) this.updatePairingStatus(cloudService.errorMessage(error, '连接异常，正在重试'));
+      if (code === this.pairingCode) {
+        this.pairingPollError = true;
+        this.updatePairingStatus(cloudService.errorMessage(error, '查询配对确认状态'));
+      }
     }).then(() => { if (this.pageActive) this.pairingPollBusy = false; });
   },
   cancelPairing() {
@@ -190,7 +216,9 @@ export default {
   confirmCancelPairing() {
     const code = this.pairingCode;
     this.clearPairing();
-    if (code) cloudService.cancelPairing(code).catch(() => {});
+    if (code) cloudService.cancelPairing(code).catch((error) => {
+      if (this.pageActive) showToast(cloudService.errorMessage(error, '通知云服务取消配对码'));
+    });
   },
   clearPairing() {
     if (this.pairingTimer) clearInterval(this.pairingTimer);
@@ -200,6 +228,7 @@ export default {
     this.pairingStatusText = '';
     this.pairingExpiresAt = 0;
     this.pairingPollBusy = false;
+    this.pairingPollError = false;
     this.pairingPollTick = 0;
   },
   getTransportLabel(transport) {
@@ -229,9 +258,10 @@ export default {
       else companionBridge.stop();
       this.transport = transport;
       this.transportLabel = this.getTransportLabel(transport);
+      this.busy = false;
       this.loadState();
       showToast('已切换为' + this.transportLabel);
-    }).catch(() => { if (this.pageActive && changeId === this.transportChangeId) showToast('传输方式保存失败'); })
+    }).catch((error) => { if (this.pageActive && changeId === this.transportChangeId) showToast(formatError(error, '保存云服务传输方式')); })
       .then(() => { if (this.pageActive && changeId === this.transportChangeId) this.busy = false; });
   },
   logout() {
@@ -249,8 +279,13 @@ export default {
     cloudService.logout().then((result) => {
       if (!this.pageActive) return;
       showToast(result && result.alreadyRevoked ? '设备已失效，本地已退出' : '已退出');
+      this.paired = false;
+      this.activated = false;
+      this.loadError = false;
+      this.activationText = '配对后可在网页端激活';
+      this.busy = false;
       this.loadState();
-    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '退出失败')); }).then(() => { if (this.pageActive) this.busy = false; });
+    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '撤销当前设备并退出')); }).then(() => { if (this.pageActive) this.busy = false; });
   },
   goBack() { vibrate('short'); back(); }
 };
@@ -269,9 +304,8 @@ export default {
 .item-description { width:100%; font-size:20px; line-height:28px; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:2; }
 .action { justify-content:center; }
 .danger { background-color:#542020; }
-.disabled-item { background-color:#3b3b3b; opacity:0.65; }
+.disabled-item { background-color:#303030; }
 .error-item { background-color:#542020; justify-content:center; }
-.busy { opacity:0.5; }
 .pairing-card { width:100%; min-height:270px; padding:12px 20px; margin-bottom:8px; border-radius:24px; background-color:#ffffff; align-items:center; flex-direction:column; flex-shrink:0; }
 .pairing-qr { width:150px; height:150px; color:#000000; background-color:#ffffff; }
 .pairing-code { margin-top:6px; font-size:30px; line-height:36px; color:#000000; font-weight:bold; letter-spacing:2px; }
@@ -279,4 +313,5 @@ export default {
 .pairing-cancel { width:100%; height:60px; margin-top:4px; justify-content:center; align-items:center; }
 .pairing-cancel-text { font-size:24px; line-height:32px; color:#b42318; font-weight:bold; text-align:center; }
 .action-text { width:100%; font-size:28px; line-height:36px; color:#ffffff; font-weight:bold; text-align:center; }
+.disabled-text { color:#8c8c8c; }
 </style>

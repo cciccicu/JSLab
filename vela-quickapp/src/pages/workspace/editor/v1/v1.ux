@@ -16,8 +16,8 @@
       <img src="/common/images/right.png" class="cursor-button" @click="move('right')" />
       <img src="/common/images/down.png" class="cursor-button" @click="move('down')" />
     </div>
-    <img if="{{!hideToolbar}}" class="button" src="/common/images/save.png" style="left:6px;top:402px;" @click="save" />
-    <img if="{{!hideToolbar}}" class="button" src="/common/images/run.png" style="left:90px;top:402px;" @click="run" />
+    <img if="{{!hideToolbar}}" class="button {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/save.png" style="left:6px;top:402px;" @click="save" />
+    <img if="{{!hideToolbar}}" class="button {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/run.png" style="left:90px;top:402px;" @click="run" />
     <img if="{{!hideToolbar}}" class="button" src="/common/images/move.png" style="left:174px;top:402px;" @click="toggleCursorControls" />
     <img if="{{!hideToolbar}}" class="button" src="/common/images/edit.png" style="left:258px;top:402px;" @click="toggleKeyboard" />
 
@@ -38,6 +38,7 @@ import { back as navigateBack, push } from '../../../../utils/core/routeManager.
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock } from '../../../../utils/core/time.js';
 import { DEFAULT_FONT_SIZE, normalizeFontSize } from '../../../../utils/editor/fontSize.js';
+import { formatError } from '../../../../utils/core/userError.js';
 
 export default {
   private: {
@@ -91,8 +92,8 @@ export default {
     else if (direction === 'up' || direction === 'down') { const target = moveCursorVertically(editor.before, editor.after, direction === 'up' ? -1 : 1); if (target) { editor.before = target.before; editor.after = target.after; } }
     this.showCursor = true; this.updateCodeDisplay();
   },
-  save() { if (this.saveInProgress) return Promise.resolve(false); vibrate('short'); const source = this.source(); this.saveInProgress = true; return jsManager.write(this.editorName, source, { token: this.lockToken }).then(() => { this.saveInProgress = false; this.savedSource = source; this.$app.$def.updateEditorCode(source); showToast('代码已保存'); return true; }).catch(() => { this.saveInProgress = false; showToast('保存失败'); return false; }); },
-  run() { if (this.saveInProgress) { showToast('正在保存，请稍候'); return; } this.save().then((saved) => { if (saved) this.$app.$def.openRunner(this.editorName, this.source()); }); },
+  save() { if (this.saveInProgress) return Promise.resolve(false); vibrate('short'); const source = this.source(); this.saveInProgress = true; return jsManager.write(this.editorName, source, { token: this.lockToken }).then(() => { this.saveInProgress = false; this.savedSource = source; this.$app.$def.updateEditorCode(source); showToast('代码已保存'); return true; }).catch((error) => { this.saveInProgress = false; showToast(formatError(error, '保存脚本 ' + this.editorName)); return false; }); },
+  run() { if (this.saveInProgress) return; this.save().then((saved) => { if (saved) this.$app.$def.openRunner(this.editorName, this.source()); }); },
   toggleKeyboard() { vibrate('short'); this.hideInputMethod = !this.hideInputMethod; this.hideToolbar = !this.hideInputMethod; this.showCursorControls = false; },
   toggleCursorControls() { vibrate('short'); this.showCursorControls = !this.showCursorControls; },
   onInputMethodDelete() { this.remove(); },
@@ -113,6 +114,7 @@ export default {
 .cursor { position:absolute; background-color:#ffffff; }
 .code-bottom-space { height:260px; flex-shrink:0; }
 .button { position:absolute; width:72px; height:72px; }
+.disabled-icon { background-color:#303030; border-radius:36px; }
 .topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:30px; font-weight:bold; color:#ffffff; text-align:center; }

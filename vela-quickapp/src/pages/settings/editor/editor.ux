@@ -8,24 +8,24 @@
         </div>
         <img src="/common/images/enter.png" class="enter-icon" />
       </div>
-      <div class="item" @click="setFontsize">
+      <div class="item {{fontSizeAvailable ? '' : 'disabled-item'}}" @click="setFontsize">
         <div class="item-content">
-          <text class="itemtext">字号</text>
-          <text class="itemtext2">{{fontSizeDescription}}</text>
+          <text class="itemtext {{fontSizeAvailable ? '' : 'disabled-text'}}">字号</text>
+          <text class="itemtext2 {{fontSizeAvailable ? '' : 'disabled-text'}}">{{fontSizeDescription}}</text>
         </div>
         <img if="{{fontSizeAvailable}}" src="/common/images/enter.png" class="enter-icon" />
       </div>
-      <div class="item" @click="openHighlightSettings">
+      <div class="item {{highlightAvailable ? '' : 'disabled-item'}}" @click="openHighlightSettings">
         <div class="item-content">
-          <text class="itemtext">语法高亮</text>
-          <text class="itemtext2">{{highlightDescription}}</text>
+          <text class="itemtext {{highlightAvailable ? '' : 'disabled-text'}}">语法高亮</text>
+          <text class="itemtext2 {{highlightAvailable ? '' : 'disabled-text'}}">{{highlightDescription}}</text>
         </div>
         <img if="{{highlightAvailable}}" src="/common/images/enter.png" class="enter-icon" />
       </div>
-      <div class="item" @click="openFontSettings">
+      <div class="item {{fontsAvailable ? '' : 'disabled-item'}}" @click="openFontSettings">
         <div class="item-content">
-          <text class="itemtext">字体</text>
-          <text class="itemtext2">{{fontsDescription}}</text>
+          <text class="itemtext {{fontsAvailable ? '' : 'disabled-text'}}">字体</text>
+          <text class="itemtext2 {{fontsAvailable ? '' : 'disabled-text'}}">{{fontsDescription}}</text>
         </div>
         <img if="{{fontsAvailable}}" src="/common/images/enter.png" class="enter-icon" />
       </div>
@@ -45,6 +45,7 @@ import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock } from '../../../utils/core/time.js';
 import { DEFAULT_EDITOR_VERSION, normalizeEditorVersion } from '../../../utils/editor/editorVersion.js';
 import { DEFAULT_FONT_SIZE, MAX_FONT_SIZE, MIN_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/fontSize.js';
+import { formatError } from '../../../utils/core/userError.js';
 
 const EDITOR_VERSION_OPTIONS = [
   { id: 'v0', label: 'v0 · 1.1.2' },
@@ -89,9 +90,9 @@ export default {
       this.settingsLoading = false;
       this.currentFontSize = normalizeFontSize(values[0], DEFAULT_FONT_SIZE);
       this.applyEditorVersion(normalizeEditorVersion(values[1]));
-    }).catch(() => {
+    }).catch((error) => {
       this.settingsLoading = false;
-      showToast('读取编辑器设置失败');
+      showToast(formatError(error, '读取编辑器字号与版本设置'));
     });
   },
   selectEditorVersion() {
@@ -115,7 +116,7 @@ export default {
     configManager.set('editor.version', option.id).then(() => {
       this.applyEditorVersion(option.id);
       showToast('编辑器将在下次打开时切换');
-    }).catch(() => showToast('编辑器版本保存失败'));
+    }).catch((error) => showToast(formatError(error, '保存编辑器版本 ' + option.label)));
   },
   applyEditorVersion(version) {
     this.editorVersion = normalizeEditorVersion(version);
@@ -146,7 +147,7 @@ export default {
     this.settingsWritePending = true;
     configManager.set('editor.font.size', size)
       .then(() => { if (this.pageActive) showToast('字号已设为 ' + size + 'px'); })
-      .catch(() => { if (!this.pageActive) return; this.currentFontSize = previous; this.fontSizeDescription = '当前：' + previous + 'px'; showToast('设置字号失败'); })
+      .catch((error) => { if (!this.pageActive) return; this.currentFontSize = previous; this.fontSizeDescription = '当前：' + previous + 'px'; showToast(formatError(error, '保存编辑器字号 ' + size + 'px')); })
       .then(() => { if (this.pageActive) this.settingsWritePending = false; });
   },
   openHighlightSettings() {
@@ -172,9 +173,11 @@ export default {
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
 .scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 84px; flex-direction:column; }
 .item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-shrink:0; align-items:center; justify-content:space-between; }
+.disabled-item { background-color:#303030; }
 .item-content { width:244px; height:84px; flex-shrink:0; flex-direction:column; justify-content:space-between; }
 .itemtext { width:244px; font-size:32px; line-height:40px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }
 .itemtext2 { width:244px; font-size:24px; line-height:32px; font-weight:bold; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:1; }
+.disabled-text { color:#8c8c8c; }
 .enter-icon { width:40px; height:40px; flex-shrink:0; }
 .topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
 .back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
