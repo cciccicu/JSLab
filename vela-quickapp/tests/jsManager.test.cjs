@@ -6,8 +6,8 @@ async function loadJsManager(fileMock) {
   const sourcePath = path.join(__dirname, '..', 'src', 'utils', 'files', 'jsManager.js');
   const source = fs.readFileSync(sourcePath, 'utf8')
     .replace("import file from '@system.file';", 'const file = globalThis.__jsManagerFileMock;')
-    .replace("import { sortFilesNewestFirst, utf8ByteLength } from './fileMetadata.js';", `
-      const utf8ByteLength = value => Buffer.byteLength(value, 'utf8');
+    .replace("import { utf8ByteLength } from './textEncoding.js';", "const utf8ByteLength = value => Buffer.byteLength(value, 'utf8');")
+    .replace("import { sortFilesNewestFirst } from './fileMetadata.js';", `
       const sortFilesNewestFirst = files => files.slice().sort((left, right) =>
         Number(right.lastModifiedTime || 0) - Number(left.lastModifiedTime || 0));
     `);
@@ -139,6 +139,10 @@ async function testChineseFileNames() {
   await assert.rejects(manager.rename(limitName, longName), /128 个 UTF-8 字节/);
   stored.set(prefix + longName, source);
   assert.strictEqual(await manager.read(longName), source, 'Existing long names must remain accessible');
+  const legacyToken = manager.lock(longName);
+  await manager.write(longName, 'updated', { token: legacyToken });
+  assert.strictEqual(await manager.read(longName), 'updated', 'Existing long names must remain editable');
+  manager.unlock(longName, legacyToken);
   await manager.remove(longName);
 }
 

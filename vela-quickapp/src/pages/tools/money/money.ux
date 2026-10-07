@@ -1,7 +1,6 @@
 <template>
 	<div class="page" style="flex-direction: column;">
     <scroll bounces="true" class="scroll-container" scroll-y="true">
-      <div class="spacer"></div>
 
       <div class="item item-small">
         <div class="item-content">
@@ -28,33 +27,31 @@
 
     <!-- 顶栏 -->
     <img static src="/common/images/hd.png" class="topbar-bg" />
-    <img static class="btn" src="/common/images/back.png" @click="goBack" style="left: 6px;top: 6px;"/>
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">捐助</text>
+    <img static class="btn" src="/common/images/back.png" @click="goBack" style="left: 6px;top: 6px;"/>
     </div>
 </template>
 
 <script>
 import { back as navigateBack } from '../../../utils/core/routeManager.js';
 import { vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 
 export default {
   private: {
     nowTime: "00:00",
-    timer: null
   },
   updateTime() {
     this.nowTime = getCurrentClock();
   },
   onInit() {
     this.updateTime();
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 60000);
   },
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
   onDestroy(){
-	  clearInterval(this.timer);
+    stopPageClock(this);
   },
   goBack(){
     vibrate('short');
@@ -77,12 +74,7 @@ export default {
 	width: 336px;
 	height: 480px;
 	flex-direction: column;
-	padding: 86px 6px 84px;
-}
-
-.spacer {
-	height: 0px;
-	flex-shrink: 0;
+	padding: 84px 6px 24px;
 }
 
 .item {
@@ -147,7 +139,7 @@ export default {
 	left: 0px;
 	top: 0px;
 	width: 336px;
-	height: 102px;
+	height: 84px;
 }
 
 .time-text {

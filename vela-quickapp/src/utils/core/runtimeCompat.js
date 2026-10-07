@@ -1,5 +1,7 @@
 function unavailableError(featureName) {
-  return new Error(featureName + ' 在当前设备上不可用');
+  const error = new Error(featureName + ' 在当前设备上不可用');
+  error.code = 203;
+  return error;
 }
 
 function createUnavailableModule(featureName, methodNames) {
@@ -7,8 +9,11 @@ function createUnavailableModule(featureName, methodNames) {
   methodNames.forEach((methodName) => {
     module[methodName] = (options) => {
       const error = unavailableError(featureName);
-      if (options && typeof options.fail === 'function') {
-        setTimeout(() => options.fail(error.message, 203), 0);
+      if (options && (typeof options.fail === 'function' || typeof options.complete === 'function')) {
+        setTimeout(() => {
+          try { if (typeof options.fail === 'function') options.fail(error.message, 203); }
+          finally { if (typeof options.complete === 'function') options.complete(); }
+        }, 0);
         return;
       }
       throw error;
@@ -22,12 +27,11 @@ function createUnavailableModule(featureName, methodNames) {
  * 保留 manifest 声明，使支持该能力的设备（例如后续型号）仍可正常使用。
  */
 export function loadOptionalSystemModule(app, featureName, methodNames, loader) {
-  const capabilityName = '@' + featureName;
-  if (app && typeof app.canIUse === 'function' && !app.canIUse(capabilityName)) {
-    return createUnavailableModule(featureName, methodNames);
-  }
-
   try {
+    const capabilityName = '@' + featureName;
+    if (app && typeof app.canIUse === 'function' && !app.canIUse(capabilityName)) {
+      return createUnavailableModule(featureName, methodNames);
+    }
     return loader();
   } catch (error) {
     return createUnavailableModule(featureName, methodNames);
@@ -35,9 +39,9 @@ export function loadOptionalSystemModule(app, featureName, methodNames, loader) 
 }
 
 /**
- * 部分旧版实体机没有注入 $nextTick。回退到下一轮事件循环，保持渲染后执行语义。
+ * 使用原生 $nextTick；缺失时仅安排下一轮事件循环，不保证原生绘制已完成。
  */
-export function scheduleAfterRender(context, callback) {
+export function scheduleNextTick(context, callback) {
   if (context && typeof context.$nextTick === 'function') {
     context.$nextTick(callback);
     return;

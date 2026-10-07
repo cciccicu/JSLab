@@ -10,6 +10,22 @@
 
 **Vela JS 应用使用专有的 UX 语法，而非标准 HTML 或 EJS 等模板引擎。** 虽然语法可能与 HTML 相似，但 Vela 拥有自己的组件系统、渲染引擎和开发范式。
 
+### 版本号约定
+
+Vela 允许同版本覆盖安装。除非用户明确要求提升版本号，否则修改、测试和重新打包时保持现有的
+`versionName`、`versionCode`、`package.json` 和 `package-lock.json` 版本号，不要自动递增。
+诊断界面可以用测试轮次区分方案，但轮次不代表应用版本升级。
+
+### 构建产物保留
+
+`aiot release` 会重建并清空整个 `dist/`，包括其中的子目录。构建前将需要保留的所有安装包、
+脚本和历史产物复制到 `dist/`、`build/` 之外（例如已忽略的 `release-archive/`），确认备份完成后再构建。
+不要把 `dist/backup/` 或其他 `dist/` 子目录当作备份位置。
+
+保留源码快照时，请放到项目外，或压成 ZIP 后保存到 `release-archive/`。
+工具链预处理会扫描项目内的 `.ux`，即使它们位于 Git 忽略的备份目录；
+直接复制含 `.ux` 的源码树可能将备份引用的资源重复收集进安装包。
+
 ---
 
 ## Vela JS 架构概述
@@ -396,10 +412,16 @@ vibrator.vibrate({
 5. **固定尺寸**：designWidth 配置为 336，所有尺寸基于此基准
 6. **角度单位**：角度相关的 CSS 属性必须书写单位，如 `total-angle: 360deg`
 
+本项目的 toolkit 2.0.5 会忽略 `<style src="…">` 的 src，编译成功也可能产生空样式。
+共享样式统一在 `<style>` 内使用 `@import`；新增导入时核对实际编译结果。
+
 ### 数据规范
 7. **数据对象**：页面数据使用 `private`/`protected`/`public` 定义，影响数据覆盖机制
 8. **Props 传递**：父子组件通信使用 `props`，注意驼峰命名转短横线命名
 9. **事件回调**：回调函数末尾自动追加 `evt` 参数，通过 `evt.detail` 访问事件数据
+
+各原生页面独立打包，公共模块的局部变量不是跨页面共享状态。应用级请求由 app.ux 持有，
+页面通过 `this.$app.$def` 访问；dialogState 只能由 app.ux 导入。页内缓冲仍留在本页模块中。
 
 ### 生命周期
 10. **页面生命周期**：`onInit` → `onReady` → `onShow` → `onHide` → `onDestroy`
@@ -457,7 +479,7 @@ vibrator.vibrate({
     -->
 
     <!-- 1. 内容区域 (位于底层) -->
-    <!-- 注意：由于顶栏高度为 102px，底栏按钮区域高度约 78px，内容需注意 padding -->
+    <!-- 注意：由于顶栏高度为 84px，底栏按钮区域高度约 78px，内容需注意 padding -->
     <scroll class="content" scroll-y="true">
       <!-- 自定义内容写在这里 -->
       <text class="center-text" style="top: 88px; font-size: 30px">敬请期待</text>
@@ -582,7 +604,7 @@ export default {
   left: 0px;
   top: 0px;
   width: 336px;
-  height: 102px;
+  height: 84px;
 }
 
 .time-text {
@@ -639,7 +661,7 @@ export default {
 
 /* ========== 内容区域 ========== */
 .content {
-  padding-top: 102px;
+  padding-top: 84px;
   padding-bottom: 78px;
   width: 336px;
   height: 480px;

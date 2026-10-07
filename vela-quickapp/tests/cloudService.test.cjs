@@ -12,11 +12,9 @@ function adler32(value) {
 async function loadService(harness) {
   const userErrorSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'core', 'userError.js'), 'utf8');
   globalThis.__cloudUserError = await import('data:text/javascript;base64,' + Buffer.from(userErrorSource).toString('base64') + '#user-error-' + (++loadSequence));
-  const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'cloudService.js'), 'utf8')
+  const transportSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'cloudTransport.js'), 'utf8')
     .replace("import fetch from '@system.fetch';", 'const fetch = globalThis.__cloudFetch;')
     .replace("import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;')
-    .replace("import jsManager from '../files/jsManager.js';", 'const jsManager = globalThis.__cloudJsManager;')
-    .replace("import { adler32Utf8 } from '../files/transferIntegrity.js';", 'const adler32Utf8 = globalThis.__cloudAdler32;')
     .replace("import companionBridge from './companionBridge.js';", 'const companionBridge = globalThis.__cloudCompanionBridge;')
     .replace("import { cleanDetail, createNativeError, formatError } from '../core/userError.js';", 'const { cleanDetail, createNativeError, formatError } = globalThis.__cloudUserError;');
   globalThis.__cloudFetch = harness.fetch;
@@ -24,13 +22,20 @@ async function loadService(harness) {
   globalThis.__cloudJsManager = harness.jsManager;
   globalThis.__cloudAdler32 = adler32;
   globalThis.__cloudCompanionBridge = harness.companionBridge;
+  globalThis.__cloudTransport = await import('data:text/javascript;base64,' + Buffer.from(transportSource).toString('base64') + '#' + (++loadSequence));
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'cloudService.js'), 'utf8')
+    .replace("import { RUNTIME_CONTRACT } from '../runtime/runtimeContract.js';", "const RUNTIME_CONTRACT = 'jslab-unified';")
+    .replace("import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;')
+    .replace("import jsManager from '../files/jsManager.js';", 'const jsManager = globalThis.__cloudJsManager;')
+    .replace("import { adler32Utf8 } from '../files/transferIntegrity.js';", 'const adler32Utf8 = globalThis.__cloudAdler32;')
+    .replace("import { request, normalizeTransport, isDirectFetchSupported, isNetworkError, errorMessage } from './cloudTransport.js';", 'const { request, normalizeTransport, isDirectFetchSupported, isNetworkError, errorMessage } = globalThis.__cloudTransport;');
   return (await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64') + '#' + (++loadSequence))).default;
 }
 
 function createHarness(options = {}) {
   const files = Object.assign({}, options.files || {});
   const configValues = Object.assign({ 'cloud.origin': 'https://cloud.test', 'cloud.token': 'token', 'cloud.transport': 'fetch' }, options.configValues || {});
-  const calls = []; const configGets = [];
+  const calls = []; const configGets = []; const proxyCalls = [];
   let canIUseCalls = 0;
   const cloudScripts = options.cloudScripts || [{ id: 7, name: 'cloud.js' }];
   const fetch = { fetch(request) {
@@ -43,11 +48,14 @@ function createHarness(options = {}) {
     }
     if (options.fetchFailure) return request.fail(null, options.fetchFailure);
     const pathname = new URL(request.url).pathname;
+    if (options.responses && Object.prototype.hasOwnProperty.call(options.responses, pathname)) {
+      return request.success({ code: 200, data: options.responses[pathname] });
+    }
     if (pathname.endsWith('/api/cloud/device/pairing/start')) return request.success({ code: 200, data: { ok: true, code: 'ABCDEF12', qrValue: 'https://ccicc.icu/jslab-cloud/pair?code=ABCDEF12', expiresIn: 600 } });
     if (pathname.endsWith('/api/cloud/device/pairing/status')) return request.success({ code: 200, data: { ok: true, status: 'claimed' } });
     if (pathname.endsWith('/api/cloud/device/pairing/cancel')) return request.success({ code: 200, data: { ok: true, cancelled: true } });
     if (pathname.endsWith('/api/cloud/device/exchange')) return request.success({ code: 200, data: { ok: true, token: 'new-token' } });
-    if (pathname.endsWith('/api/cloud/device/entitlements')) return request.success({ code: 200, data: { ok: true, entitlement: { cloudEnabled: true, aiEnabled: true, aiCreditCents: 200 } } });
+    if (pathname.endsWith('/api/cloud/device/entitlements')) return request.success({ code: 200, data: { ok: true, runtimeContract: 'jslab-unified', entitlement: { cloudEnabled: true, aiEnabled: true, aiCreditCents: 200 } } });
     if (pathname.endsWith('/api/cloud/device/revoke')) return request.success({ code: 200, data: { ok: true, revoked: true } });
     if (pathname.endsWith('/api/cloud/market')) return request.success({ code: 200, data: { ok: true, scripts: [{ id: 3, name: 'market.js' }] } });
     if (pathname.endsWith('/api/cloud/market/3/source')) {
@@ -61,7 +69,7 @@ function createHarness(options = {}) {
     request.fail(null, 999);
   } };
   return {
-    files, calls, configValues, configGets, fetch,
+    files, calls, configValues, configGets, fetch, proxyCalls,
     app: { canIUse() { canIUseCalls += 1; return options.fetchSupported !== false; } },
     getCanIUseCalls() { return canIUseCalls; },
     config: {
@@ -73,8 +81,10 @@ function createHarness(options = {}) {
       read(name) { return Promise.resolve(files[name]); },
       write(name, source) { files[name] = source; return Promise.resolve(true); }
     },
-    companionBridge: { requestCloud(request) {
-      return options.proxyFailure ? Promise.reject(new Error(options.proxyFailure)) : Promise.resolve({ status: 200, body: JSON.stringify({ ok: true, request }) });
+    companionBridge: { requestCloud(request, timeoutMs) {
+      proxyCalls.push({ request, timeoutMs });
+      const body = options.responses && options.responses[new URL(request.url).pathname];
+      return options.proxyFailure ? Promise.reject(new Error(options.proxyFailure)) : Promise.resolve({ status: 200, body: JSON.stringify(body || { ok: true, request }) });
     } }
   };
 }
@@ -87,6 +97,35 @@ async function run() {
   await pairingService.exchangePairing(started.code, 'Band Pro');
   assert.equal(pairing.configValues['cloud.token'], 'new-token');
   await pairingService.cancelPairing(started.code);
+
+  const malformedPairing = createHarness({ responses: { '/api/cloud/device/exchange': { ok: true } } });
+  await assert.rejects((await loadService(malformedPairing)).exchangePairing('code'), /cloud_invalid_response/);
+  assert.equal(malformedPairing.configValues['cloud.token'], 'token', 'Invalid exchange must preserve the existing token');
+  for (const response of [[], '"text"', null, { ok: true }, { scripts: [null] }]) {
+    const malformed = createHarness({ responses: { '/api/cloud/scripts': response } });
+    await assert.rejects((await loadService(malformed)).listCloudScripts(), /cloud_invalid_response/);
+  }
+  const checksumSource = 'console.log("中文😀")';
+  for (const checksum of ['00000000', '', 123, adler32(checksumSource)]) {
+    const checked = createHarness({ responses: {
+      '/api/cloud/scripts/7': { script: { name: 'checked.js' }, source: checksumSource, checksum }
+    } });
+    const checkedService = await loadService(checked);
+    if (checksum === adler32(checksumSource)) {
+      await checkedService.downloadScript(7);
+      assert.equal(checked.files['checked.js'], checksumSource);
+    } else {
+      await assert.rejects(checkedService.downloadScript(7), /checksum_mismatch/);
+      assert.deepEqual(checked.files, {}, 'Checksum failures must not write local files');
+    }
+  }
+  const slowAi = createHarness({ configValues: { 'cloud.transport': 'interconnect' }, responses: {
+    '/api/cloud/device/entitlements': { runtimeContract: 'jslab-unified', entitlement: { aiEnabled: true } },
+    '/api/cloud/device/ai/generate': { runtimeContract: 'jslab-unified', code: 'console.log(1)' }
+  } });
+  await (await loadService(slowAi)).generateAi('create', 'test');
+  assert.equal(slowAi.proxyCalls[0].timeoutMs, undefined);
+  assert.equal(slowAi.proxyCalls[1].timeoutMs, 330000);
 
   const offline = createHarness({ fetchFailure: 1001 });
   const offlineService = await loadService(offline);
@@ -194,6 +233,24 @@ async function run() {
   const uploadCall = upload.calls.find((call) => call.method === 'PUT');
   assert.ok(uploadCall);
   assert.deepEqual(JSON.parse(uploadCall.data), { name: 'cloud.js', source: 'console.log("local")' });
+
+  const marketUpload = createHarness({ files: { 'local.js': 'console.log("watch")' }, responses: {
+    '/api/cloud/device/market/submit': { status: 'pending', marketId: 17 }
+  } });
+  const marketUploadService = await loadService(marketUpload);
+  const marketResult = await marketUploadService.submitMarketScript('local.js', {
+    name: '公开名称', description: '用途说明', tags: '工具, 示例'
+  });
+  assert.equal(marketResult.marketId, 17);
+  const marketCall = marketUpload.calls.find((call) => call.url.endsWith('/api/cloud/device/market/submit'));
+  assert.equal(marketCall.method, 'POST');
+  assert.deepEqual(JSON.parse(marketCall.data), {
+    marketName: '公开名称', marketDescription: '用途说明', marketTags: '工具, 示例', source: 'console.log("watch")'
+  });
+  const bridgedMarket = createHarness({ files: { 'local.js': 'console.log(1)' },
+    configValues: { 'cloud.transport': 'interconnect' } });
+  await (await loadService(bridgedMarket)).submitMarketScript('local.js', { name: '工具', description: '说明' });
+  assert.equal(bridgedMarket.proxyCalls[0].timeoutMs, 330000);
 
   const chineseName = '中文工具（测试）.ui.js';
   const chineseUpload = createHarness({ files: { [chineseName]: 'console.log("你好")' }, cloudScripts: [{ id: 7, name: chineseName }] });

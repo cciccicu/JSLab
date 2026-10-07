@@ -1,113 +1,105 @@
-const assert = require('assert');
+// Check pure request ownership and the real Vela style compiler; no UI/device simulation.
+require('../scripts/check-runtime-contract.cjs');
 const fs = require('fs');
 const path = require('path');
+const assert = require('assert/strict');
+const { UxParser } = require('@aiot-toolkit/parser');
+const { ProjectType } = require('@aiot-toolkit/shared-utils');
+const StyleToTypescript = require('@aiot-toolkit/parser/lib/ux/translate/vela/StyleToTypescript').default;
+const root = path.resolve(__dirname, '..');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const methods = ['openDialog', 'getDialog', 'settleDialog', 'deliverDialog', 'cancelOwnedDialog', 'closeOwnedDialog', 'dialogDestroyed'];
+const limits = JSON.parse(read('../runtime-contract.json')).dialogs;
 
-async function loadDialogState() {
-  const sourcePath = path.join(__dirname, '..', 'src', 'utils', 'core', 'dialogState.js');
-  const source = fs.readFileSync(sourcePath, 'utf8');
-  const dataUrl = 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-  return import(dataUrl);
+function loadDialogState(push, back) {
+  const source = read('src/utils/core/dialogState.js').replace(/^import .*;\r?\n/gm, '').replace(/export function /g, 'function ');
+  return new Function('push', 'back', 'DIALOG_LIMITS', source + '\nreturn {' + methods.join(',') + '};')(push, back, limits);
 }
 
-async function loadScriptDialogApi() {
-  const sourcePath = path.join(__dirname, '..', 'src', 'utils', 'runtime', 'scriptDialogApi.js');
-  const source = fs.readFileSync(sourcePath, 'utf8');
-  const dataUrl = 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-  return import(dataUrl);
+function loadApp(state) {
+  const source = read('src/app.ux').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/^import .*;\r?\n/gm, '').replace('export default', 'return');
+  return new Function('requestDialog', ...methods.slice(1), source)(...methods.map(method => state[method]));
 }
 
-function createApp(dialog) {
-  return {
-    dialog,
-    closeDialog(dialogId) {
-      if (!this.dialog || this.dialog.id !== dialogId) return false;
-      this.dialog = null;
-      return true;
-    }
-  };
+async function checkOwnership() {
+  let route, failPush = false, backs = 0;
+  const state = loadDialogState((name, params) => {
+    if (failPush) throw new Error('native route failure');
+    route = { name, ...params };
+  }, () => { backs++; });
+  const app = loadApp(state);
+  // A separate bundle really has a separate module; pages must use the app bridge.
+  const pageCopy = loadDialogState(() => {}, () => {});
+  const owner = {}, otherOwner = {};
+  const cases = [
+    ['alert', {}, null], ['confirm', { secondaryText: '另存' }, null],
+    ['text', { value: '初值' }, '新值'], ['number', { value: 3 }, 5],
+    ['select', { items: [{ label: '运行', value: 'run' }] }, 'run']
+  ];
+  for (const [type, options, value] of cases) {
+    const result = app.openDialog(type, options, owner);
+    const pageType = type === 'alert' ? 'confirm' : type;
+    assert.equal(pageCopy.getDialog(pageType, route.dialogId), null);
+    const data = app.getDialog(pageType, route.dialogId);
+    assert.ok(data, type + ' must be readable from the app instance');
+    assert.equal(app.getDialog(pageType, 'stale-id'), null);
+    assert.equal(app.deliverDialog(owner), false, 'opening is not a completed result');
+    await assert.rejects(app.openDialog('alert', {}, otherOwner), { code: 'DIALOG_BUSY' });
+    assert.equal(app.settleDialog(data, 'confirm', value), true);
+    assert.equal(app.settleDialog(data, 'cancel', null), false);
+    app.dialogDestroyed(data); // Must preserve an already confirmed result.
+    assert.equal(app.deliverDialog(otherOwner), false);
+    assert.equal(app.deliverDialog(owner), true);
+    assert.deepEqual(await result, { action: 'confirm', value });
+    assert.equal(app.deliverDialog(owner), false);
+  }
+  let result = app.openDialog('confirm', {}, owner);
+  const oldData = app.getDialog('confirm', route.dialogId);
+  // Invalid-page recovery and native destruction record cancellation before delivery.
+  app.dialogDestroyed({ id: route.dialogId });
+  assert.equal(app.deliverDialog(owner), true);
+  assert.deepEqual(await result, { action: 'cancel', value: null });
+  result = app.openDialog('confirm', {}, owner);
+  app.dialogDestroyed(oldData); // A late old-page callback cannot cancel a new request.
+  assert.equal(app.deliverDialog(owner), false);
+  assert.equal(app.closeOwnedDialog(otherOwner), false);
+  assert.equal(app.closeOwnedDialog(owner), true);
+  assert.equal(backs, 1);
+  assert.equal(app.deliverDialog(owner), true);
+  assert.deepEqual(await result, { action: 'cancel', value: null });
+  result = app.openDialog('text', {}, owner);
+  app.cancelOwnedDialog(otherOwner);
+  app.cancelOwnedDialog(owner);
+  assert.deepEqual(await result, { action: 'cancel', value: null });
+  failPush = true;
+  await assert.rejects(app.openDialog('alert', {}, owner), { code: 'DIALOG_OPEN_FAILED' });
+  failPush = false;
+  result = app.openDialog('alert', {}, owner);
+  app.cancelOwnedDialog(owner);
+  await result;
+  console.log('Dialog app ownership/result/reopen checks passed');
 }
 
-async function run() {
-  const state = await loadDialogState();
-  let callbackCount = 0;
-  let callbackValue = null;
-  const request = state.createDialogRequest('text', {
-    title: 'Name',
-    callbacks: {
-      onConfirm(value) {
-        callbackCount += 1;
-        callbackValue = value;
-      }
-    }
-  });
-
-  assert.strictEqual(request.type, 'text');
-  assert.strictEqual(request.title, 'Name');
-  assert.strictEqual(typeof request.id, 'string');
-  assert.strictEqual(typeof request.callbacks.onConfirm, 'function');
-
-  const app = createApp(request);
-  assert.strictEqual(state.settleDialog(app, request, 'onConfirm', 'demo'), true);
-  assert.strictEqual(state.settleDialog(app, request, 'onConfirm', 'duplicate'), false);
-  assert.strictEqual(callbackCount, 1);
-  assert.strictEqual(callbackValue, 'demo');
-
-  let callbackErrors = 0;
-  const originalError = console.error;
-  console.error = () => { callbackErrors += 1; };
-  const throwingRequest = state.createDialogRequest('confirm', {
-    callbacks: { onConfirm: () => { throw new Error('expected'); } }
-  });
-  assert.strictEqual(state.settleDialog(createApp(throwingRequest), throwingRequest, 'onConfirm'), true);
-  console.error = originalError;
-  assert.strictEqual(callbackErrors, 1);
-
-  let canceled = false;
-  const active = state.createDialogRequest('number', {
-    callbacks: { onCancel: () => { canceled = true; } }
-  });
-  const recoveryApp = createApp(active);
-  assert.strictEqual(state.recoverInvalidDialog(recoveryApp), true);
-  assert.strictEqual(canceled, true);
-  assert.strictEqual(state.recoverInvalidDialog(recoveryApp), false);
-
-  const userDialogs = await loadScriptDialogApi();
-  let opened = null;
-  let runActive = true;
-  const dialogApi = userDialogs.createScriptDialogApi({
-    openDialog(type, options) {
-      opened = { type, options };
-      return 'opened-dialog';
-    }
-  }, () => runActive);
-
-  const selectedPromise = dialogApi.select({
-    title: 'Color',
-    message: 'Choose',
-    options: ['red', 'blue'],
-    initialValue: 'blue'
-  });
-  assert.strictEqual(opened.type, 'select');
-  assert.deepStrictEqual(opened.options.options, ['red', 'blue']);
-  assert.strictEqual(opened.options.initialValue, 'blue');
-  opened.options.callbacks.onSelect('blue');
-  assert.strictEqual(await selectedPromise, 'blue');
-
-  const rejectedPromise = dialogApi.confirm({ title: 'Continue?' });
-  opened.options.callbacks.onReject();
-  assert.strictEqual(await rejectedPromise, false);
-
-  const canceledPromise = dialogApi.confirm({ title: 'Cancel?' });
-  opened.options.callbacks.onCancel();
-  assert.strictEqual(await canceledPromise, null);
-
-  runActive = false;
-  await assert.rejects(dialogApi.text({ title: 'Inactive' }), /no longer active/);
-
-  console.log('dialogState tests passed');
+async function checkCompiledStyles() {
+  for (const name of ['confirm', 'select', 'text-input', 'number-input']) {
+    const filePath = path.join(root, 'src/pages/overlay', name, name + '.ux');
+    const options = { filePath, projectPath: root, projectType: ProjectType.VELA_UX, content: fs.readFileSync(filePath, 'utf8'), onLog: () => {} };
+    const { ast } = await new UxParser(options, { sourceRoot: 'src' }, {}, () => {}).parser();
+    const { targetTree } = new StyleToTypescript(options, {}).translate(ast.style, []);
+    const style = name => {
+      const rule = targetTree.find(([selectors]) => selectors.length === 1 && selectors[0][1] === name);
+      assert.ok(rule, filePath + ': missing compiled .' + name);
+      return rule[1];
+    };
+    assert.equal(style('page').width, '336px');
+    assert.equal(style('page').height, '480px');
+    assert.equal(style('btn').width, '72px');
+    assert.equal(style('btn').position, 'absolute');
+    if (name === 'number-input') assert.equal(style('input-card').height, '102px');
+    else if (name === 'text-input') assert.equal(style('input-card').height, '123px');
+    else assert.equal(style(name === 'select' ? 'choices' : 'body').flexDirection, 'column');
+    console.log(name + ': shared styles compiled (' + targetTree.length + ' rules)');
+  }
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+(async () => { await checkOwnership(); await checkCompiledStyles(); })().catch(error => { console.error(error); process.exitCode = 1; });

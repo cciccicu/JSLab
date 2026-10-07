@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <scroll if="{{scrollVisible}}" class="scroll" scroll-y="true" bounces="true">
+    <scroll id="help-scroll" class="scroll" scroll-y="true" bounces="true">
       <div if="{{viewMode === 'directory'}}" class="directory-view">
         <div class="directory-header">
           <text class="directory-kicker">{{directoryKicker}}</text>
@@ -47,27 +47,26 @@
     </scroll>
 
     <img static src="/common/images/hd.png" class="topbar-bg" />
-    <img static src="/common/images/back.png" class="btn" @click="goBack" />
     <text class="time-text">{{nowTime}}</text>
     <text if="{{pageTitle.length <= 5}}" class="title-text">{{pageTitle}}</text>
     <marquee if="{{pageTitle.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{pageTitle}}</marquee>
+    <img static src="/common/images/back.png" class="btn" @click="goBack" />
   </div>
 </template>
 
 <script>
 import { back as navigateBack } from '../../../utils/core/routeManager.js';
 import { vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
-import { scheduleAfterRender } from '../../../utils/core/runtimeCompat.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+import { scheduleNextTick } from '../../../utils/core/runtimeCompat.js';
 import { HELP_ROOT, findHelpNode, getDirectoryItems } from '../../../data/helpDocs.js';
 
 const ROOT_TITLE = '帮助';
-const ROOT_DESCRIPTION = '从脚本模式、JSLab API 到系统能力与云端功能。';
+const ROOT_DESCRIPTION = '从创建与运行、JSLab API 到系统能力与云端功能。';
 
 export default {
   private: {
     nowTime: '00:00',
-    timer: null,
     viewMode: 'directory',
     currentDirectoryId: '',
     directoryTrail: [],
@@ -78,23 +77,22 @@ export default {
     directoryHeading: ROOT_TITLE,
     directoryDescription: ROOT_DESCRIPTION,
     articleKicker: 'JSLab 文档',
-    canGoUp: false,
-    scrollVisible: true
+    canGoUp: false
   },
 
   onInit() {
     this.updateTime();
-    this.timer = setInterval(() => this.updateTime(), 60000);
     this.restoreDirectory('');
   },
 
   onShow() {
+    startPageClock(this);
     this.updateTime();
   },
 
+  onHide() { stopPageClock(this); },
   onDestroy() {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
+    stopPageClock(this);
   },
 
   onBackPress() {
@@ -107,9 +105,9 @@ export default {
   },
 
   resetScroll() {
-    this.scrollVisible = false;
-    scheduleAfterRender(this, () => {
-      this.scrollVisible = true;
+    scheduleNextTick(this, () => {
+      const scroll = this.$element('help-scroll');
+      if (scroll) scroll.scrollTo({top:0, left:0, behavior:'instant'});
     });
   },
 
@@ -172,7 +170,7 @@ export default {
 
 <style>
 .page { width: 336px; height: 480px; background-color: #000000; overflow: hidden; }
-.scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 102px 6px 84px; }
+.scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 84px 6px 24px; }
 .directory-view, .article-view { width: 324px; flex-direction: column; flex-shrink: 0; }
 .directory-header, .article-header { width: 324px; flex-direction: column; flex-shrink: 0; padding: 10px 14px 18px; }
 .directory-kicker, .article-kicker, .code-label { font-size: 18px; line-height: 24px; color: #6aa9ff; }
@@ -193,14 +191,14 @@ export default {
 .article-summary { width: 296px; margin-top: 5px; font-size: 20px; line-height: 28px; color: #8cbcff; lines: -1; }
 .article-intro { width: 296px; margin-top: 12px; font-size: 21px; line-height: 31px; color: #edf2f8; lines: -1; }
 .method-card { width: 324px; flex-direction: column; flex-shrink: 0; padding: 18px 16px; margin-bottom: 8px; background-color: #262626; border-radius: 24px; }
-.method-name { width: 296px; font-family: UbuntuMono; font-size: 21px; line-height: 30px; font-weight: bold; color: #79b6ff; lines: -1; }
-.method-description { width: 296px; margin-top: 7px; font-size: 20px; line-height: 29px; color: #ffffff; lines: -1; }
+.method-name { width: 292px; font-family: UbuntuMono; font-size: 21px; line-height: 30px; font-weight: bold; color: #79b6ff; lines: -1; }
+.method-description { width: 292px; margin-top: 7px; font-size: 20px; line-height: 29px; color: #ffffff; lines: -1; }
 .code-label { margin-top: 12px; }
-.code-block { width: 296px; padding: 10px; margin-top: 5px; background-color: #101215; border-radius: 6px; font-family: UbuntuMono; font-size: 17px; line-height: 24px; color: #c7e0ff; lines: -1; }
-.method-note { width: 296px; margin-top: 10px; font-size: 18px; line-height: 26px; color: #ffc56e; lines: -1; }
+.code-block { width: 292px; padding: 10px; margin-top: 5px; background-color: #101215; border-radius: 6px; font-family: UbuntuMono; font-size: 17px; line-height: 24px; color: #c7e0ff; lines: -1; }
+.method-note { width: 292px; margin-top: 10px; font-size: 18px; line-height: 26px; color: #ffc56e; lines: -1; }
 .article-note-card { width: 324px; flex-direction: column; flex-shrink: 0; padding: 16px; margin-bottom: 8px; background-color: #30281d; border-radius: 24px; }
-.article-note { width: 296px; font-size: 18px; line-height: 27px; color: #ffd99b; lines: -1; }
-.topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+.article-note { width: 292px; font-size: 18px; line-height: 27px; color: #ffd99b; lines: -1; }
+.topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 84px; }
 .btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
 .time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-weight: bold; font-size: 24px; color: rgba(255,255,255,0.6); text-align: center; }
 .title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-weight: bold; font-size: 30px; color: #ffffff; text-align: center; text-overflow: ellipsis; lines: 1; }

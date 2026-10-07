@@ -9,7 +9,7 @@ const VELA_ERROR_MESSAGES = {
   300: '设备存储 I/O 错误'
 };
 
-const ENGLISH_MESSAGES = {
+const ENGLISH_MESSAGES = Object.assign(Object.create(null), {
   'Failed to create script directory': '无法创建脚本目录',
   'Invalid script directory response': '系统返回的脚本目录数据格式无效',
   'Failed to list scripts': '无法列出脚本目录',
@@ -20,7 +20,7 @@ const ENGLISH_MESSAGES = {
   'Failed to read configuration': '无法读取配置文件',
   'Failed to access configuration': '无法访问配置文件',
   'Failed to write configuration': '无法写入配置文件'
-};
+});
 
 function cleanDetail(value) {
   let text = '';

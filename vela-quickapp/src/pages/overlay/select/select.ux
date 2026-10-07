@@ -1,259 +1,86 @@
 <template>
   <div class="page">
-
-    <!-- 滚动区域 -->
-    <scroll class="scroll" scroll-y="true" bounces="true">
-
-      <text class="message">{{ dialog.message }}</text>
-
-      <div
-        for="{{ dialog.options }}"
-        class="item {{ selectedIndex === $idx ? 'item-selected' : '' }}"
-        @click="onSelect($idx)"
-      >
-        <div class="item-content">
-          <text class="itemtext">{{ $item }}</text>
+    <list class="choices" bounces="true">
+      <list-item type="note" class="choices-note" if="{{error || dialog.message || dialog.multiple || rows.length === 0}}">
+        <text show="{{error || dialog.message || rows.length === 0}}" class="choice-message {{error ? 'error' : ''}}">{{error || dialog.message || '暂无可选项'}}</text>
+        <text show="{{dialog.multiple}}" class="selected-count">已选 {{selectedCount}} 项</text>
+      </list-item>
+      <list-item for="{{item in rows}}" tid="id" type="choice" class="item {{item.description ? 'item-described' : ''}} {{item.selected ? 'item-selected' : ''}} {{item.disabled ? 'item-disabled' : ''}}" @click="onSelect(item.index)">
+        <div class="item-copy">
+          <text class="label {{item.disabled ? 'disabled' : ''}}">{{item.label}}</text>
+          <text show="{{item.description}}" class="description {{item.disabled ? 'disabled' : ''}}">{{item.description}}</text>
         </div>
-        <img
-          static
-          src="/common/images/check.png"
-          class="check-icon"
-          if="{{ selectedIndex === $idx }}"
-        />
-      </div>
-    </scroll>
-
-    <!-- 顶栏背景 -->
+        <img show="{{item.selected}}" src="/common/images/check.png" class="check-icon" />
+      </list-item>
+    </list>
     <img static src="/common/images/hd.png" class="topbar-bg" />
-
-    <!-- 返回按钮 -->
-    <img static src="/common/images/back.png" class="btn-back" @click="onCancel" />
-    
-    <!-- 确认按钮 -->
-    <img static src="/common/images/conform.png" class="btn-confirm" @click="onConfirm" />
-    
-    <!-- 时间 -->
-    <text class="time-text">{{ nowTime }}</text>
-    
-    <!-- 标题 -->
-    <text if="{{dialog.title.length <= 5}}" class="title-text">{{ dialog.title }}</text>
-    <marquee if="{{dialog.title.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{ dialog.title }}</marquee>
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-text" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+    <img static src="/common/images/conform.png" class="btn btn-confirm" @click="onConfirm" />
   </div>
 </template>
-
 <script>
 import { back } from '../../../utils/core/routeManager.js';
-import { getDialog, recoverInvalidDialog, settleDialog } from '../../../utils/core/dialogState.js';
 import { vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
-
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+const buffers=new WeakMap();
 export default {
-  private: {
-    dialog: {
-      type: 'select',
-      title: '',
-      message: '',
-      options: [],
-      initialValue: ''
-    },
-    selectedIndex: -1,
-    nowTime: "00:00",
-    timer: null,
-    closing: false,
-    invalidState: false
-  },
-
+  protected: { dialogId: '' },
+  private: { dialog:{id:'',type:'' ,title:'',message:'',confirmText:'确认',cancelText:'取消',secondaryText:''}, nowTime:'00:00', error:'', closing:false, invalid:false,rows:[], selectedCount:0 },
   onInit() {
-    const dialog = getDialog(this.$app.$def, 'select', null);
-    if (dialog && Array.isArray(dialog.options)) {
-      this.dialog = dialog;
-      this.selectedIndex = this.getInitialSelectedIndex();
-    } else {
-      console.error('dialog_select: Invalid or missing global dialog');
-      this.dialog.options = [];
-      recoverInvalidDialog(this.$app.$def);
-      this.invalidState = true;
-    }
-
-    this.updateTime();
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 60000);
+    const data=this.$app.$def.getDialog('select', this.dialogId);
+    if (!data) { this.invalid=true; return; }
+    const display=Object.assign({},data); delete display.value; delete display.items; this.dialog=display;
+    const selected=data.multiple ? data.value.slice() : data.value === undefined ? [] : [data.value];
+    buffers.set(this,{items:data.items,selected});
+    this.rows=data.items.map((item,index) => ({id:item.id,index,label:item.label,description:item.description,disabled:item.disabled,selected:selected.indexOf(item.value)>=0}));
+    this.selectedCount=selected.length;
+    if (data.items.filter(item => !item.disabled).length < data.minSelected) this.error='没有足够的可用选项';
+    this.nowTime=getCurrentClock();
   },
-
   onReady() {
-    if (this.invalidState) back();
+    if (this.invalid) {
+      // Release only the request that opened this page, before native return.
+      this.$app.$def.dialogDestroyed({ id:this.dialogId });
+      this.closing=true; back();
+    }
   },
-
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
   onDestroy() {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
+    stopPageClock(this); this.$app.$def.dialogDestroyed(this.dialog); buffers.delete(this); },
+  close(action,value) {
+    if (this.closing || this.invalid) return;
+    this.closing=true; vibrate('short');
+    this.$app.$def.settleDialog(this.dialog,action,value); back();
   },
-
-  updateTime() {
-    this.nowTime = getCurrentClock();
-  },
-
-  getInitialSelectedIndex() {
-    if (typeof this.dialog.initialValue === 'undefined') return -1;
-    for (let index = 0; index < this.dialog.options.length; index += 1) {
-      if (this.dialog.options[index] === this.dialog.initialValue) return index;
-    }
-    return -1;
-  },
-
-  onCancel() {
-    vibrate('short');
-    this.close('onCancel');
-  },
-
+  onCancel() { this.close('cancel',null); },
+  onBackPress() { this.onCancel(); return true; },
   onSelect(index) {
-    vibrate('short');
-    this.selectedIndex = index;
+    if (this.closing || this.invalid) return;
+    const item=buffers.get(this).items[index]; if (!item || item.disabled) return;
+    const b=buffers.get(this), found=b.selected.indexOf(item.value); vibrate('short'); this.error='';
+    if (!this.dialog.multiple) {
+      if (found >= 0) return;
+      const previous=b.items.findIndex(item => item.value === b.selected[0]);
+      if (previous >= 0) this.rows[previous].selected=false;
+      b.selected=[item.value]; this.rows[index].selected=true;
+    } else if (found >= 0) { b.selected.splice(found,1); this.rows[index].selected=false; }
+    else { if (b.selected.length >= this.dialog.maxSelected) { this.error='最多选择 '+this.dialog.maxSelected+' 项'; return; } b.selected.push(item.value); this.rows[index].selected=true; }
+    this.selectedCount=b.selected.length;
   },
-
   onConfirm() {
-    vibrate('short');
-    if (this.selectedIndex >= 0 && this.selectedIndex < this.dialog.options.length) {
-      const selectedValue = this.dialog.options[this.selectedIndex];
-      this.close('onSelect', selectedValue);
-    } else {
-      this.close('onCancel');
-    }
-  },
-
-  close(callbackName, value) {
-    if (this.closing) return;
-    this.closing = true;
-    settleDialog(this.$app.$def, this.dialog, callbackName, value);
-    back();
-  },
-
-  onBackPress() {
-    this.onCancel();
-    return true;
+    if (this.closing || this.invalid) return;
+    const selected=buffers.get(this).selected;
+    if (selected.length < this.dialog.minSelected) { this.error='至少选择 '+this.dialog.minSelected+' 项'; return; }
+    if (selected.length > this.dialog.maxSelected) { this.error='最多选择 '+this.dialog.maxSelected+' 项'; return; }
+    this.close('confirm',this.dialog.multiple ? buffers.get(this).items.filter(item => selected.indexOf(item.value)>=0).map(item => item.value) : selected[0]);
   }
+
 };
 </script>
-
 <style>
-.page {
-  width: 336px;
-  height: 480px;
-  background-color: #000000;
-  flex-direction: column;
-	  overflow: hidden;
-}
-
-.topbar-bg {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  width: 336px;
-  height: 102px;
-}
-
-.btn-back {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  width: 72px;
-  height: 72px;
-}
-
-.btn-confirm {
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  width: 72px;
-  height: 72px;
-}
-
-.time-text {
-  position: absolute;
-  left: 78px;
-  top: 7px;
-  width: 180px;
-  line-height: 32px;
-  font-size: 24px;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.6);
-  text-align: center;
-}
-
-.title-text {
-  position: absolute;
-  left: 78px;
-  top: 35px;
-  width: 180px;
-  line-height: 42px;
-  font-weight: bold;
-  font-size: 32px;
-  color: white;
-  text-align: center;
-}
-.title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
-
-.message {
-  width: 100%;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 20px;
-  padding-top: 5px;
-  padding-bottom: 5px;
-	  flex-shrink: 0;
-}
-
-.scroll {
-  position:absolute;
-  left:0px;
-	height: 480px;
-	width:336px;
-  flex-direction: column;
-  padding: 86px 6px 84px;
-}
-
-.item {
-  width: 100%;
-  min-height: 112px;
-  padding-left: 20px;
-  padding-right: 20px;
-  padding-top: 14px;
-  padding-bottom: 14px;
-  margin-bottom: 8px;
-  background-color: #262626;
-  border-radius: 36px;
-  align-items: center;
-  justify-content: space-between;
-  flex-direction: row;
-	  flex-shrink: 0;
-}
-
-.item-selected {
-  background-color: #0D6EFF;
-}
-
-.item-content {
-  flex: 1;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-}
-
-.itemtext {
-  font-size: 32px;
-  line-height: 40px;
-  width: 100%;
-  font-weight: bold;
-  color: white;
-  text-overflow: ellipsis;
-  lines: 2;
-}
-
-.check-icon {
-  width: 40px;
-  height: 40px;
-}
+@import "../../../common/styles/dialog.css";
 </style>

@@ -76,6 +76,15 @@ async function run() {
   assert.strictEqual(accessCount, 2);
   assert.strictEqual(readCount, 2);
 
+  storedText = '[]';
+  assert.deepStrictEqual(await config.reload(), {});
+  await config.set('editor.font.size', 24);
+  assert.equal(JSON.parse(storedText).editor.font.size, 24);
+  storedText = '{"editor":[]}';
+  await config.reload();
+  await config.set('editor.font.size', 20);
+  assert.equal(JSON.parse(storedText).editor.font.size, 20);
+
   console.log('configManager tests passed');
 }
 

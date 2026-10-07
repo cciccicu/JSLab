@@ -1,0 +1,8 @@
+# Vela QuickApp dependencies, generated files and local archives.
+/node_modules/
+/build/
+/dist/
+/sign/
+/VelaDocs/
+/src.bac/
+/release-archive/

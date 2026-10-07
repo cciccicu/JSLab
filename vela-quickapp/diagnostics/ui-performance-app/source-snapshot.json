@@ -1,0 +1,37 @@
+{
+  "toolkit": "2.0.5",
+  "files": {
+    "uiRuntime.js": {
+      "source": "../../src/utils/runtime/uiRuntime.js",
+      "sha256": "837ddbd8432d3f04b69e1d9501308b9e6f45b00cfb79a0873ff292a9469829b2"
+    },
+    "uiLayout.js": {
+      "source": "../../src/utils/runtime/uiLayout.js",
+      "sha256": "bda4b4ddfd322d6d7ab905e666967ff97d92c8b648443beb8e100b5de1a3beb7"
+    },
+    "ui2048Example.js": {
+      "source": "../../src/data/examples/ui2048Example.js",
+      "sha256": "3dc85ad0f763e0c90518aaef3fea4f6a8099dc30b45680d3c48028ae6d3756ce"
+    }
+  },
+  "optimizedFiles": {
+    "uiLayout.js": {
+      "source": "../../src/utils/runtime/uiLayout.js",
+      "sha256": "4b72f1b6370ca962946d7a6bd3987b91e16d08fc59e86f2200ea9146264693d8"
+    },
+    "uiRuntime.js": {
+      "source": "../../src/utils/runtime/uiRuntime.js",
+      "sha256": "a9b354bfb89553a8f8bd896a50ec89ca6f18b4a2f9e587de1a260b0814241f53"
+    },
+    "uiPublisher.js": {
+      "source": "../../src/utils/runtime/uiPublisher.js",
+      "sha256": "6ab69ed2f27409c5282a35fd900a3c1846b1b54ce2b1710f81d0a882befb63c1"
+    }
+  },
+  "optimizedTemplates": {
+    "run.ux": {
+      "source": "../../src/pages/workspace/run/run.ux",
+      "sha256": "f8d2f3807cab4137f96ea1132488c38c3af2064cad6dfb99fbd8cb5bb075ee75"
+    }
+  }
+}

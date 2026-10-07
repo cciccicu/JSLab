@@ -1,7 +1,7 @@
 # JSLab UI API v2
 
-保存为 `.ui.js`，通过 `ui.render()` 描述界面。设计尺寸为 336×480，内容宽 324px。
-新建脚本里的“UI 布局与二维码”模板可以直接运行。[类型声明](./ui-api.d.ts)可用于桌面编辑器补全。
+所有 `.js` 脚本都可以通过 `ui.render()` 描述界面；`.ui.js` 没有特殊含义。设计尺寸为 336×480，内容宽 324px。
+新建脚本里的“布局与二维码”模板可以直接运行。[类型声明](./ui-api.d.ts)可用于桌面编辑器补全。
 
 ```js
 const count = ui.signal(0);
@@ -41,8 +41,11 @@ ui.render(() => ui.column([
 | `x/y` | 仅 stack 子项，原点为父容器 padding 内侧；x 限制在父宽内，y 为 0–4096 |
 
 row 不自动换行，`width`、`gap` 总和超出父宽会报错。百分比基于父内容宽，**不扣除 gap**；等分优先省略 width。
+grid 格子或 row 子项分配宽度不足 1px 时也会报错，请调整间距、列数或 flex 比例。
 容器最小高度为内容所需高度；文本、按钮等叶子固定高度不足时会裁剪。
 stack 的子项默认满宽，因此要向右移动应同时设置较小 width。整个 stack 随页面滚动，不是屏幕固定图层。
+按钮同样支持这种坐标布局：把 `ui.button` 直接放入 `ui.stack`，设置 `x/y/width/height` 即可。
+`x/y` 相对于 stack 的内容区，按钮最小高度仍为 48px；重叠时后面的节点在上，需自行预留点击区域。
 
 ```js
 ui.row([
@@ -57,17 +60,25 @@ ui.stack([
   ui.text('内容', { lines: 1 }),
   ui.text('状态', { width: 64, x: 250, y: 4, lines: 1, color: '#0f0' })
 ], { height: 80 });
+
+// 自由定位按钮；新建模板“UI 2048 游戏”使用这一方式摆放十字方向键。
+ui.stack([
+  ui.button('↑', () => move('up'), { id: 'up', x: 122, y: 0, width: 80, height: 50, lines: 1 }),
+  ui.button('←', () => move('left'), { id: 'left', x: 36, y: 53, width: 80, height: 50, lines: 1 }),
+  ui.button('→', () => move('right'), { id: 'right', x: 208, y: 53, width: 80, height: 50, lines: 1 }),
+  ui.button('↓', () => move('down'), { id: 'down', x: 122, y: 106, width: 80, height: 50, lines: 1 })
+], { height: 156 });
 ```
 
 ## 组件与配色
 
 没有增加图片、列表、图表等组件。v2 只新增二维码；原有交互仍是按钮点击、switch/slider 值变化。
-没有新增 disabled、busy、手势或生命周期 API。
+按钮支持 `disabled`；不提供 busy、手势、运行菜单或生命周期登记 API。
 
 | 组件 | 常用参数 |
 | --- | --- |
 | `heading(text, options)` / `text(text, options)` | `size` 16–36、`color`、`align: left/center/right`、`bold`、`lines` 1–64、`lineHeight`（字号至 64） |
-| `button(text, onPress, options)` | `background`、`color`、`tone: primary/neutral/danger`、`id`；最小高度 48 |
+| `button(text, onPress, options)` | `background`、`color`、`tone: primary/neutral/danger`、`id`、`disabled`；最小高度 48 |
 | `switch(label, checked, onChange, options)` | `color` 标题、`background`、`accent` 滑轨、`thumbColor`、`detail`、`detailColor`；最小宽 160 |
 | `slider(label, value, onChange, options)` | `color/background/accent/trackColor/thumbColor`、`min/max/step`；最小宽 160 |
 | `progress(label, percent, options)` | `accent` 进度、`trackColor` 轨道、`color` 标题、`background`；未指定 accent 时，旧 color 仍控制进度色；最小宽 160 |
@@ -79,7 +90,7 @@ ui.stack([
 除 spacer 外，叶子可设置 `width/height/background/radius`（二维码始终正方形，用 size 控制）。
 二维码建议短 URL、黑白对比、160px 以上；同屏最多两个，值不变时不会反复提交更新。
 推荐不透明颜色 `#RGB`、`#RRGGBB`、`rgb(r,g,b)`；兼容有效 rgba。无 opacity。
-颜色无效时回退默认值。按钮防重复在回调中检查状态，以背景和文字色表示忙碌。
+颜色无效时回退默认值。`disabled:true` 显示禁用样式并排除按钮回调。异步任务仍在回调检查业务 busy，防止确认状态发布前重复提交。
 
 文本的 `lines` 是高度预算与最大行数，过长内容省略。省略 lines 时，按字号、字符数、显式换行保守估算，
 ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行预算。内部仍由原生 text 负责断行。
@@ -87,15 +98,22 @@ ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行�
 
 ## 状态、事件与更新
 
-- `ui.render(viewOrFactory)` 立即编译并显示。factory 必须是纯函数。
+- `ui.render(viewOrFactory)` 立即编译，成功提交后显示 UI，返回 boolean；factory 必须是纯函数。失败保留先前成功的定义和界面。
 - `signal.set/update` 立即改变值，但将同一同步调用中的更新合并为一次微任务重绘。
 - 相同值（包括 NaN）或相同对象引用不刷新。对象使用新引用：`state.update(s => ({ count: s.count + 1 }))`。
 - `ui.refresh()` 显式请求下一次重绘。不要在 render factory 内写 signal 或请求重绘，会报错。
-- 未变化的节点保持引用；只更新发生变化的节点。视觉相同也会更新回调，避免闭包旧值。
+- 节点顺序、id、类型不变时，保留页面数组和节点对象，只更新变化字段；编译快照独立于页面响应式数据。
+  拓扑变化时复用同 id、同类型的节点。视觉相同也会更新回调，避免闭包旧值。
 - 按钮回调无参数，switch 收到 boolean，slider 收到 number；返回的 Promise 拒绝会显示运行错误。
-- `ui.setTitle()` 最多 10 字符；`ui.showHeader(false)` 将内容起点从 102 改为 12px。
+- 运行错误保留到下一次有效控件交互、显式 `ui.render()` 或重新运行；signal 和 `ui.refresh()` 不会自动清除错误。
+- `ui.setTitle()` 最多 80 字符，长标题使用原生滚动展示；`ui.showHeader(false)` 将内容起点从 84px 改为 12px。
 - `ui.scrollTo(y)` / `ui.scrollTop()` / `ui.scrollBottom()` 在布局提交后执行。
-- 生命周期不变，脚本自己的系统任务和计时器仍由脚本管理。
+- 隐藏 UI 时 signal/refresh 只标记 dirty，恢复后合并最新状态。显式 render 仍校验，背后对话框不被抢占。
+- `ui.show()` 显示已有成功界面，无有效界面返回 false；`ui.hide()` 显示 Console，不丢失状态和日志。
+- UI 返回到 Console；轻点日志内容恢复界面；Console 返回离开运行页。全屏仅隐藏 UI 顶栏，系统返回仍进入 Console。
+- `script.reload()` 与右上按钮完整替换运行页，重新执行本次源码快照；切换视图和 onShow 不重新运行。
+- 原生滚动处理点击/滑动、惯性、边界；运行器不另写触摸识别或滚动补偿。原生节点卸载后不承诺保留其滚动位置。
+- 页重建不是重启共享 JS context，脚本自己的原生系统任务仍由脚本管理。
 
 ## 预算与兼容性
 
@@ -116,9 +134,9 @@ ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行�
 - 原生渲染层变浅；滚动高度由布局结果得出，去掉每轮 `getScrollRect`。
 - 新版云端提示词生成 UI v2 代码；部署云插件时同步更新快应用。
 
-## 验证
+## 开发与实机验证
 
-`npm run test:ui` 检查布局、预算、颜色、身份稳定、批量更新、二维码复用和异步错误。
-`npm run bench:ui -- <v1-git-revision>` 对比旧实现与新实现的 JS 耗时、重绘次数和原生测量调用数。
-默认基线为当前 HEAD 中的 v1 文件；基线提交后请显式指定旧 revision。
-桌面 Node 基准不代表手环帧率、原生堆内存或实际扫码能力，设备表现需另行验证。
+运行契约见 [统一脚本 API](runtime-api.md)，[类型声明](runtime-api.d.ts)与 `ui-api.d.ts` 均无设备运行开销。
+`npm run check:contract` 只校验源码、路由、公开方法和固定预算；`npm run lint` 与 `npm run release` 验证构建。
+历史性能测试保留在 tests/diagnostics，不能代表手环绘制完成、交互延迟或原生内存。
+本轮使用 [集中实机验收脚本](../diagnostics/unified-runner-check.js) 验证切换、重载与对话框。

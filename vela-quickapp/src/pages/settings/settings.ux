@@ -9,11 +9,11 @@
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
-  
+
 		<div class="item" @click="routerTo('settingsCloud')">
 		  <div class="item-content">
-			<text class="itemtext">登录</text>
-			<text class="itemtext2">登录你的账户</text>
+			<text class="itemtext">云账户</text>
+			<text class="itemtext2">设备配对与传输方式</text>
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
@@ -39,24 +39,22 @@
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
 	  </scroll>
-  
+
 	  <img static src="/common/images/hd.png" class="topbar-bg" />
-	  <img static src="/common/images/back.png" class="back-button" @click="goBack" />
 	  <text class="time-text">{{nowTime}}</text>
 	  <text class="title-text">设置</text>
+	  <img static src="/common/images/back.png" class="back-button" @click="goBack" />
 	</div>
   </template>
-  
+
   <script>
   import { back, push } from '../../utils/core/routeManager.js';
   import { vibrate } from '../../utils/core/uiFeedback.js';
-  import { getCurrentClock } from '../../utils/core/time.js';
+  import { getCurrentClock, startPageClock, stopPageClock } from '../../utils/core/time.js';
 
   export default {
 	private: {
-	  nowTime: '00:00',
-	  timer: null,
-	  settingsLoading: false
+	  nowTime: '00:00'
 	},
 
 	updateTime() {
@@ -65,12 +63,13 @@
 
 	onInit() {
 	  this.updateTime();
-	  this.timer = setInterval(() => this.updateTime(), 60000);
 
 	},
 
-	onDestroy() {
-	  if (this.timer) clearInterval(this.timer);
+	onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this);
 	},
 
 	routerTo(route) {
@@ -85,7 +84,7 @@
 
   };
   </script>
-  
+
   <style>
   .page {
 	width: 336px;
@@ -93,7 +92,7 @@
 	background-color: #000000;
 	overflow: hidden;
   }
-  
+
   .scroll {
 	position: absolute;
 	left: 0px;
@@ -101,9 +100,9 @@
 	height: 480px;
 	width: 336px;
 	flex-direction: column;
-	padding: 86px 6px 84px;
+	padding: 84px 6px 24px;
   }
-  
+
   .item {
 	width: 100%;
 	height: 112px;
@@ -115,14 +114,14 @@
 	align-items: center;
 	justify-content: space-between;
   }
-  
+
   .item-content {
 	height: 100%;
 	flex: 1;
 	flex-direction: column;
 	justify-content: space-between;
   }
-  
+
   .itemtext {
 	font-size: 32px;
 	line-height: 40px;
@@ -132,7 +131,7 @@
 	text-overflow: ellipsis;
 	lines: 1;
   }
-  
+
   .itemtext2 {
 	font-size: 24px;
 	line-height: 32px;
@@ -142,7 +141,7 @@
 	lines: 1;
   }
 
-  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 84px; }
   .back-button { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
   .time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
   .title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }

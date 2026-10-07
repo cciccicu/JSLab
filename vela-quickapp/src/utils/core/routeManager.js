@@ -7,8 +7,7 @@ const ROUTES = {
   editorV0: '/workspace/editor/v0',
   editorV1: '/workspace/editor/v1',
   aiGenerate: '/workspace/ai-generate',
-  runConsole: '/workspace/run-console',
-  runUi: '/workspace/run-ui',
+  run: '/workspace/run',
   newFile: '/workspace/new',
   settings: '/settings',
   settingsEditor: '/settings/editor',
@@ -19,6 +18,7 @@ const ROUTES = {
   settingsCloud: '/settings/cloud',
   settingsCloudFiles: '/settings/cloud/files',
   toolsMarket: '/tools/market',
+  toolsMarketUpload: '/tools/market/upload',
   toolsMoney: '/tools/money',
   overlayConfirm: '/overlay/confirm',
   overlaySelect: '/overlay/select',
@@ -30,14 +30,15 @@ function normalizePath(route) {
   const value = route.trim().replace(/\\/g, '/');
   if (!value || value === '/') return '/';
   if (value.indexOf('://') !== -1) return value;
-  const path = value.charAt(0) === '/' ? value : '/' + value;
+  const path = ((value.charAt(0) === '/' ? value : '/' + value).replace(/\/+/g, '/').replace(/\/+$/, '')) || '/';
+  if (path === '/') return ROUTES.index;
   if (path.split('/').some(segment => segment === '..' || segment === '.')) {
     throw new Error('非法页面路径：' + route);
   }
   if (!/^\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(path)) {
     throw new Error('页面 slug 只能包含字母、数字、下划线和连字符：' + route);
   }
-  return path.replace(/\/+/g, '/');
+  return path;
 }
 
 export function resolveRoute(route) {

@@ -1,17 +1,19 @@
 const crypto = require('crypto');
-const { registerStaticFiles } = require('./lib/static-files');
+const { registerStaticFiles, assetVersion } = require('./lib/static-files');
 const { registerBrowserPages } = require('./lib/browser-pages');
 const { buildAiSystemPrompt } = require('./lib/ai-prompts');
+const { ensurePersistentState, DEFAULT_AI_MODEL, DEFAULT_MARKET_MODERATION_PROMPT } = require('./lib/persistent-state');
+const { migrateUnifiedScripts } = require('./lib/unified-migration');
+const { identity: RUNTIME_CONTRACT } = require('./lib/runtime-contract.json');
+const { scriptFilename, validScriptName } = require('./lib/script-filename');
 const { withErrorMessage } = require('./lib/error-messages');
 
 const MAX_SOURCE = 48 * 1024;
-const NAME_RE = /^[^/\\.][^/\\]{0,120}\.(?:js|ui\.js)$/i;
 const DEFAULT_PAIRING_PUBLIC_ORIGIN = 'https://ccicc.icu';
 const INITIAL_AI_CREDIT_CENTS = 200;
 const ACTIVATION_CODE_CREDIT_CENTS = 300;
 const MAX_AI_PROMPT_CHARS = 8000;
-const DEFAULT_AI_MODEL = 'deepseek-ai/DeepSeek-V4-Flash';
-const DEFAULT_MARKET_MODERATION_PROMPT = '审核 JSLab 市场脚本是否包含恶意行为、凭据窃取、破坏性操作或与说明明显不符的行为。正常使用 JSLab API 的脚本应通过审核。';
+
 
 function checksum(source) {
   let a = 1;
@@ -23,78 +25,13 @@ function checksum(source) {
 
 module.exports = {
   install(ctx) {
-    ctx.config.register({ key: 'marketModerationMode', displayName: '市场审核方式', description: '人工审核由管理员决定；单 LLM 审核使用下方审核模型直接给出结论。保存后立即生效。', valueType: 'string', defaultValue: 'manual', enumOptions: ['manual', 'llm'], controlType: 'select', hotReload: true });
-    ctx.config.register({ key: 'pairingPublicOrigin', displayName: '配对二维码：网页地址', description: '手机扫描二维码后打开的网页地址；生产环境留空时使用 https://ccicc.icu，本地开发时根据当前请求生成。保存后立即生效。', valueType: 'string', defaultValue: '', hotReload: true });
-    ctx.config.register({ key: 'llmApiUrl', displayName: '市场审核 LLM：API 地址', description: '仅在审核方式为“单 LLM”时使用，不用于代码生成。', valueType: 'string', defaultValue: '', hotReload: true });
-    ctx.config.register({ key: 'llmApiKey', displayName: '市场审核 LLM：API 密钥', description: '仅发送给市场审核服务。', valueType: 'string', defaultValue: '', hotReload: true });
-    ctx.config.register({ key: 'llmModel', displayName: '市场审核 LLM：模型', description: '审核服务使用的模型标识。', valueType: 'string', defaultValue: '', hotReload: true });
-    ctx.config.register({ key: 'llmModerationPrompt', displayName: '市场审核 LLM：审核提示词', description: '用于定义审核标准；系统会自动追加固定的 JSON 输出格式。保存后立即生效。', valueType: 'string', controlType: 'textarea', defaultValue: DEFAULT_MARKET_MODERATION_PROMPT, hotReload: true });
-    ctx.config.register({ key: 'llmRequestTimeoutMs', displayName: '市场审核 LLM：请求超时（毫秒）', description: '有效范围 1-300000，默认 90000。', valueType: 'number', defaultValue: 90_000, hotReload: true });
-    ctx.config.register({ key: 'aiApiUrl', displayName: '代码生成 AI：API 地址', description: '仅用于设备端 AI 代码生成，不用于市场审核。', valueType: 'string', defaultValue: '', hotReload: true });
-    ctx.config.register({ key: 'aiApiKey', displayName: '代码生成 AI：API 密钥', description: '仅发送给代码生成服务。', valueType: 'string', defaultValue: '', hotReload: true });
-    ctx.config.register({ key: 'aiModel', displayName: '代码生成 AI：模型', description: '代码生成服务使用的模型标识。', valueType: 'string', defaultValue: DEFAULT_AI_MODEL, hotReload: true });
-    ctx.config.register({ key: 'aiInputCentsPerMillionTokens', displayName: '代码生成 AI：输入价格（分/M Token）', description: '按 1,000,000 Token 计价；当前为硅基流动 DeepSeek V4 Flash 的 ¥0.005/千 Token 输入价。', valueType: 'number', defaultValue: 500, hotReload: true });
-    ctx.config.register({ key: 'aiCachedInputCentsPerMillionTokens', displayName: '代码生成 AI：缓存命中输入价格（分/M Token）', description: '服务商未单列缓存价时与普通输入同价；按 1,000,000 Token 计价。', valueType: 'number', defaultValue: 500, hotReload: true });
-    ctx.config.register({ key: 'aiOutputCentsPerMillionTokens', displayName: '代码生成 AI：输出价格（分/M Token）', description: '按 1,000,000 Token 计价；当前为硅基流动 DeepSeek V4 Flash 的 ¥0.01/千 Token 输出价。', valueType: 'number', defaultValue: 1000, hotReload: true });
-    ctx.config.register({ key: 'aiMaxOutputTokens', displayName: '代码生成 AI：最大输出 Token 数', description: '有效范围 1-16384，默认 8192。', valueType: 'number', defaultValue: 8192, hotReload: true });
-    ctx.config.register({ key: 'aiRequestTimeoutMs', displayName: '代码生成 AI：请求超时（毫秒）', description: '有效范围 1-300000，默认 90000。', valueType: 'number', defaultValue: 90_000, hotReload: true });
-    const t = (name) => ctx.db.table(name);
-    ctx.db.exec(`
-      CREATE TABLE IF NOT EXISTS ${t('scripts')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL,
-        type TEXT NOT NULL, source TEXT NOT NULL, hash TEXT NOT NULL, checksum TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        UNIQUE(user_id, name)
-      );
-      CREATE TABLE IF NOT EXISTS ${t('market_scripts')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, owner_user_id INTEGER NOT NULL,
-        name TEXT NOT NULL, type TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '[]',
-        source TEXT NOT NULL, hash TEXT NOT NULL, checksum TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
-        pending_name TEXT, pending_type TEXT, pending_description TEXT, pending_tags TEXT,
-        pending_source TEXT, pending_hash TEXT, pending_checksum TEXT, pending_status TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('devices')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL,
-        token_hash TEXT UNIQUE, revoked_at TEXT, last_used_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('pairing_codes')} (
-        code_hash TEXT PRIMARY KEY, user_id INTEGER, device_name TEXT NOT NULL DEFAULT 'JSLab device',
-        expires_at TEXT NOT NULL, claimed_at TEXT, used_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('audit_log')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, action TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('moderation_reviews')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, script_id INTEGER NOT NULL, model TEXT NOT NULL,
-        decision TEXT NOT NULL, reason TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('market_reports')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, script_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
-        reason TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('user_entitlements')} (
-        user_id INTEGER PRIMARY KEY, cloud_enabled INTEGER NOT NULL DEFAULT 0, ai_enabled INTEGER NOT NULL DEFAULT 0,
-        ai_credit_cents INTEGER NOT NULL DEFAULT 0, activated_at TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('activation_codes')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, code_hash TEXT NOT NULL UNIQUE, credit_cents INTEGER NOT NULL DEFAULT 300,
-        batch_id TEXT NOT NULL, created_by INTEGER, redeemed_by INTEGER, redeemed_at TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('ai_usage')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, device_id INTEGER,
-        mode TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL,
-        total_tokens INTEGER NOT NULL, charged_cents INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS ${t('ai_reservations')} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, reserved_cents INTEGER NOT NULL,
-        status TEXT NOT NULL DEFAULT 'reserved', created_at TEXT NOT NULL DEFAULT (datetime('now')), settled_at TEXT
-      );
-    `);
+    ensurePersistentState(ctx);
   },
 
   boot(ctx) {
+    ensurePersistentState(ctx);
+    migrateUnifiedScripts(ctx);
+    const assetsVersion = assetVersion(ctx);
     const scripts = ctx.db.table('scripts');
     const marketScripts = ctx.db.table('market_scripts');
     const devices = ctx.db.table('devices');
@@ -107,7 +44,7 @@ module.exports = {
     const aiUsage = ctx.db.table('ai_usage');
     const aiReservations = ctx.db.table('ai_reservations');
 
-    // A process restart cannot have an in-flight provider request from the old plugin instance.
+    // Deployment restarts the whole process; refund interrupted reservations once.
     ctx.db.transaction(() => {
       const orphaned = ctx.db.prepare(`SELECT id,user_id,reserved_cents FROM ${aiReservations} WHERE status='reserved'`).all();
       orphaned.forEach((reservation) => {
@@ -141,7 +78,7 @@ module.exports = {
       return (req.jslabCloudDeviceIdentity = { user, device: row });
     };
     const deviceUser = (req) => deviceIdentity(req)?.user || null;
-    const requireDevice = (req, res, next) => { if (!deviceIdentity(req)) return json(res, 401, { error: 'device_auth_required' }); next(); };
+    const requireDevice = (req, res, next) => { if (!deviceIdentity(req)) return json(res, 401, { error: 'device_auth_required' }); return next(); };
     const entitlementFor = (userId) => ctx.db.prepare(`SELECT * FROM ${entitlements} WHERE user_id=?`).get(userId) || {
       user_id: userId, cloud_enabled: 0, ai_enabled: 0, ai_credit_cents: 0, activated_at: null
     };
@@ -154,10 +91,10 @@ module.exports = {
       const user = deviceUser(req);
       if (!user) return json(res, 401, { error: 'device_auth_required' });
       if (!hasCloudAccess(user)) return json(res, 403, { error: 'activation_required' });
-      next();
+      return next();
     };
     const sourceFromBody = (body) => typeof body?.source === 'string' ? body.source : '';
-    const validSource = (name, source) => NAME_RE.test(name) && Buffer.byteLength(source, 'utf8') <= MAX_SOURCE;
+    const validSource = (name, source, existing = false) => validScriptName(name, existing) && Buffer.byteLength(source, 'utf8') <= MAX_SOURCE;
     const validJavaScript = (source) => {
       try { new Function(String(source)); return true; } catch (_) { return false; }
     };
@@ -289,11 +226,12 @@ module.exports = {
       return settle();
     };
     const generateAiSource = async (user, body) => {
+      if (body?.runtimeContract !== RUNTIME_CONTRACT) return { error: 'runtime_contract_mismatch', status: 409 };
       const mode = body?.mode === 'rewrite' ? 'rewrite' : body?.mode === 'create' ? 'create' : '';
       const prompt = String(body?.prompt || '').trim();
       const source = sourceFromBody(body);
       const name = String(body?.name || '').trim();
-      if (!mode || !prompt || prompt.length > MAX_AI_PROMPT_CHARS || !NAME_RE.test(name) || Buffer.byteLength(source, 'utf8') > MAX_SOURCE) {
+      if (!mode || !prompt || prompt.length > MAX_AI_PROMPT_CHARS || !validScriptName(name, mode === 'rewrite') || Buffer.byteLength(source, 'utf8') > MAX_SOURCE) {
         return { error: 'invalid_ai_request', status: 400 };
       }
       if (!hasAiAccess(user)) return { error: 'activation_required', status: 403 };
@@ -314,9 +252,8 @@ module.exports = {
       let payload;
       let timeout = null;
       try {
-        const timeoutMs = getPositiveInteger('aiRequestTimeoutMs', 90_000, 300_000);
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
-        timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+        timeout = controller ? setTimeout(() => controller.abort(), getPositiveInteger('aiRequestTimeoutMs', 90_000, 300_000)) : null;
         const response = await fetch(url, {
           method: 'POST',
           headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -339,7 +276,7 @@ module.exports = {
       const inputTokens = Number(payload?.usage?.prompt_tokens);
       const outputTokens = Number(payload?.usage?.completion_tokens);
       const cachedInputTokens = Number(payload?.usage?.prompt_tokens_details?.cached_tokens || 0);
-      if (!code || !validSource(name, code) || !validJavaScript(code) || !Number.isInteger(inputTokens) || inputTokens < 0 || !Number.isInteger(outputTokens) || outputTokens < 0 || !Number.isInteger(cachedInputTokens) || cachedInputTokens < 0 || cachedInputTokens > inputTokens) {
+      if (!code || !validSource(name, code, mode === 'rewrite') || !validJavaScript(code) || !Number.isInteger(inputTokens) || inputTokens < 0 || !Number.isInteger(outputTokens) || outputTokens < 0 || !Number.isInteger(cachedInputTokens) || cachedInputTokens < 0 || cachedInputTokens > inputTokens) {
         cancelAiReservation(reservation.id);
         return { error: 'ai_invalid_response', status: 502 };
       }
@@ -349,14 +286,27 @@ module.exports = {
         return { error: 'ai_credit_insufficient', status: 402 };
       }
       log(user.id, 'ai.generate', `${mode}:${billing.chargedCents}`);
-      return { code, usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, chargedCents: billing.chargedCents }, remainingCreditCents: billing.remainingCreditCents };
+      return { runtimeContract: RUNTIME_CONTRACT, code, usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, chargedCents: billing.chargedCents }, remainingCreditCents: billing.remainingCreditCents };
     };
-    const applyMarketDecision = (marketId, decision) => ctx.db.transaction(() => {
+    const marketSnapshot = row => {
+      const pending = row.pending_status != null;
+      return { status: row.status, pendingStatus: row.pending_status,
+        name: pending ? row.pending_name : row.name, description: pending ? row.pending_description : row.description,
+        tags: pending ? row.pending_tags : row.tags, hash: pending ? row.pending_hash : row.hash };
+    };
+    const sameMarketSnapshot = (row, snapshot) => {
+      if (!row) return false;
+      const current = marketSnapshot(row);
+      return Object.keys(snapshot).every(key => current[key] === snapshot[key]);
+    };
+    const reviewContentHash = snapshot => hash(JSON.stringify([snapshot.name, snapshot.description, snapshot.tags, snapshot.hash]));
+    const applyMarketDecision = (marketId, decision, snapshot) => ctx.db.transaction(() => {
       const row = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(marketId);
       if (!row) return null;
+      if (snapshot && !sameMarketSnapshot(row, snapshot)) return null;
       if (row.pending_status === 'pending' || row.pending_status === 'rejected') {
         if (decision === 'approve') {
-          ctx.db.prepare(`UPDATE ${marketScripts} SET name=pending_name,type=pending_type,description=pending_description,tags=pending_tags,source=pending_source,hash=pending_hash,checksum=pending_checksum,status='published',pending_name=NULL,pending_type=NULL,pending_description=NULL,pending_tags=NULL,pending_source=NULL,pending_hash=NULL,pending_checksum=NULL,pending_status=NULL,updated_at=datetime('now') WHERE id=?`).run(marketId);
+          ctx.db.prepare(`UPDATE ${marketScripts} SET name=pending_name,description=pending_description,tags=pending_tags,source=pending_source,hash=pending_hash,checksum=pending_checksum,status='published',pending_name=NULL,pending_description=NULL,pending_tags=NULL,pending_source=NULL,pending_hash=NULL,pending_checksum=NULL,pending_status=NULL,updated_at=datetime('now') WHERE id=?`).run(marketId);
         } else {
           ctx.db.prepare(`UPDATE ${marketScripts} SET pending_status='rejected',updated_at=datetime('now') WHERE id=?`).run(marketId);
         }
@@ -369,19 +319,22 @@ module.exports = {
       const url = String(ctx.config.get('llmApiUrl') || ''); const key = String(ctx.config.get('llmApiKey') || ''); const model = String(ctx.config.get('llmModel') || '');
       const moderationPrompt = String(ctx.config.get('llmModerationPrompt') || DEFAULT_MARKET_MODERATION_PROMPT).trim() || DEFAULT_MARKET_MODERATION_PROMPT;
       if (!url || !key || !model || typeof fetch !== 'function') return null;
-      const row = ctx.db.prepare(`SELECT COALESCE(pending_name,name) AS name,COALESCE(pending_description,description) AS description,COALESCE(pending_source,source) AS source FROM ${marketScripts} WHERE id=?`).get(scriptId);
-      if (!row) return null;
+      const stored = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(scriptId);
+      if (!stored) return null;
+      const snapshot = marketSnapshot(stored);
+      const row = { ...snapshot, source: stored.pending_status != null ? stored.pending_source : stored.source };
       let timeout = null;
       try {
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
         timeout = controller ? setTimeout(() => controller.abort(), getPositiveInteger('llmRequestTimeoutMs', 90_000, 300_000)) : null;
-        const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, signal: controller ? controller.signal : undefined, body: JSON.stringify({ model, temperature: 0, thinking: { type: 'disabled' }, messages: [{ role: 'system', content: `${moderationPrompt}\n\n只返回 JSON，不要使用 Markdown：{"decision":"approve|reject","reason":"简短说明"}` }, { role: 'user', content: `Name: ${row.name}\nDescription: ${row.description}\nSource:\n${row.source}` }] }) });
+        const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, signal: controller ? controller.signal : undefined, body: JSON.stringify({ model, temperature: 0, thinking: { type: 'disabled' }, messages: [{ role: 'system', content: `${moderationPrompt}\n\n当前所有 .js 脚本都具有 console、ui、dialog、script、system；文件名和旧执行类型不决定能力，合法混用日志与 UI 不属于模式错误。\n\n只返回 JSON，不要使用 Markdown：{"decision":"approve|reject","reason":"简短说明"}` }, { role: 'user', content: `Name: ${row.name}\nDescription: ${row.description}\nSource:\n${row.source}` }] }) });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json(); const content = String(payload?.choices?.[0]?.message?.content || ''); const parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ''));
+        if (!sameMarketSnapshot(ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(scriptId), snapshot)) return null;
         if (parsed.decision !== 'approve' && parsed.decision !== 'reject') throw new Error('Invalid moderation decision');
         const decision = parsed.decision; const reason = String(parsed.reason || '').slice(0, 1000);
-        ctx.db.prepare(`INSERT INTO ${reviews} (script_id,model,decision,reason) VALUES (?, ?, ?, ?)`).run(scriptId, model, decision, reason);
-        return { decision, reason };
+        ctx.db.prepare(`INSERT INTO ${reviews} (script_id,model,decision,reason,content_hash) VALUES (?, ?, ?, ?, ?)`).run(scriptId, model, decision, reason, reviewContentHash(snapshot));
+        return { decision, reason, snapshot };
       } catch (error) { ctx.logger.warn({ scriptId, error: error.message }, 'LLM moderation failed; leaving script pending'); return null; }
       finally { if (timeout) clearTimeout(timeout); }
     };
@@ -424,7 +377,7 @@ module.exports = {
       const user = currentUser(req) || deviceUser(req);
       if (!user) return json(res, 401, { error: 'auth_required' });
       if (!hasCloudAccess(user)) return json(res, 403, { error: 'activation_required' });
-      const rows = ctx.db.prepare(`SELECT id,name,type,updated_at FROM ${scripts} WHERE user_id=? ORDER BY updated_at DESC`).all(user.id);
+      const rows = ctx.db.prepare(`SELECT id,name,updated_at FROM ${scripts} WHERE user_id=? ORDER BY updated_at DESC`).all(user.id);
       json(res, 200, { scripts: rows });
     });
     ctx.routes.frontend.get('/api/cloud/scripts/:id', (req, res) => {
@@ -433,7 +386,7 @@ module.exports = {
       if (!hasCloudAccess(user)) return json(res, 403, { error: 'activation_required' });
       const row = ctx.db.prepare(`SELECT * FROM ${scripts} WHERE id=? AND user_id=?`).get(Number(req.params.id), user.id);
       if (!row) return json(res, 404, { error: 'not_found' });
-      json(res, 200, { script: { id: row.id, name: row.name, type: row.type, updated_at: row.updated_at }, source: row.source, hash: row.hash, checksum: row.checksum });
+      json(res, 200, { script: { id: row.id, name: row.name, updated_at: row.updated_at }, source: row.source, hash: row.hash, checksum: row.checksum });
     });
     const writeScript = (req, res) => {
       const user = currentUser(req) || deviceUser(req);
@@ -442,16 +395,16 @@ module.exports = {
       if (!consume(`write:${user.id}`, 120, 60_000)) return json(res, 429, { error: 'rate_limited' });
       const source = sourceFromBody(req.body);
       const name = String(req.body?.name || '').trim();
-      if (!validSource(name, source)) return json(res, 400, { error: 'invalid_script' });
-      if (!validJavaScript(source)) return json(res, 400, { error: 'invalid_javascript' });
       const existing = req.params.id ? ctx.db.prepare(`SELECT * FROM ${scripts} WHERE id=? AND user_id=?`).get(Number(req.params.id), user.id) : null;
       if (req.params.id && !existing) return json(res, 404, { error: 'not_found' });
+      if (!validSource(name, source, existing && existing.name === name)) return json(res, 400, { error: 'invalid_script' });
+      if (!validJavaScript(source)) return json(res, 400, { error: 'invalid_javascript' });
       const insert = ctx.db.transaction(() => {
         if (!existing) {
-          const result = ctx.db.prepare(`INSERT INTO ${scripts} (user_id,name,type,source,hash,checksum) VALUES (?, ?, ?, ?, ?, ?)`).run(user.id, name, /\.ui\.js$/i.test(name) ? 'ui' : 'console', source, hash(source), checksum(source));
+          const result = ctx.db.prepare(`INSERT INTO ${scripts} (user_id,name,source,hash,checksum) VALUES (?, ?, ?, ?, ?)`).run(user.id, name, source, hash(source), checksum(source));
           return { id: result.lastInsertRowid };
         }
-        ctx.db.prepare(`UPDATE ${scripts} SET name=?,type=?,source=?,hash=?,checksum=?,updated_at=datetime('now') WHERE id=?`).run(name, /\.ui\.js$/i.test(name) ? 'ui' : 'console', source, hash(source), checksum(source), existing.id);
+        ctx.db.prepare(`UPDATE ${scripts} SET name=?,source=?,hash=?,checksum=?,updated_at=datetime('now') WHERE id=?`).run(name, source, hash(source), checksum(source), existing.id);
         return { id: existing.id };
       });
       let result;
@@ -479,6 +432,7 @@ module.exports = {
       json(res, 200, { id: row.id, deleted: true });
     };
     registerBrowserPages(ctx, {
+      assetsVersion,
       scripts, marketScripts, devices, pairings, entitlementFor, currentUser, escapeHtml, formatCredit,
       writeScript, deleteScript, redeemActivationCode, hash, log,
     });
@@ -545,7 +499,7 @@ module.exports = {
     });
     ctx.routes.frontend.get('/api/cloud/device/entitlements', requireDevice, (req, res) => {
       const user = deviceUser(req); const entitlement = entitlementFor(user.id);
-      json(res, 200, { entitlement: { cloudEnabled: entitlement.cloud_enabled === 1, aiEnabled: entitlement.ai_enabled === 1, aiCreditCents: Number(entitlement.ai_credit_cents) || 0 } });
+      json(res, 200, { runtimeContract: RUNTIME_CONTRACT, entitlement: { cloudEnabled: entitlement.cloud_enabled === 1, aiEnabled: entitlement.ai_enabled === 1, aiCreditCents: Number(entitlement.ai_credit_cents) || 0 } });
     });
     ctx.routes.frontend.post('/api/cloud/device/ai/generate', requireDevice, async (req, res) => {
       const user = deviceUser(req); const result = await generateAiSource(user, req.body || {});
@@ -554,11 +508,10 @@ module.exports = {
     });
     ctx.routes.frontend.get('/api/cloud/devices', ctx.users.requireAuth, (req, res) => { const user = currentUser(req); const rows = ctx.db.prepare(`SELECT id,name,last_used_at,created_at,revoked_at FROM ${devices} WHERE user_id=? ORDER BY id DESC`).all(user.id); json(res, 200, { devices: rows }); });
     ctx.routes.frontend.post('/api/cloud/devices/:id/revoke', ctx.users.requireAuth, ctx.security.csrfProtection, (req, res) => { const user = currentUser(req); const result = ctx.db.prepare(`UPDATE ${devices} SET revoked_at=datetime('now') WHERE id=? AND user_id=? AND revoked_at IS NULL`).run(Number(req.params.id), user.id); if (!result.changes) return json(res, 404, { error: 'not_found' }); log(user.id, 'device.revoke', String(req.params.id)); json(res, 200, { id: Number(req.params.id) }); });
-    ctx.routes.frontend.get('/api/cloud/market', (req, res) => { const q = `%${String(req.query.q || '').slice(0, 80)}%`; const rows = ctx.db.prepare(`SELECT id,name,type,description,tags,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(q, q); json(res, 200, { scripts: rows }); });
-    ctx.routes.frontend.get('/api/cloud/market/:id/source', (req, res) => { const row = ctx.db.prepare(`SELECT id,owner_user_id,name,type,description,tags,source,hash,checksum,updated_at FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id)); if (!row) return json(res, 404, { error: 'not_found' }); json(res, 200, { script: row }); });
+    ctx.routes.frontend.get('/api/cloud/market', (req, res) => { const q = `%${String(req.query.q || '').slice(0, 80)}%`; const rows = ctx.db.prepare(`SELECT id,name,description,tags,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(q, q); json(res, 200, { scripts: rows }); });
+    ctx.routes.frontend.get('/api/cloud/market/:id/source', (req, res) => { const row = ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,source,hash,checksum,updated_at FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id)); if (!row) return json(res, 404, { error: 'not_found' }); json(res, 200, { script: { ...row, filename: scriptFilename(row.name) } }); });
     ctx.routes.frontend.post('/api/cloud/market/:id/report', ctx.users.requireAuth, ctx.security.csrfProtection, (req, res) => { const user = currentUser(req); const reason = String(req.body?.reason || '').trim().slice(0, 500); if (!reason) return json(res, 400, { error: 'reason_required' }); const row = ctx.db.prepare(`SELECT id FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id)); if (!row) return json(res, 404, { error: 'not_found' }); ctx.db.prepare(`INSERT INTO ${reports} (script_id,user_id,reason) VALUES (?, ?, ?)`).run(row.id, user.id, reason); log(user.id, 'market.report', String(row.id)); if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`); json(res, 200, { reported: true, message: '举报已提交。' }); });
-    ctx.routes.frontend.post('/api/cloud/market/submit', ctx.users.requireAuth, ctx.security.csrfProtection, async (req, res) => {
-      const user = currentUser(req);
+    const submitMarket = async (req, res, user) => {
       if (!hasCloudAccess(user)) return json(res, 403, { error: 'activation_required', message: '请先激活云空间。' });
       const llmModeration = ctx.config.get('marketModerationMode') === 'llm';
       if (llmModeration && !consume(`market-review:${user.id}`, 6, 60_000)) return json(res, 429, { error: 'rate_limited', message: '提交审核过于频繁，请稍后重试。' });
@@ -567,10 +520,8 @@ module.exports = {
       if (sourceIssue) return json(res, 400, { error: 'market_source_rejected', reason: sourceIssue, message: '代码包含市场不允许的内容，请修改后重试。' });
       const marketId = Number(req.body?.marketId || 0);
       const marketName = String(req.body?.marketName || '').trim().slice(0, 124);
-      const marketType = req.body?.marketType === 'ui' || req.body?.marketType === 'console' ? req.body.marketType : '';
       const marketDescription = String(req.body?.marketDescription || '').trim().slice(0, 1000);
       if (!marketName) return json(res, 400, { error: 'name_required', message: '请填写市场名称。' });
-      if (!marketType) return json(res, 400, { error: 'type_required', message: '请选择脚本类型。' });
       if (!marketDescription) return json(res, 400, { error: 'description_required', message: '请填写市场说明。' });
       if (!source || Buffer.byteLength(source, 'utf8') > MAX_SOURCE) return json(res, 400, { error: 'invalid_script', message: '代码不能为空且不能超过 48 KiB。' });
       if (!validJavaScript(source)) return json(res, 400, { error: 'invalid_javascript', message: '代码存在 JavaScript 语法错误。' });
@@ -579,25 +530,33 @@ module.exports = {
       if (marketId) {
         const existing = ctx.db.prepare(`SELECT id,status,owner_user_id FROM ${marketScripts} WHERE id=? AND owner_user_id=?`).get(marketId, user.id);
         if (!existing) return json(res, 404, { error: 'not_found', message: '市场脚本不存在或无权编辑。' });
-        ctx.db.prepare(`UPDATE ${marketScripts} SET pending_name=?,pending_type=?,pending_description=?,pending_tags=?,pending_source=?,pending_hash=?,pending_checksum=?,pending_status='pending',updated_at=datetime('now') WHERE id=?`).run(marketName, marketType, marketDescription, marketTags, source, hash(source), checksum(source), marketId);
+        ctx.db.prepare(`UPDATE ${marketScripts} SET pending_name=?,pending_description=?,pending_tags=?,pending_source=?,pending_hash=?,pending_checksum=?,pending_status='pending',updated_at=datetime('now') WHERE id=?`).run(marketName, marketDescription, marketTags, source, hash(source), checksum(source), marketId);
         submittedId = marketId;
       } else {
-        const inserted = ctx.db.prepare(`INSERT INTO ${marketScripts} (owner_user_id,name,type,description,tags,source,hash,checksum,status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`).run(user.id,marketName,marketType,marketDescription,marketTags,source,hash(source),checksum(source));
+        const inserted = ctx.db.prepare(`INSERT INTO ${marketScripts} (owner_user_id,name,description,tags,source,hash,checksum,status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`).run(user.id,marketName,marketDescription,marketTags,source,hash(source),checksum(source));
         submittedId = inserted.lastInsertRowid;
       }
       log(user.id, 'market.submit', String(submittedId));
       let review = null;
       if (llmModeration) {
         review = await llmReview(submittedId);
-        if (review) applyMarketDecision(submittedId, review.decision);
+        if (review && !applyMarketDecision(submittedId, review.decision, review.snapshot)) review = null;
       }
       const current = ctx.db.prepare(`SELECT status,pending_status FROM ${marketScripts} WHERE id=?`).get(submittedId);
       const status = current?.pending_status === 'pending' || current?.pending_status === 'rejected' ? current.pending_status : current?.status || 'pending';
       if (req.body?._csrf && !wantsJson(req)) return res.redirect('/jslab-cloud/workspace?panel=publications');
-      return json(res, 200, { status, marketId: submittedId, review, message: '市场脚本已提交审核。' });
-    });
+      return json(res, 200, { status, marketId: submittedId, review: review && { decision: review.decision, reason: review.reason }, message: '市场脚本已提交审核。' });
+    };
+    ctx.routes.frontend.post('/api/cloud/market/submit', ctx.users.requireAuth, ctx.security.csrfProtection,
+      (req, res) => submitMarket(req, res, currentUser(req)));
+    ctx.routes.frontend.post('/api/cloud/device/market/submit', requireDevice,
+      (req, res) => submitMarket(req, res, deviceUser(req)));
     const renderAdminPage = (req, res, issued) => {
-      const rows = ctx.db.prepare(`SELECT s.id,COALESCE(s.pending_name,s.name) AS name,s.status,s.pending_status,(SELECT decision FROM ${reviews} r WHERE r.script_id=s.id ORDER BY r.id DESC LIMIT 1) AS llm_decision,(SELECT reason FROM ${reviews} r WHERE r.script_id=s.id ORDER BY r.id DESC LIMIT 1) AS llm_reason FROM ${marketScripts} s WHERE s.status IN ('pending','rejected') OR s.pending_status IN ('pending','rejected') ORDER BY s.updated_at`).all();
+      const rows = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE status IN ('pending','rejected') OR pending_status IN ('pending','rejected') ORDER BY updated_at`).all().map(row => {
+        const snapshot = marketSnapshot(row);
+        const review = ctx.db.prepare(`SELECT decision,reason FROM ${reviews} WHERE script_id=? AND content_hash=? ORDER BY id DESC LIMIT 1`).get(row.id, reviewContentHash(snapshot));
+        return { ...row, name: snapshot.name, llm_decision: review?.decision, llm_reason: review?.reason };
+      });
       const entitlementSummary = ctx.db.prepare(`SELECT COUNT(*) AS activated, COALESCE(SUM(ai_credit_cents), 0) AS credit_cents FROM ${entitlements} WHERE cloud_enabled=1 AND ai_enabled=1`).get();
       const usageSummary = ctx.db.prepare(`SELECT COALESCE(SUM(total_tokens),0) AS tokens,COALESCE(SUM(charged_cents),0) AS charged_cents FROM ${aiUsage}`).get();
       const reportRows = ctx.db.prepare(`SELECT r.id,r.reason,r.created_at,s.id AS script_id,s.name FROM ${reports} r JOIN ${marketScripts} s ON s.id=r.script_id ORDER BY r.id DESC LIMIT 20`).all();
@@ -607,7 +566,7 @@ module.exports = {
       const issuedCodes = issued && issued.codes && issued.codes.length
         ? `<div class="card jslab-cloud-admin-section"><div class="card-body"><h3 class="h5">已生成激活码</h3><p>请立即复制保存，系统只会保留激活码哈希。</p><textarea class="form-control font-monospace" rows="${Math.min(16, issued.codes.length + 1)}" readonly>${escapeHtml(issued.codes.join('\n'))}</textarea><p class="text-body-secondary mb-0">批次 ${escapeHtml(issued.batchId)} · 共 ${issued.codes.length} 个激活码。</p></div></div>`
         : '';
-      ctx.render.adminPage(req, res, `<link rel="stylesheet" href="/jslab-cloud/assets/jslab-cloud.css?v=${encodeURIComponent(ctx.manifest.version)}"><div class="jslab-cloud-admin"><div class="page-title"><div><h2>JSLab Cloud 管理</h2><p>管理账户激活、AI 用量和市场审核。</p></div></div><div class="jslab-cloud-admin-summary"><div><span>已激活账户</span><strong>${entitlementSummary.activated}</strong></div><div><span>剩余 AI 额度</span><strong>¥${formatCredit(entitlementSummary.credit_cents)}</strong></div><div><span>已计费 Token</span><strong>${Number(usageSummary.tokens).toLocaleString()}</strong></div><div><span>AI 费用</span><strong>¥${formatCredit(usageSummary.charged_cents)}</strong></div></div><div class="card jslab-cloud-admin-section"><div class="card-body"><h3 class="h5">批量生成激活码</h3><p class="text-body-secondary">首次兑换激活云空间和 AI，并赠送 ¥2.00；后续每个激活码增加 ¥3.00。</p><form method="post" action="/admin/jslab-cloud/activation-codes" class="jslab-cloud-inline-form"><input type="hidden" name="_csrf" value="${token}"><label class="visually-hidden" for="activation-count">生成数量</label><input id="activation-count" class="form-control" type="number" min="1" max="500" name="count" value="10" required><button class="btn btn-outline-primary">生成激活码</button></form></div></div>${issuedCodes}<div class="card jslab-cloud-admin-section"><div class="card-header"><h3 class="h5 mb-0">市场审核</h3></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>脚本</th><th>审核状态</th><th><span class="visually-hidden">操作</span></th></tr></thead><tbody>${items || '<tr><td colspan="3" class="text-body-secondary">暂无待审核脚本。</td></tr>'}</tbody></table></div></div><div class="card jslab-cloud-admin-section"><div class="card-header"><h3 class="h5 mb-0">最近举报</h3></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>脚本</th><th>原因</th><th>提交时间</th></tr></thead><tbody>${reportItems || '<tr><td colspan="3" class="text-body-secondary">暂无举报。</td></tr>'}</tbody></table></div></div></div>`, { page_title: 'JSLab Cloud 管理' });
+      ctx.render.adminPage(req, res, `<link rel="stylesheet" href="/jslab-cloud/assets/jslab-cloud.css?v=${assetsVersion}"><div class="jslab-cloud-admin"><div class="page-title"><div><h2>JSLab Cloud 管理</h2><p>管理账户激活、AI 用量和市场审核。</p></div></div><div class="jslab-cloud-admin-summary"><div><span>已激活账户</span><strong>${entitlementSummary.activated}</strong></div><div><span>剩余 AI 额度</span><strong>¥${formatCredit(entitlementSummary.credit_cents)}</strong></div><div><span>已计费 Token</span><strong>${Number(usageSummary.tokens).toLocaleString()}</strong></div><div><span>AI 费用</span><strong>¥${formatCredit(usageSummary.charged_cents)}</strong></div></div><div class="card jslab-cloud-admin-section"><div class="card-body"><h3 class="h5">批量生成激活码</h3><p class="text-body-secondary">首次兑换激活云空间和 AI，并赠送 ¥2.00；后续每个激活码增加 ¥3.00。</p><form method="post" action="/admin/jslab-cloud/activation-codes" class="jslab-cloud-inline-form"><input type="hidden" name="_csrf" value="${token}"><label class="visually-hidden" for="activation-count">生成数量</label><input id="activation-count" class="form-control" type="number" min="1" max="500" name="count" value="10" required><button class="btn btn-outline-primary">生成激活码</button></form></div></div>${issuedCodes}<div class="card jslab-cloud-admin-section"><div class="card-header"><h3 class="h5 mb-0">市场审核</h3></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>脚本</th><th>审核状态</th><th><span class="visually-hidden">操作</span></th></tr></thead><tbody>${items || '<tr><td colspan="3" class="text-body-secondary">暂无待审核脚本。</td></tr>'}</tbody></table></div></div><div class="card jslab-cloud-admin-section"><div class="card-header"><h3 class="h5 mb-0">最近举报</h3></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>脚本</th><th>原因</th><th>提交时间</th></tr></thead><tbody>${reportItems || '<tr><td colspan="3" class="text-body-secondary">暂无举报。</td></tr>'}</tbody></table></div></div></div>`, { page_title: 'JSLab Cloud 管理' });
     };
     ctx.routes.admin.get('/', ctx.users.requireAdmin, (req, res) => renderAdminPage(req, res));
     ctx.routes.admin.post('/activation-codes', ctx.users.requireAdmin, ctx.security.csrfProtection, (req, res) => {

@@ -32,7 +32,7 @@ function setPathValue(source, path, value) {
 
   for (let i = 0; i < segments.length - 1; i++) {
     const segment = segments[i];
-    if (!target[segment] || typeof target[segment] !== 'object') {
+    if (!target[segment] || typeof target[segment] !== 'object' || Array.isArray(target[segment])) {
       target[segment] = {};
     }
     target = target[segment];
@@ -52,7 +52,7 @@ function readConfigFile() {
           success: (data) => {
             try {
               const parsed = JSON.parse(data.text);
-              resolve(parsed && typeof parsed === 'object' ? parsed : {});
+              resolve(parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {});
             } catch (error) {
               console.error('Invalid configuration JSON:', error);
               resolve({});

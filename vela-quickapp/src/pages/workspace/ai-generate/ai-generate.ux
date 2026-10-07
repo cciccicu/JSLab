@@ -13,8 +13,8 @@
         <text class="item-title {{busy ? 'disabled-text' : ''}}">需求</text>
         <text class="item-description {{busy ? 'disabled-text' : ''}}">{{promptDescription}}</text>
       </div>
-      <div if="{{active}}" class="item action {{busy ? 'disabled-item' : 'primary'}}" @click="generate">
-        <text class="action-text {{busy ? 'disabled-text' : ''}}">{{busy ? '正在生成...' : '生成并填入编辑器'}}</text>
+      <div if="{{active}}" class="item action {{busy || loading ? 'disabled-item' : 'primary'}}" @click="generate">
+        <text class="action-text {{busy || loading ? 'disabled-text' : ''}}">{{busy ? '正在生成...' : loading ? '正在检查...' : '生成并填入编辑器'}}</text>
       </div>
       <div if="{{!active}}" class="item action disabled-item">
         <text class="action-text disabled-text">{{inactiveActionText}}</text>
@@ -22,54 +22,76 @@
     </scroll>
 
     <img static src="/common/images/hd.png" class="topbar" />
-    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
     <text class="time-text">{{nowTime}}</text>
-    <text class="title-text">AI生成</text>
+    <text class="title-text">AI 生成</text>
+    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
   </div>
 </template>
 
 <script>
 import app from '@system.app';
+import { RUNTIME_CONTRACT } from '../../../utils/runtime/runtimeContract.js';
 import cloudService from '../../../utils/cloud/cloudService.js';
 import { back } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
-
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 const MODE_OPTIONS = ['创作新脚本', '改写当前脚本'];
-
 export default {
   private: {
-    nowTime: '00:00', timer: null, paired: false, active: false, loading: false, busy: false,
-    mode: 'create', modeLabel: MODE_OPTIONS[0], prompt: '', promptDescription: '点击填写要实现的功能',
-    activationText: '正在检查激活状态', inactiveActionText: '正在检查服务状态', pageActive: true
+    nowTime: '00:00',
+    paired: false,
+    active: false,
+    loading: false,
+    initialized: false,
+    busy: false,
+    mode: 'create',
+    modeLabel: MODE_OPTIONS[0],
+    prompt: '',
+    promptDescription: '点击填写要实现的功能',
+    activationText: '正在检查激活状态',
+    inactiveActionText: '正在检查服务状态',
+    pageActive: true
   },
   onInit() {
     this.updateTime();
-    this.timer = setInterval(() => this.updateTime(), 60000);
   },
-  onShow() { this.loadEntitlement(); },
-  onDestroy() { this.pageActive = false; if (this.timer) clearInterval(this.timer); },
-  updateTime() { this.nowTime = getCurrentClock(); },
+  onShow() {
+    startPageClock(this);
+    if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
+    if (this.initialized) return;
+    this.initialized = true;
+    this.loadEntitlement();
+  },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this);
+    this.$app.$def.cancelOwnedDialog(this);
+    this.pageActive = false;
+  },
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
   loadEntitlement() {
     if (this.loading || this.busy) return;
     this.loading = true;
-    cloudService.getState().then((state) => {
+    cloudService.getState().then(state => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
       if (!state.paired) throw new Error('device_auth_required');
       return cloudService.getEntitlements();
-    }).then((entitlement) => {
+    }).then(entitlement => {
       if (!this.pageActive || !entitlement) return;
       this.loading = false;
+      if (entitlement.runtimeContract !== RUNTIME_CONTRACT) throw new Error('设备与云端运行契约不一致，请同步更新应用和云插件');
       this.active = entitlement.cloudEnabled && entitlement.aiEnabled;
       this.inactiveActionText = this.active ? '' : '请先在网页端激活';
-      this.activationText = this.active ? ('已激活，余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2)) : '未激活，请在网页端兑换激活码';
-    }).catch((error) => {
+      this.activationText = this.active ? '已激活，余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
+    }).catch(error => {
       if (!this.pageActive) return;
       this.loading = false;
       this.active = false;
       this.inactiveActionText = error && error.message === 'device_auth_required' ? '请先登录并配对设备' : cloudService.errorMessage(error, '检查 AI 服务状态');
-      this.activationText = error && error.message === 'device_auth_required' ? '请先在云设置页配对设备' : cloudService.errorMessage(error, '验证 AI 激活状态');
+      this.activationText = error && error.message === 'device_auth_required' ? '请先在云账户页配对设备' : cloudService.errorMessage(error, '验证 AI 激活状态');
     });
   },
   selectMode() {
@@ -77,13 +99,18 @@ export default {
     vibrate('short');
     this.$app.$def.openDialog('select', {
       title: '生成方式',
-      options: MODE_OPTIONS,
-      initialValue: this.modeLabel,
-      callbacks: { onSelect: label => this.setMode(label) }
+      items: [{label:MODE_OPTIONS[0],value:'create'},{label:MODE_OPTIONS[1],value:'rewrite'}],
+      value: this.mode
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        this.setMode(result.value);
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
   },
-  setMode(label) {
-    this.mode = label === MODE_OPTIONS[1] ? 'rewrite' : 'create';
+  setMode(mode) {
+    this.mode = mode === 'rewrite' ? 'rewrite' : 'create';
     this.modeLabel = this.mode === 'rewrite' ? MODE_OPTIONS[1] : MODE_OPTIONS[0];
   },
   editPrompt() {
@@ -91,9 +118,15 @@ export default {
     this.$app.$def.openDialog('text', {
       title: '脚本需求',
       message: '描述功能、输入和预期结果',
-      initialValue: this.prompt,
-      maxLength: 4000,
-      callbacks: { onConfirm: value => this.setPrompt(value) }
+      value: this.prompt,
+      maxLength: 4000
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        const value = result.value;
+        this.setPrompt(value);
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
   },
   setPrompt(value) {
@@ -101,32 +134,48 @@ export default {
     this.promptDescription = this.prompt || '点击填写要实现的功能';
   },
   generate() {
-    if (this.busy) return;
-    if (!this.paired) { showToast('请先在云设置页登录并配对设备'); return; }
-    if (!this.active) { showToast('请先在网页端激活 AI 功能'); return; }
-    if (!this.prompt) { showToast('请先填写脚本需求'); return; }
+    if (this.busy || this.loading) return;
+    if (!this.paired) {
+      showToast('请先在云账户页配对设备');
+      return;
+    }
+    if (!this.active) {
+      showToast('请先在网页端激活 AI 功能');
+      return;
+    }
+    if (!this.prompt) {
+      showToast('请先填写脚本需求');
+      return;
+    }
     const editor = this.$app.$def.editor;
-    if (!editor.name) { showToast('没有可写入的编辑器文件'); return; }
+    if (!editor.name) {
+      showToast('没有可写入的编辑器文件');
+      return;
+    }
     this.busy = true;
     const source = editor.before + editor.after;
-    this.getAiEnvironment().then((environment) => cloudService.generateAi(this.mode, this.prompt, source, editor.name, environment)).then((result) => {
+    this.getAiEnvironment().then(environment => cloudService.generateAi(this.mode, this.prompt, source, editor.name, environment)).then(result => {
       if (!this.pageActive) return;
       editor.before = result.code;
       editor.after = '';
       this.$app.$def.updateEditorCode(result.code);
       showToast('已生成，扣除 ¥' + ((Number(result.usage.chargedCents) || 0) / 100).toFixed(2));
       back();
-    }).catch((error) => {
+    }).catch(error => {
       if (!this.pageActive) return;
-      if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');
-      else if (error && error.message === 'ai_credit_insufficient') showToast('AI 余额不足，请在网页端充值');
-      else showToast(cloudService.errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
-    }).then(() => { if (this.pageActive) this.busy = false; });
+      if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');else if (error && error.message === 'ai_credit_insufficient') showToast('AI 余额不足，请在网页端充值');else showToast(cloudService.errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
+    }).then(() => {
+      if (this.pageActive) this.busy = false;
+    });
   },
   getAiEnvironment() {
     let appInfo = {};
-    try { appInfo = app.getInfo() || {}; } catch (error) { appInfo = {}; }
-    return cloudService.getState().then((state) => ({
+    try {
+      appInfo = app.getInfo() || {};
+    } catch (error) {
+      appInfo = {};
+    }
+    return cloudService.getState().then(state => ({
       platform: 'Xiaomi Vela JavaScript quick app',
       deviceType: 'watch',
       screenShape: 'rect',
@@ -134,8 +183,8 @@ export default {
       screenHeight: 480,
       designWidth: 336,
       minPlatformVersion: 1000,
-      appVersion: appInfo.versionName || '1.8.5',
-      editorVersion: 'v2-compatible-runtime',
+      appVersion: appInfo.versionName || '未知',
+      runtimeContract: RUNTIME_CONTRACT,
       transport: state.transport,
       fetchSupported: state.transport === 'fetch',
       manifestPackage: 'icu.ccicc.jslab',
@@ -144,13 +193,16 @@ export default {
       deviceInfoPermissionDeclared: true
     }));
   },
-  goBack() { vibrate('short'); back(); }
+  goBack() {
+    vibrate('short');
+    back();
+  }
 };
 </script>
 
 <style>
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
-.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 84px; flex-direction:column; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
 .item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; flex-shrink:0; justify-content:space-between; }
 .status-item { background-color:#1f3045; }
 .prompt-item { height:136px; }
@@ -159,9 +211,9 @@ export default {
 .action { justify-content:center; }
 .primary { background-color:#0D6EFF; }
 .disabled-item { background-color:#303030; }
-.action-text { width:284px; font-size:28px; line-height:36px; font-weight:bold; color:#ffffff; text-align:center; }
+.action-text { width:284px; font-size:28px; line-height:36px; font-weight:bold; color:#ffffff; text-align:center; lines:2; text-overflow:ellipsis; }
 .disabled-text { color:#8c8c8c; }
-.topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
+.topbar { position:absolute; left:0px; top:0px; width:336px; height:84px; }
 .back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }

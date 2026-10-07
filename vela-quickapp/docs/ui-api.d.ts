@@ -1,4 +1,4 @@
-// Optional editor reference for .ui.js files. This file has no runtime cost.
+// Editor reference for every JSLab .js script. This file has no runtime cost.
 type UiColor = string;
 type UiView = UiNode | string | number | false | null | undefined;
 interface UiNode { readonly kind: string; }
@@ -28,7 +28,7 @@ interface UiText extends UiBox {
   lines?: number;
   lineHeight?: number;
 }
-interface UiButton extends UiText { tone?: 'primary' | 'neutral' | 'danger'; }
+interface UiButton extends UiText { tone?: 'primary' | 'neutral' | 'danger'; disabled?: boolean; }
 interface UiControl extends UiBox {
   color?: UiColor;
   accent?: UiColor;
@@ -42,7 +42,9 @@ interface UiSignal<T> {
 }
 interface JSLabUi {
   readonly version: 2;
-  render(view: UiView | UiView[] | (() => UiView | UiView[])): void;
+  render(view: UiView | UiView[] | (() => UiView | UiView[])): boolean;
+  show(): boolean;
+  hide(): void;
   refresh(): void;
   signal<T>(initial: T): UiSignal<T>;
   setTitle(title: string): void;

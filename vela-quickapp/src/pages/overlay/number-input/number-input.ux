@@ -1,171 +1,103 @@
 <template>
-    <div class="page" style="flex-direction: column;">
-      <div class="item">
-        <text style="font-size: 24px;font-weight:bold;color: rgba(255, 255, 255, 0.6);width: 100%;text-align: center;">
-          {{ dialog.message || '请输入' }}
-        </text>
-        <text style="font-size: 36px;font-weight:bold;color: white;width: 100%;text-align: center;">
-          {{ inputVal }}
-        </text>
-      </div>
-  
-      <div class="row" style="top:209px">
-        <img src="/common/images/num_pad/7.png" @click="input('7')"/>
-        <img src="/common/images/num_pad/8.png" @click="input('8')"/>
-        <img src="/common/images/num_pad/9.png" @click="input('9')"/>
-      </div>
-      <div class="row" style="top:276px">
-        <img src="/common/images/num_pad/4.png" @click="input('4')"/>
-        <img src="/common/images/num_pad/5.png" @click="input('5')"/>
-        <img src="/common/images/num_pad/6.png" @click="input('6')"/>
-      </div>
-      <div class="row" style="top:343px">
-        <img src="/common/images/num_pad/1.png" @click="input('1')"/>
-        <img src="/common/images/num_pad/2.png" @click="input('2')"/>
-        <img src="/common/images/num_pad/3.png" @click="input('3')"/>
-      </div>
-      <div class="row" style="top:410px">
-        <img src="/common/images/num_pad/0.png" @click="input('0')"/>
-        <img src="/common/images/num_pad/del.png" @click="input('del')"/>
-      </div>
-
-      <img static src="/common/images/hd.png" class="topbar-bg" />
-      <text class="time-text">{{nowTime}}</text>
-      <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
-      <marquee if="{{dialog.title.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
-      <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
-      <img static src="/common/images/conform.png" class="btn btn-confirm" @click="onConfirm" />
+  <div class="page">
+    <div class="input-card">
+      <text class="note {{error ? 'error' : ''}}">{{error || dialog.message || '请输入数字'}}</text>
+      <text class="input-value number-value">{{inputValue || '空'}}_</text>
+      <text class="note">{{dialog.confirmText}}：右上角勾选</text>
     </div>
-  </template>
-  
-  <script>
-  import { back } from '../../../utils/core/routeManager.js';
-  import { getDialog, recoverInvalidDialog, settleDialog } from '../../../utils/core/dialogState.js';
-  import { vibrate } from '../../../utils/core/uiFeedback.js';
-  import { getCurrentClock } from '../../../utils/core/time.js';
-  
-  export default {
-    private: {
-      // 设置默认值，防止渲染错误
-      dialog: {
-        type: 'number',
-        title: '',
-        message: ''
-      },
-      inputVal: 0,
-      replaceOnInput: true,
-      nowTime: "00:00",
-      timer: null,
-      closing: false,
-      invalidState: false
-    },
-    updateTime() {
-      this.nowTime = getCurrentClock();
-    },
-    onInit() {
-      this.updateTime();
-      this.timer = setInterval(() => {
-        this.updateTime();
-      }, 60000);
-  
-      const dialog = getDialog(this.$app.$def, 'number', null);
-      if (dialog) {
-        this.dialog = dialog;
-        const initialValue = Number(dialog.initialValue);
-        if (!isNaN(initialValue) && initialValue >= 0) {
-          this.inputVal = Math.round(initialValue);
-        }
-      } else {
-        console.error('dialog_number: Global dialog state is invalid or missing.');
-        recoverInvalidDialog(this.$app.$def);
-        this.invalidState = true;
-      }
-    },
-    onReady() {
-      if (this.invalidState) back();
-    },
-    onDestroy(){
-      if (this.timer) clearInterval(this.timer);
-    },
-    onCancel() {
-      vibrate('short');
-      this.close('onCancel');
-    },
-    onConfirm() {
-      vibrate('short');
-      const num = parseInt(this.inputVal) || 0;
-      this.close('onConfirm', num);
-    },
-    input(key) {
-      vibrate('short');
-      if (key === 'del') {
-		if (this.replaceOnInput) {
-		  this.inputVal = 0;
-		  this.replaceOnInput = false;
-		  return;
-		}
-        let str = this.inputVal.toString();
-        if (str.length <= 1) {
-          this.inputVal = 0;
-        } else {
-          this.inputVal = parseInt(str.slice(0, -1));
-        }
-      } else if (key >= '0' && key <= '9') {
-		if (this.replaceOnInput) {
-		  this.inputVal = parseInt(key);
-		  this.replaceOnInput = false;
-		  return;
-		}
-        let newVal = this.inputVal.toString() + key;
-        if (newVal.length > 8) return;
-        let num = parseInt(newVal);
-        this.inputVal = num;
-      }
-    },
-    close(callbackName, value) {
-      if (this.closing) return;
-      this.closing = true;
-      settleDialog(this.$app.$def, this.dialog, callbackName, value);
-      back();
-    },
-    onBackPress() {
-      this.onCancel();
-      return true;
+    <div class="keys">
+      <div class="key-row">
+        <text class="key" @click="input('7')">7</text>
+        <text class="key" @click="input('8')">8</text>
+        <text class="key" @click="input('9')">9</text>
+      </div>
+      <div class="key-row">
+        <text class="key" @click="input('4')">4</text>
+        <text class="key" @click="input('5')">5</text>
+        <text class="key" @click="input('6')">6</text>
+      </div>
+      <div class="key-row">
+        <text class="key" @click="input('1')">1</text>
+        <text class="key" @click="input('2')">2</text>
+        <text class="key" @click="input('3')">3</text>
+      </div>
+      <div class="key-row">
+        <text class="key {{dialog.min >= 0 ? 'disabled' : ''}}" @click="input('-')">-</text>
+        <text class="key" @click="input('0')">0</text>
+        <text class="key {{dialog.decimals === 0 ? 'disabled' : ''}}" @click="input('.')">.</text>
+      </div>
+      <div class="key-row">
+        <text class="key key-wide" @click="input('clear')">清空</text>
+        <text class="key key-wide" @click="input('del')">退格</text>
+      </div>
+    </div>
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-text" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+    <img static src="/common/images/conform.png" class="btn btn-confirm" @click="onConfirm" />
+  </div>
+</template>
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+export default {
+  protected: { dialogId: '' },
+  private: { dialog:{id:'',type:'' ,title:'',message:'',confirmText:'确认',cancelText:'取消',secondaryText:''}, nowTime:'00:00', error:'', closing:false, invalid:false,inputValue:'', replaceOnInput:true },
+  onInit() {
+    const data=this.$app.$def.getDialog('number', this.dialogId);
+    if (!data) { this.invalid=true; return; }
+    this.dialog=data;
+    this.inputValue=data.value;
+    this.nowTime=getCurrentClock();
+  },
+  onReady() {
+    if (this.invalid) {
+      // Release only the request that opened this page, before native return.
+      this.$app.$def.dialogDestroyed({ id:this.dialogId });
+      this.closing=true; back();
     }
+  },
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this); this.$app.$def.dialogDestroyed(this.dialog);  },
+  close(action,value) {
+    if (this.closing || this.invalid) return;
+    this.closing=true; vibrate('short');
+    this.$app.$def.settleDialog(this.dialog,action,value); back();
+  },
+  onCancel() { this.close('cancel',null); },
+  onBackPress() { this.onCancel(); return true; },
+  input(key) {
+    vibrate('short'); this.error='';
+    if (key === 'clear') { this.inputValue=''; this.replaceOnInput=false; return; }
+    if (key === 'del') { this.inputValue=this.replaceOnInput ? '' : this.inputValue.slice(0,-1); this.replaceOnInput=false; return; }
+    if (key === '-' && this.dialog.min !== undefined && this.dialog.min >= 0) return;
+    if (key === '.' && this.dialog.decimals === 0) return;
+    if (this.replaceOnInput) { this.inputValue=''; this.replaceOnInput=false; }
+    if (key === '-') { this.inputValue=this.inputValue.charAt(0) === '-' ? this.inputValue.slice(1) : '-'+this.inputValue; return; }
+    if (key === '.' && this.inputValue.indexOf('.') >= 0) return;
+    const next=this.inputValue+key;
+    const parts=next.replace('-','').split('.');
+    if (parts[0].length > 15 || (parts[1] && parts[1].length > this.dialog.decimals)) { this.error='已达到位数限制'; return; }
+    this.inputValue=key === '.' && (this.inputValue === '' || this.inputValue === '-') ? this.inputValue+'0.' : next;
+  },
+  onConfirm() {
+    if (!this.inputValue) { if (this.dialog.required) { this.error='请输入数字'; return; } this.close('confirm',null); return; }
+    const value=Number(this.inputValue);
+    const fraction=this.inputValue.split('.')[1] || '';
+    if (!isFinite(value) || this.inputValue === '-' || fraction.length > this.dialog.decimals) { this.error='数字格式无效'; return; }
+    if ((this.dialog.min !== undefined && value < this.dialog.min) || (this.dialog.max !== undefined && value > this.dialog.max)) { this.error='数字超出允许范围'; return; }
+    this.close('confirm',value);
   }
-  </script>
-  
-  <style>
-  .page {
-    width: 336px;
-    height: 480px;
-    background-color: #000000;
-  }
-  
-  .item {
-    position: absolute;
-    left: 6px;
-    top: 86px;
-    width: 324px;
-    height: 115px;
-    border-radius: 36px;
-    flex-direction: column;
-    background-color: #262626;
-    justify-content: center;
-  }
-  
-  .row {
-    position:absolute;
-    width:336px;
-    height:64px;
-    padding:0px 6px;
-    justify-content: space-between;
-  }
-  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
-  .btn { position: absolute; top: 6px; width: 72px; height: 72px; }
-  .btn-back { left: 6px; }
-  .btn-confirm { left: 258px; }
-  .time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
-  .title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; text-overflow: ellipsis; lines: 1; }
-  .title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
-  </style>
+
+};
+</script>
+<style>
+@import "../../../common/styles/dialog.css";
+.input-card { height:102px; }
+.key-wide { width:160px; }
+</style>

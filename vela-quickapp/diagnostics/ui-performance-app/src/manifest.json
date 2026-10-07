@@ -1,0 +1,13 @@
+{
+  "package": "icu.ccicc.jslab.uiperf",
+  "name": "UI性能诊断",
+  "versionName": "1.0.2",
+  "versionCode": 3,
+  "minPlatformVersion": 1000,
+  "icon": "/common/logo.png",
+  "deviceTypeList": ["watch"],
+  "features": [{"name":"system.device"}, {"name":"system.brightness"}],
+  "config": {"logLevel":"log", "designWidth":336},
+  "display": {"backgroundColor":"#000000"},
+  "router": {"entry":"pages/index", "pages":{"pages/index":{"component":"index","path":"/"}}}
+}

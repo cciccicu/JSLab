@@ -1,6 +1,6 @@
 <template>
   <div class="page" style="flex-direction: column;">
-  
+
     <list bounces="true" class="list">
       <list-item for="{{(index, file) in fileList}}" tid="name" class="item {{selectedFileIndex === index ? 'item2' : ''}}"
         @click="selectFile(index)" type="nook">
@@ -9,26 +9,26 @@
         <text class="itemmeta">最终修改日期：{{file.modifiedText}}</text>
       </list-item>
     </list>
-  
+
     <img if="{{fileListReady && !fileListError && fileList.length == 0}}" src="/common/images/empty.png" class="empty-img" />
-    <text if="{{fileListError && fileList.length == 0}}" class="empty-text" @click="loadFileList">{{fileListErrorText}}</text>
-    <text elif="{{fileListReady && fileList.length == 0}}" class="empty-text">啥也没有</text>
+    <text if="{{fileListError && fileList.length == 0}}" class="empty-text error-state" @click="loadFileList">{{fileListErrorText}}</text>
+    <text elif="{{fileListReady && fileList.length == 0}}" class="empty-text">暂无脚本</text>
 
     <img static src="/common/images/hd.png" class="header-img" />
-    <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="exit" />
-    <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('settings')" />
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">JSLab</text>
-  
+    <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="exit" />
+    <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('settings')" />
+
     <!-- 底部按钮根据选择状态显示 -->
     <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" style="left: 6px;top: 402px;" class="btn" @click="routerTo('toolsMarket')"/>
     <img if="{{selectedFileIndex === -1}}" src="/common/images/cloud.png" style="left: 132px;top: 402px;" class="btn" @click="routerTo('settingsCloudFiles')"/>
     <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('newFile')"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn" @click="runcode"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" style="left: 90px;top: 402px;" class="btn {{cloudBusy ? 'disabled-icon' : ''}}" @click="uploadSelected"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 174px;top: 402px;" class="btn" @click="editcode"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn" @click="handleDeleteClick"/>
-  
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="runSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" style="left: 90px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="uploadSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 174px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="editSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="handleDeleteClick"/>
+
   </div>
 </template>
 
@@ -37,65 +37,60 @@ import app from '@system.app';
 import jsManager from '../../utils/files/jsManager.js';
 import { push } from '../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../utils/core/time.js';
-import { formatFileSize, formatModifiedDate, utf8ByteLength } from '../../utils/files/fileMetadata.js';
-import { getConfiguredEditorRoute } from '../../utils/editor/editorVersion.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../utils/core/time.js';
+import { formatFileSize, formatModifiedDate } from '../../utils/files/fileMetadata.js';
+import { utf8ByteLength } from '../../utils/files/textEncoding.js';
+import { getConfiguredEditorRoute } from '../../utils/editor/editorPreferences.js';
 import cloudService from '../../utils/cloud/cloudService.js';
 import { formatError } from '../../utils/core/userError.js';
-
 export default {
   private: {
     fileList: [],
     selectedFileIndex: -1,
     nowTime: "00:00",
-    timer: null,
     fileChangeUnsubscribe: null,
     cloudBusy: false,
+    fileActionBusy: false,
     pageActive: true,
+    pageVisible: false,
     fileListReady: false,
     fileListError: false,
     fileListErrorText: '脚本目录尚未读取，点击重新读取',
     fileListRequestId: 0
   },
-
   exit() {
     vibrate('short');
     app.terminate();
   },
-
   updateTime() {
     this.nowTime = getCurrentClock();
   },
-
   onInit() {
     this.updateTime();
     this.fileChangeUnsubscribe = jsManager.subscribe(() => {
-      this.loadFileList(true);
+      if (this.pageVisible) this.loadFileList(true);
     });
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 60000);
   },
-
+  onHide() { stopPageClock(this); this.pageVisible = false; },
   onDestroy() {
+    stopPageClock(this);
+    this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
-    clearInterval(this.timer);
     if (this.fileChangeUnsubscribe) {
       this.fileChangeUnsubscribe();
       this.fileChangeUnsubscribe = null;
     }
   },
-
   onShow() {
+    startPageClock(this);
+    this.pageVisible = true;
+    if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     this.loadFileList();
   },
-
   loadFileList(preserveSelection = false) {
     const requestId = this.fileListRequestId + 1;
     this.fileListRequestId = requestId;
-    const selectedName = preserveSelection && this.fileList[this.selectedFileIndex]
-      ? this.fileList[this.selectedFileIndex].name
-      : '';
+    const selectedName = preserveSelection && this.fileList[this.selectedFileIndex] ? this.fileList[this.selectedFileIndex].name : '';
     this.fileListError = false;
     jsManager.list().then(fileList => {
       if (!this.pageActive || requestId !== this.fileListRequestId) return;
@@ -103,9 +98,7 @@ export default {
         sizeText: formatFileSize(fileInfo.size),
         modifiedText: formatModifiedDate(fileInfo.lastModifiedTime)
       }));
-      this.selectedFileIndex = selectedName
-        ? this.fileList.findIndex(fileInfo => fileInfo.name === selectedName)
-        : -1;
+      this.selectedFileIndex = selectedName ? this.fileList.findIndex(fileInfo => fileInfo.name === selectedName) : -1;
       this.fileListReady = true;
       this.fileListError = false;
     }).catch(error => {
@@ -117,8 +110,8 @@ export default {
       showToast(formatError(error, '读取本地脚本目录'));
     });
   },
-
   selectFile(index) {
+    if (this.fileActionBusy || this.cloudBusy) return;
     vibrate('short');
     if (this.selectedFileIndex === index) {
       this.selectedFileIndex = -1;
@@ -126,119 +119,104 @@ export default {
       this.selectedFileIndex = index;
     }
   },
-
   routerTo(page) {
     vibrate('short');
     push(page);
   },
-
-  runcode() {
-    // 在这里直接使用震动API
+  runSelected() { this.openSelected('run'); },
+  editSelected() { this.openSelected('edit'); },
+  openSelected(action) {
+    if (this.fileActionBusy || this.cloudBusy) return;
     vibrate('short');
-    
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
       showToast('请先选择一个文件');
       return;
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
-    jsManager.read(fileName)
-      .then(content => {
-        this.$app.$def.openEditor(fileName, content, 'run');
-        this.$app.$def.openRunner(fileName, content);
-      })
-      .catch(error => {
-        console.error(`读取文件 ${fileName} 失败:`, error.message);
-        if (error.message.includes('301')) {
-          showToast(`文件 ${fileName} 不存在`);
-        } else {
-          showToast(formatError(error, '读取本地脚本 ' + fileName));
-        }
+    this.fileActionBusy = true;
+    jsManager.read(fileName).then(content => {
+      if (!this.pageActive || !this.pageVisible) return;
+      if (action === 'run') { this.$app.$def.openRunner(fileName, content); return; }
+      if (utf8ByteLength(content) > 48 * 1024) {
+        showToast('脚本超过 48 KiB，无法在手环编辑器中打开');
+        return;
+      }
+      return getConfiguredEditorRoute().catch(() => 'editor').then(route => {
+        if (!this.pageActive || !this.pageVisible) return;
+        this.$app.$def.openEditor(fileName, content);
+        push(route);
       });
+    }).catch(error => {
+      if (!this.pageActive || !this.pageVisible) return;
+      console.error(`读取文件 ${fileName} 失败:`, error.message);
+      showToast(formatError(error, '打开本地脚本 ' + fileName));
+    }).then(() => { if (this.pageActive) this.fileActionBusy = false; });
   },
-
-  editcode() {
-    // 在这里直接使用震动API
-    vibrate('short');
-    
-    if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
-      showToast('请先选择一个文件');
-      return;
-    }
-    const fileName = this.fileList[this.selectedFileIndex].name;
-    jsManager.read(fileName)
-      .then(content => {
-        if (utf8ByteLength(content) > 48 * 1024) {
-          showToast('脚本超过 48 KiB，无法在手环编辑器中打开');
-          return;
-        }
-        this.$app.$def.openEditor(fileName, content, 'edit');
-        getConfiguredEditorRoute().then(route => push(route)).catch(() => push('editor'));
-      })
-      .catch(error => {
-        console.error(`读取文件 ${fileName} 失败:`, error.message);
-        if (error.message.includes('301')) {
-          showToast(`文件 ${fileName} 不存在`);
-        } else {
-          showToast(formatError(error, '读取本地脚本 ' + fileName));
-        }
-      });
-  },
-
   uploadSelected() {
-    if (this.cloudBusy || this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) return;
+    if (this.cloudBusy || this.fileActionBusy || this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) return;
     vibrate('short');
     const file = this.fileList[this.selectedFileIndex];
     this.cloudBusy = true;
-    cloudService.getState().then((state) => {
+    cloudService.getState().then(state => {
       if (!state.paired) throw new Error('not_paired');
       return cloudService.getEntitlements();
-    }).then((entitlement) => {
+    }).then(entitlement => {
       if (!entitlement.cloudEnabled) throw new Error('activation_required');
       return cloudService.listCloudScripts();
-    }).then((scripts) => {
-      const existing = scripts.find((script) => script.name === file.name);
+    }).then(scripts => {
+      if (!this.pageActive) return;
+      const existing = scripts.find(script => script.name === file.name);
       this.cloudBusy = false;
       if (existing) {
-        const opened = this.$app.$def.openDialog('confirm', {
+        this.$app.$def.openDialog('confirm', {
           title: '云空间已有同名文件',
-          message: '上传会替换云空间中的当前内容，是否继续？',
-          callbacks: { onConfirm: () => this.performUpload(file.name) }
+          message: '上传会替换云空间中的当前内容，是否继续？'
+        }, this).then(result => {
+          if (result.action === "confirm") {
+            this.performUpload(file.name);
+          }
+        }).catch(error => {
+          showToast(error.message || "无法打开对话框");
         });
-        if (!opened) showToast('当前有其他操作待处理');
         return;
       }
       this.performUpload(file.name);
-    }).catch((error) => {
+    }).catch(error => {
+      if (!this.pageActive) return;
       this.cloudBusy = false;
       showToast(cloudService.errorMessage(error, '检查上传目标云空间'));
     });
   },
-
   performUpload(fileName) {
     if (this.cloudBusy) return;
     this.cloudBusy = true;
     cloudService.uploadScript(fileName).then(() => {
-      showToast('已上传 ' + fileName);
-    }).catch((error) => {
-      showToast(cloudService.errorMessage(error, '上传脚本 ' + fileName));
-    }).then(() => { this.cloudBusy = false; });
+      if (this.pageActive) showToast('已上传 ' + fileName);
+    }).catch(error => {
+      if (this.pageActive) showToast(cloudService.errorMessage(error, '上传脚本 ' + fileName));
+    }).then(() => {
+      if (this.pageActive) this.cloudBusy = false;
+    });
   },
-
   handleDeleteClick() {
+    if (this.cloudBusy || this.fileActionBusy) return;
     vibrate('short');
     if (this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) {
       showToast('请先选择一个文件');
       return;
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
-    const opened = this.$app.$def.openDialog('confirm', {
+    this.$app.$def.openDialog('confirm', {
       title: '删除本地文件',
-      message: '确认删除 ' + fileName + '？此操作不会删除云端文件。',
-      callbacks: { onConfirm: () => this.removeFile(fileName) }
+      message: '确认删除 ' + fileName + '？此操作不会删除云端文件。'
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        this.removeFile(fileName);
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
-    if (!opened) showToast('当前有其他操作待处理');
   },
-
   removeFile(fileName) {
     jsManager.remove(fileName).then(() => {
       if (this.pageActive) showToast(`文件 ${fileName} 已删除`, 500);
@@ -266,7 +244,7 @@ export default {
   left: 0px;
   top: 0px;
   width: 336px;
-  height: 102px;
+  height: 84px;
 }
 
 .time-text {
@@ -305,7 +283,7 @@ export default {
   position: absolute;
   top: 0px;
   left: 0px;
-  padding: 86px 6px 86px;
+  padding: 84px 6px 86px;
 }
 
 .item {
@@ -342,6 +320,8 @@ export default {
   color: white;
   text-align: center;
 }
+
+.error-state { left:18px; top:200px; width:300px; font-size:22px; line-height:30px; lines:6; text-overflow:ellipsis; }
 
 .itemtext {
   font-size: 28px;

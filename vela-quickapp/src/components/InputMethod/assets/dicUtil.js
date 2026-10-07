@@ -6,7 +6,7 @@ let SimpleInputMethod = {
 
 SimpleInputMethod.initDict = function() {
     this.dict.py2hz = dict;
-    this.dict.py2hz2 = {};
+    this.dict.py2hz2 = Object.create(null);
     this.dict.py2hz2['i'] = 'i'; // i比较特殊，没有符合的汉字，所以特殊处理
 
     for (let key in this.dict.py2hz) {
@@ -18,14 +18,14 @@ SimpleInputMethod.initDict = function() {
 };
 
 SimpleInputMethod.getSingleHanzi = function(pinyin){
-    return this.dict.py2hz2[pinyin] || this.dict.py2hz[pinyin] || '';
+    return this.dict.py2hz2[pinyin] ||
+        (Object.prototype.hasOwnProperty.call(this.dict.py2hz, pinyin) ? this.dict.py2hz[pinyin] : '');
 }
 
 SimpleInputMethod.getHanzi = function(pinyin) {
     let result = this.getSingleHanzi(pinyin);
     if (result) return [result.split(''), pinyin];
 
-    let temp = '';
     let start = Math.min(pinyin.length, 6);
 
     for (let i = start; i >= 1; i--) {

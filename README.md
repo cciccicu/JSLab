@@ -26,8 +26,8 @@ JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编�
 
 | 场景 | 能力 |
 | --- | --- |
-| 手环编程 | 创建、编辑、运行、保存、重命名和删除 `.js` / `.ui.js` 文件 |
-| 两种运行模式 | `.js` 使用 Console 模式；`.ui.js` 使用声明式 UI 模式。UI 脚本不注入 `console`，退出和提示统一使用 `script.exit()`、`script.toast()` |
+| 手环编程 | 创建、编辑、运行、保存、重命名和删除 `.js` 文件（已有 `.ui.js` 名字保留） |
+| 统一运行器 | 所有脚本注入 console/ui/dialog/script/system；UI 返回日志，轻点日志恢复；右上完整重载 |
 | 编辑体验 | V2 编辑器支持字体、字号、语法高亮和高亮阈值；大文件或高亮关闭时自动采用低节点文本渲染 |
 | 电脑协作 | AstroBox 插件支持脚本和字体的浏览、新建、编辑、上传、下载、重命名与删除，并提供分块传输和断线恢复 |
 | 云端工作区 | 云空间按网盘模型保存当前文件；仅在用户主动操作时上传或下载，不执行自动同步 |
@@ -98,7 +98,7 @@ cd ..\astrobox-plugin-sync
 ```powershell
 cd ..\ccicc-plugin-cloud\jslab-cloud
 npm test
-npm run pack -- .\ .\dist\jslab-cloud-0.5.0.zip
+npm run pack -- .\ .\dist\jslab-cloud-0.5.1.zip
 ```
 
 云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。
@@ -124,7 +124,8 @@ python -m pip install -r requirements.txt
 ## 文档
 
 - [项目架构与职责边界](docs/architecture.md)
-- [手环端 UI 模式 API](vela-quickapp/docs/UI_API.md)
+- [手环端 UI API](vela-quickapp/docs/UI_API.md)
+- [统一脚本运行契约](vela-quickapp/docs/runtime-api.md)
 - [手环端开发说明](vela-quickapp/README.md)
 - [AstroBox 同步插件](astrobox-plugin-sync/README.md)
 - [云端插件与市场](ccicc-plugin-cloud/README.md)

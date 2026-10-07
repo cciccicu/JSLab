@@ -1,19 +1,13 @@
 <script>
 import { push } from './utils/core/routeManager.js';
 import companionBridge from './utils/cloud/companionBridge.js';
-import { getExecutionRoute } from './utils/runtime/executionMode.js';
-import { createDialogRequest } from './utils/core/dialogState.js';
+
+import { openDialog as requestDialog, getDialog, settleDialog, deliverDialog, cancelOwnedDialog, closeOwnedDialog, dialogDestroyed } from './utils/core/dialogState.js';
 import configManager from './utils/core/configManager.js';
 
-const DIALOG_ROUTES = {
-  confirm: 'overlayConfirm',
-  select: 'overlaySelect',
-  number: 'overlayNumberInput',
-  text: 'overlayTextInput'
-};
-
 export default {
-  dialog: null,
+  runnerSource: null,
+  marketRefreshNeeded: false,
   editor: {
     name: '',
     code: '',
@@ -31,44 +25,23 @@ export default {
   },
 
   onDestroy() {
-    this.dialog = null;
+    this.runnerSource = null;
     companionBridge.stop();
   },
 
-  openDialog(type, options) {
-    const route = DIALOG_ROUTES[type];
-    if (!route) {
-      console.error('Unknown dialog type:', type);
-      return null;
-    }
+  openDialog(type, options, owner) { return requestDialog(type, options, owner); },
+  getDialog(type, id) { return getDialog(type, id); },
+  settleDialog(data, action, value) { return settleDialog(data, action, value); },
+  deliverDialog(owner) { return deliverDialog(owner); },
+  cancelOwnedDialog(owner) { return cancelOwnedDialog(owner); },
+  closeOwnedDialog(owner) { return closeOwnedDialog(owner); },
+  dialogDestroyed(data) { return dialogDestroyed(data); },
 
-    if (this.dialog) {
-      console.warn('Dialog is already active:', this.dialog.type);
-      return null;
-    }
-
-    const dialog = createDialogRequest(type, options);
-    this.dialog = dialog;
-    try {
-      push(route);
-      return dialog.id;
-    } catch (error) {
-      this.closeDialog(dialog.id);
-      throw error;
-    }
-  },
-
-  closeDialog(dialogId) {
-    if (!this.dialog || (dialogId && this.dialog.id !== dialogId)) return false;
-    this.dialog = null;
-    return true;
-  },
-
-  openEditor(name, code, mode) {
+  openEditor(name, code) {
     this.editor.name = name;
-    this.editor.code = mode === 'run' ? code : '';
+    this.editor.code = '';
     this.editor.before = '';
-    this.editor.after = mode === 'run' ? '' : code;
+    this.editor.after = code;
   },
 
   updateEditorCode(code) {
@@ -76,8 +49,9 @@ export default {
   },
 
   openRunner(name, code) {
-    this.editor.code = String(code || '');
-    push(getExecutionRoute(name));
+    this.runnerSource = { name: String(name || 'untitled.js'), code: String(code || '') };
+    try { push('run'); }
+    catch (error) { this.runnerSource = null; throw error; }
   }
 };
 </script>

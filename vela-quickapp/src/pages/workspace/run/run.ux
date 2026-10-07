@@ -1,0 +1,230 @@
+<template>
+  <div class="page">
+    <scroll id="ui-scroll" if="{{view === 'ui'}}" class="content" scroll-y="true" bounces="true">
+      <div class="content-inner" style="{{ { height: '' + (layoutHeight) + 'px' } }}">
+        <div if="{{uiNodes.length === 0}}" class="empty-card" style="{{ { top: '' + (contentTopPadding) + 'px' } }}">
+          <text class="empty-title">{{emptyTitle}}</text>
+          <text class="empty-detail">{{emptyDetail}}</text>
+        </div>
+        <div for="{{node in uiNodes}}" tid="id" class="node-wrap" style="{{ { left: '' + (node.x) + 'px', top: '' + (node.y) + 'px', width: '' + (node.width) + 'px', height: '' + (node.height) + 'px', backgroundColor: '' + (node.background), borderRadius: '' + (node.radius) + 'px' } }}">
+          <text if="{{node.kind === 'heading' || node.kind === 'text'}}" class="ui-text" style="{{ { color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', fontWeight: '' + (node.bold), textAlign: '' + (node.align), lines: '' + (node.lines) } }}">{{node.text}}</text>
+          <div elif="{{node.kind === 'button'}}" class="ui-button" @click="onButtonPress(node.id)">
+            <text class="ui-text" style="{{ { color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', lines: '' + (node.lines), fontWeight: '' + 'bold', textAlign: '' + 'center' } }}">{{node.text}}</text>
+          </div>
+          <div elif="{{node.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="{{ { width: '' + (node.copyWidth) + 'px' } }}">
+              <text class="control-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+              <text if="{{node.detail}}" class="control-detail" style="{{ { color: '' + (node.detailColor) } }}">{{node.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{node.checked}}" style="{{ { trackColor: '' + (node.accent), thumbColor: '' + (node.thumbColor) } }}" @change="onSwitchChange(node.id)"></switch>
+          </div>
+          <div elif="{{node.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+              <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{node.min}}" max="{{node.max}}" step="{{node.step}}" value="{{node.value}}" style="{{ { color: '' + (node.trackColor), selectedColor: '' + (node.accent), blockColor: '' + (node.thumbColor) } }}" onchange="onSliderChange(node.id)"></slider>
+          </div>
+          <div elif="{{node.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+              <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{node.percent}}" style="{{ { color: '' + (node.accent), layerColor: '' + (node.trackColor) } }}"></progress>
+          </div>
+          <qrcode elif="{{node.kind === 'qrcode'}}" value="{{node.value}}" style="{{ { width: '' + (node.qrSize) + 'px', height: '' + (node.qrSize) + 'px', color: '' + (node.color), backgroundColor: '' + (node.background) } }}"></qrcode>
+        </div>
+        <div if="{{error}}" class="error-card" style="{{ { top: '' + (errorTop) + 'px' } }}">
+          <text class="error-title">运行错误</text>
+          <text class="error-text">{{error}}</text>
+        </div>
+      </div>
+    </scroll>
+    <scroll if="{{view === 'console'}}" class="console-content" scroll-y="true" @click="restoreUi">
+      <text if="{{hasUi}}" class="console-hint">轻点日志返回界面</text>
+      <text if="{{!logText && !error}}" class="console-hint">暂无日志</text>
+      <text class="console-log">{{logText}}</text>
+      <text if="{{error}}" class="console-error">{{error}}</text>
+    </scroll>
+    <img if="{{showTopBar}}" static src="/common/images/hd.png" class="topbar-bg" />
+    <text if="{{showTopBar}}" class="time-text">{{nowTime}}</text>
+    <text if="{{showTopBar && pageTitle.length <= 5}}" class="title-text">{{pageTitle}}</text>
+    <marquee if="{{showTopBar && pageTitle.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{pageTitle}}</marquee>
+    <img if="{{showTopBar}}" static src="/common/images/back.png" class="btn btn-left-top" @click="onBack" />
+    <img if="{{showTopBar}}" static src="/common/images/rerun.png" class="btn btn-right-top" @click="reload" />
+  </div>
+</template>
+
+<script>
+import { back, replace } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+import { getPageElement, scheduleNextTick } from '../../../utils/core/runtimeCompat.js';
+import { createScriptRuntimeApi } from '../../../utils/runtime/scriptRuntimeApi.js';
+import { createUiSession } from '../../../utils/runtime/uiRuntime.js';
+import { createUiPublisher } from '../../../utils/runtime/uiPublisher.js';
+import { createConsoleBuffer, formatError } from '../../../utils/runtime/consoleBuffer.js';
+const runs = new WeakMap();
+export default {
+  private: {
+    nowTime:'00:00', view:'console', pageTitle:'脚本', showTopBar:true, hasUi:false,
+    contentTopPadding:84, uiNodes:[], emptyTitle:'空界面', emptyDetail:'脚本未提供显示组件',
+    error:'', logText:'', layoutHeight:480, contentEnd:84, errorTop:84
+  },
+  onInit() {
+    const start = this.$app.$def.runnerSource;
+    this.$app.$def.runnerSource = null;
+    const state = { active:true, visible:true, start:start || { name:'untitled.js', code:'' }, header:true, uiTitle:'脚本', publisher:createUiPublisher(), pending:null, logTimer:null, scroll:null };
+    runs.set(this, state);
+    state.logs = createConsoleBuffer(() => this.queueLogs());
+    state.session = createUiSession({
+      top:() => state.header ? 84 : 12,
+      title:value => { state.uiTitle=value; if (this.view === 'ui') this.pageTitle=value; },
+      header:value => { if (state.header === value) return false; state.header=value; if (this.view === 'ui') { this.showTopBar=value; this.contentTopPadding=value ? 84 : 12; } return true; },
+      show:() => this.showUi(), hide:() => this.showConsole(), scroll:value => this.requestScroll(value),
+      publish:(nodes,height,end,changed) => this.publishUi(nodes,height,end,changed),
+      error:error => this.reportError(error), clearError:() => this.clearRuntimeError()
+    });
+    state.session.setVisible(false);
+    this.updateTime();
+    this.pageTitle=state.start.name.slice(0,80);
+    const runtime=createScriptRuntimeApi(this.$app.$def, { name:state.start.name, owner:this,
+      isActive:() => state.active && !state.navigating && !state.pending, reload:() => this.reload(), exit:() => this.navigate('exit') });
+    try {
+      const execute=new Function('console','ui','dialog','script','system',state.start.code);
+      const result=execute(state.logs.console,state.session.ui,runtime.dialog,runtime.script,runtime.system);
+      if (result && typeof result.then === 'function') result.then(null,error => this.reportError(error));
+    } catch (error) { this.reportError(error); }
+    this.flushLogs();
+  },
+  onShow() {
+    startPageClock(this);
+    const state=runs.get(this); if (!state || !state.active) return;
+    state.visible=true; this.$app.$def.deliverDialog(this);
+    if (state.pending) { const action=state.pending; state.pending=null; this.navigate(action); return; }
+    state.session.setVisible(this.view === 'ui');
+    if (this.view === 'console') this.flushLogs();
+    this.updateTime();
+  },
+  onHide() {
+    stopPageClock(this);
+    const state=runs.get(this); if (!state) return;
+    state.visible=false; state.session.setVisible(false);
+    if (state.logTimer !== null) clearTimeout(state.logTimer); state.logTimer=null;
+  },
+  onDestroy() {
+    stopPageClock(this);
+    const state=runs.get(this); if (!state) return;
+    state.active=false; this.$app.$def.cancelOwnedDialog(this); state.session.dispose(); state.logs.dispose();
+    if (state.logTimer !== null) clearTimeout(state.logTimer);
+    runs.delete(this);
+  },
+  updateTime() { this.nowTime=getCurrentClock(); },
+  showUi() {
+    const state=runs.get(this); if (!state || !state.active || state.navigating || state.pending || !state.session.hasFrame()) return false;
+    const previousView=this.view;
+    this.view='ui'; this.pageTitle=state.uiTitle; this.showTopBar=state.header; this.contentTopPadding=state.header ? 84 : 12;
+    if (state.logTimer !== null) clearTimeout(state.logTimer); state.logTimer=null;
+    if (state.visible && state.session.setVisible(true) === false) {
+      if (previousView === 'console') this.showConsole();
+      return false;
+    }
+    this.hasUi=true;
+    return true;
+  },
+  showConsole() {
+    const state=runs.get(this); if (!state || !state.active || state.navigating || state.pending) return;
+    state.session.setVisible(false); this.view='console'; this.showTopBar=true; this.pageTitle=state.start.name.slice(0,80);
+    if (state.visible) this.flushLogs();
+  },
+  restoreUi() { const state=runs.get(this); if (state) state.session.ui.show(); },
+  onBack() { vibrate('short'); if (this.view === 'ui') this.showConsole(); else this.navigate('exit'); },
+  onBackPress() { this.onBack(); return true; },
+  reload() { this.navigate('reload'); },
+  navigate(action) {
+    const state=runs.get(this); if (!state || !state.active || state.navigating || state.pending) return;
+    state.pending=action;
+    try { if (this.$app.$def.closeOwnedDialog(this)) return; }
+    catch (error) { state.pending=null; this.reportError(error); return; }
+    state.pending=null;
+    state.navigating=true;
+    try {
+      if (action === 'reload') { this.$app.$def.runnerSource={ name:state.start.name, code:state.start.code }; replace('run'); }
+      else back();
+    } catch (error) { state.navigating=false; this.$app.$def.runnerSource=null; this.reportError(error); }
+  },
+  queueLogs() {
+    const state=runs.get(this); if (!state || !state.visible || this.view !== 'console' || state.logTimer !== null) return;
+    state.logTimer=setTimeout(() => { state.logTimer=null; this.flushLogs(); },32);
+  },
+  flushLogs() { const state=runs.get(this); if (state && state.active && state.visible && this.view === 'console') this.logText=state.logs.read(); },
+  reportError(error) {
+    const state=runs.get(this); if (!state || !state.active) return;
+    this.error=formatError(error); state.logs.console.error(this.error);
+    this.errorTop=this.uiNodes.length ? this.contentEnd : this.contentTopPadding+140;
+    if (this.view === 'ui') this.layoutHeight=Math.max(this.layoutHeight,this.errorTop+64+Math.ceil(this.error.length/12)*30);
+    else this.flushLogs();
+  },
+  clearRuntimeError() { if (!this.error) return false; this.error=''; return true; },
+  publishUi(nodes,height,end,changed) {
+    const state=runs.get(this); if (!state || !state.active) return;
+    if (changed) {
+      try { const next=state.publisher.update(nodes,this.uiNodes); if (next !== this.uiNodes) this.uiNodes=next; }
+      catch (error) { state.publisher=createUiPublisher(); throw error; }
+    }
+    this.contentEnd=end;
+    if (this.error) { this.errorTop=nodes.length ? end : this.contentTopPadding+140; height=Math.max(height,this.errorTop+64+Math.ceil(this.error.length/12)*30); }
+    this.layoutHeight=height;
+    if (state.scroll !== null) this.requestScroll(state.scroll);
+  },
+  requestScroll(value) {
+    const state=runs.get(this); if (!state) return; state.scroll=value;
+    if (!state.visible || this.view !== 'ui') return;
+    scheduleNextTick(this,() => {
+      if (!state.active || !state.visible || this.view !== 'ui' || state.scroll === null) return;
+      const element=getPageElement(this,'ui-scroll'); if (!element || !element.scrollTo) return;
+      const target=state.scroll; state.scroll=null;
+      element.scrollTo({ top:target === 'bottom' ? this.layoutHeight : target === 'top' ? 0 : Number(target)||0, left:0, behavior:'smooth' });
+    });
+  },
+  onButtonPress(id) { const state=runs.get(this); if (state && state.session.invoke(id)) vibrate('short'); },
+  onSwitchChange(id,event) { const data=event && event.detail ? event.detail : event; const state=runs.get(this); if (state) state.session.invoke(id,!!(data && data.checked)); },
+  onSliderChange(id,event) { const data=event && event.detail ? event.detail : event; if (data && data.isFromUser === false) return; const state=runs.get(this); if (state) state.session.invoke(id,Number(data && data.progress)||0); }
+};
+</script>
+
+<style>
+.page { width:336px; height:480px; overflow:hidden; background-color:#000000; }
+.content { width:336px; height:480px; flex-direction:column; }
+.content-inner { width:336px; flex-shrink:0; }
+.node-wrap { position:absolute; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; }
+.ui-text { width:100%; flex-shrink:0; text-overflow:ellipsis; }
+.ui-button { width:100%; height:100%; padding:0px 8px; justify-content:center; align-items:center; }
+.control-card { width:100%; height:100%; padding:12px 16px; flex-direction:row; align-items:center; }
+.control-copy { flex-direction:column; }
+.control-label { width:100%; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.control-detail { width:100%; font-size:20px; line-height:26px; lines:2; text-overflow:ellipsis; }
+.ui-switch { width:68px; margin-left:8px; }
+.value-card { width:100%; height:100%; padding:12px 16px; flex-direction:column; justify-content:center; }
+.value-header { width:100%; flex-direction:row; align-items:center; }
+.value-label { flex:1; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.value-text { font-size:21px; line-height:28px; font-weight:bold; margin-left:6px; }
+.ui-slider { width:100%; margin-top:8px; padding-left:0px; padding-right:0px; }
+.ui-progress { width:100%; margin-top:12px; stroke-width:12px; }
+.empty-card, .error-card { position:absolute; left:6px; width:324px; padding:16px 18px; border-radius:32px; background-color:#24262a; flex-direction:column; }
+.empty-title, .error-title { color:#ffffff; font-size:28px; line-height:36px; font-weight:bold; }
+.empty-detail { color:#999999; font-size:20px; line-height:28px; margin-top:6px; }
+.error-card { background-color:#3a2020; }
+.error-title, .error-text { color:#f48771; }
+.error-text { font-size:22px; line-height:30px; margin-top:8px; }
+.topbar-bg { position:absolute; left:0px; top:0px; width:336px; height:84px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; color:#999999; font-size:24px; font-weight:bold; text-align:center; }
+.title-text, .title-marquee { position:absolute; left:78px; top:35px; width:180px; line-height:42px; color:#ffffff; font-size:30px; font-weight:bold; text-align:center; }
+.btn { position:absolute; width:72px; height:72px; }
+.btn-left-top { left:6px; top:6px; }
+.btn-right-top { left:258px; top:6px; }
+.console-content { position:absolute; top:84px; left:6px; width:324px; height:396px; padding:12px 12px 24px; flex-direction:column; }
+.console-log { width:300px; font-size:22px; line-height:30px; color:#ffffff; flex-shrink:0; }
+.console-hint { width:300px; font-size:20px; line-height:28px; color:#999999; flex-shrink:0; margin-bottom:12px; }
+.console-error { width:300px; font-size:22px; line-height:30px; color:#f48771; flex-shrink:0; margin-top:12px; }
+</style>

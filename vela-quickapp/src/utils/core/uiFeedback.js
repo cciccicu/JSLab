@@ -6,17 +6,9 @@ export function vibrate(mode) {
 }
 
 export function showToast(message, duration) {
-  const options = { message };
-  if (duration !== undefined) options.duration = duration;
-  prompt.showToast(options);
+  const milliseconds = Number(duration);
+  prompt.showToast({
+    message: String(message == null ? '' : message),
+    duration: isFinite(milliseconds) ? Math.min(10000, Math.max(1500, milliseconds)) : 1500
+  });
 }
-
-export function getErrorMessage(error, fallback) {
-  return error && error.message ? error.message : fallback;
-}
-
-export default {
-  vibrate,
-  showToast,
-  getErrorMessage
-};

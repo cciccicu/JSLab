@@ -1,24 +1,24 @@
 <template>
   <div class="page">
     <scroll class="scroll" scroll-y="true">
-      <div if="{{loadError}}" class="item error-item {{busy ? 'disabled-item' : ''}}" @click="loadState">
-        <text class="item-title {{busy ? 'disabled-text' : ''}}">无法读取云账户</text>
-        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{loadErrorText}}</text>
+      <div if="{{loadError}}" class="item error-item {{busy || loading ? 'disabled-item' : ''}}" @click="loadState">
+        <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">无法读取云账户</text>
+        <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{loadErrorText}}</text>
       </div>
-      <div class="item transport-item {{busy ? 'disabled-item' : ''}}" @click="selectTransport">
-        <text class="item-title {{busy ? 'disabled-text' : ''}}">传输方式</text>
-        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{transportLabel}}</text>
+      <div class="item transport-item {{busy || loading ? 'disabled-item' : ''}}" @click="selectTransport">
+        <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">传输方式</text>
+        <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{transportLabel}}</text>
       </div>
       <div class="item device-item">
         <text class="item-title">当前设备</text>
         <text class="item-description">{{deviceName}}</text>
       </div>
-      <div if="{{paired}}" class="item status-item {{busy ? 'disabled-item' : ''}}" @click="loadState">
-        <text class="item-title {{busy ? 'disabled-text' : ''}}">JSLab Cloud 与 AI</text>
-        <text class="item-description {{busy ? 'disabled-text' : ''}}">{{activationText}}</text>
+      <div if="{{paired}}" class="item status-item {{busy || loading ? 'disabled-item' : ''}}" @click="loadState">
+        <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">JSLab Cloud 与 AI</text>
+        <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{activationText}}</text>
       </div>
-      <div if="{{!paired && !pairingCode}}" class="item action {{busy ? 'disabled-item' : ''}}" @click="startPairing">
-        <text class="action-text {{busy ? 'disabled-text' : ''}}">{{busy ? '正在生成...' : '生成配对二维码'}}</text>
+      <div if="{{!paired && !pairingCode}}" class="item action {{busy || loading ? 'disabled-item' : ''}}" @click="startPairing">
+        <text class="action-text {{busy || loading ? 'disabled-text' : ''}}">{{busy ? '正在生成...' : loading ? '正在读取账户...' : '生成配对二维码'}}</text>
       </div>
       <div if="{{pairingCode}}" class="pairing-card">
         <qrcode value="{{pairingQr}}" class="pairing-qr"></qrcode>
@@ -29,14 +29,14 @@
       <div if="{{paired && !activated && !loadError}}" class="item action disabled-item">
         <text class="action-text disabled-text">请在网页端激活云空间</text>
       </div>
-      <div if="{{paired}}" class="item action danger {{busy ? 'disabled-item' : ''}}" @click="logout">
-        <text class="action-text {{busy ? 'disabled-text' : ''}}">退出设备</text>
+      <div if="{{paired}}" class="item action danger {{busy || loading ? 'disabled-item' : ''}}" @click="logout">
+        <text class="action-text {{busy || loading ? 'disabled-text' : ''}}">退出设备</text>
       </div>
     </scroll>
     <img static src="/common/images/hd.png" class="header" />
-    <img static src="/common/images/back.png" class="back" @click="goBack" />
     <text class="time-text">{{nowTime}}</text>
     <text class="heading">云账户</text>
+    <img static src="/common/images/back.png" class="back" @click="goBack" />
   </div>
 </template>
 
@@ -44,25 +44,24 @@
 import { back } from '../../../utils/core/routeManager.js';
 import cloudService from '../../../utils/cloud/cloudService.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 import configManager from '../../../utils/core/configManager.js';
-import companionBridge from '../../../utils/cloud/companionBridge.js';
 import { getDeviceName } from '../../../utils/core/deviceInfo.js';
 import { formatError } from '../../../utils/core/userError.js';
-
 export default {
   private: {
     paired: false,
     activated: false,
     activationText: '请在网页端激活云空间与 AI',
     busy: false,
+    loading: false,
+    initialized: false,
     transport: 'fetch',
     transportLabel: 'fetch 直连',
     deviceName: '',
     loadError: false,
     loadErrorText: '云账户状态尚未读取，点击重新读取',
     nowTime: '00:00',
-    timer: null,
     pairingTimer: null,
     pairingCode: '',
     pairingQr: '',
@@ -72,29 +71,53 @@ export default {
     pairingPollError: false,
     pairingPollTick: 0,
     pageActive: true,
+    pageVisible: false,
     transportChangeId: 0
   },
   onInit() {
     this.updateTime();
-    this.timer = setInterval(() => this.updateTime(), 60000);
     this.loadDeviceName();
   },
-  onShow() { this.loadState(); },
+  onShow() {
+    startPageClock(this);
+    this.pageVisible = true;
+    if (this.pairingCode) {
+      if (Date.now() >= this.pairingExpiresAt) {
+        this.clearPairing();
+        showToast('配对码已过期，请重新生成');
+      } else this.pollPairing();
+    }
+    if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
+    if (this.initialized) return;
+    this.initialized = true;
+    this.loadState();
+  },
+  onHide() {
+    stopPageClock(this);
+    this.pageVisible = false;
+    if (this.pairingTimer) clearInterval(this.pairingTimer);
+    this.pairingTimer = null;
+  },
   onDestroy() {
+    stopPageClock(this);
+    this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
-    if (this.timer) clearInterval(this.timer);
+    this.pageVisible = false;
     if (this.pairingTimer) clearInterval(this.pairingTimer);
   },
-  updateTime() { this.nowTime = getCurrentClock(); },
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
   loadDeviceName() {
-    return getDeviceName().then((name) => {
+    return getDeviceName().then(name => {
       if (this.pageActive) this.deviceName = name;
       return name;
     });
   },
   loadState() {
-    if (this.busy) return;
-    cloudService.getState().then((state) => {
+    if (this.busy || this.loading) return;
+    this.loading = true;
+    cloudService.getState().then(state => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
       this.loadError = false;
@@ -105,11 +128,11 @@ export default {
         this.activationText = '配对后可在网页端激活';
         return null;
       }
-      return cloudService.getEntitlements().then((entitlement) => {
+      return cloudService.getEntitlements().then(entitlement => {
         if (!this.pageActive) return;
         this.activated = entitlement.cloudEnabled;
-        this.activationText = entitlement.cloudEnabled ? ('已激活，AI 余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2)) : '未激活，请在网页端兑换激活码';
-      }).catch((error) => {
+        this.activationText = entitlement.cloudEnabled ? '已激活，AI 余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
+      }).catch(error => {
         if (!this.pageActive) return;
         if (this.isAuthenticationExpired(error)) {
           this.paired = false;
@@ -123,7 +146,7 @@ export default {
         this.loadErrorText = cloudService.errorMessage(error, '读取云账户激活状态') + '，点击重新读取';
         this.activationText = cloudService.errorMessage(error, '验证云账户激活状态');
       });
-    }).catch((error) => {
+    }).catch(error => {
       if (!this.pageActive) return;
       if (this.isAuthenticationExpired(error)) {
         this.paired = false;
@@ -136,21 +159,25 @@ export default {
       this.activated = false;
       this.loadErrorText = cloudService.errorMessage(error, '读取云账户配置') + '，点击重新读取';
       this.activationText = cloudService.errorMessage(error, '读取云账户配置');
-    });
+    }).then(() => { if (this.pageActive) this.loading = false; });
   },
   isAuthenticationExpired(error) {
     return !!error && (error.status === 401 || error.message === 'device_auth_required');
   },
   startPairing() {
-    if (this.busy || this.pairingCode) return;
+    if (this.busy || this.loading || this.pairingCode) return;
     this.busy = true;
-    this.loadDeviceName().then((name) => cloudService.startPairing(name)).then((result) => {
+    this.loadDeviceName().then(name => cloudService.startPairing(name)).then(result => {
       if (!this.pageActive) return;
       this.pairingCode = result.code;
       this.pairingQr = result.qrValue;
       this.pairingExpiresAt = Date.now() + Number(result.expiresIn || 600) * 1000;
-      this.pollPairing();
-    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '生成配对二维码')); }).then(() => { if (this.pageActive) this.busy = false; });
+      if (this.pageVisible) this.pollPairing();
+    }).catch(error => {
+      if (this.pageActive) showToast(cloudService.errorMessage(error, '生成配对二维码'));
+    }).then(() => {
+      if (this.pageActive) this.busy = false;
+    });
   },
   pollPairing() {
     if (this.pairingTimer) clearInterval(this.pairingTimer);
@@ -160,7 +187,11 @@ export default {
     this.checkPairing();
     this.pairingTimer = setInterval(() => {
       if (!this.pairingCode) return;
-      if (Date.now() >= this.pairingExpiresAt) { this.clearPairing(); showToast('配对码已过期，请重新生成'); return; }
+      if (Date.now() >= this.pairingExpiresAt) {
+        this.clearPairing();
+        showToast('配对码已过期，请重新生成');
+        return;
+      }
       this.pairingPollTick += 1;
       if (this.pairingPollBusy) {
         this.updatePairingStatus('正在连接云端');
@@ -177,46 +208,54 @@ export default {
     this.pairingStatusText = prefix + ' · 剩余 ' + minutes + ':' + (rest < 10 ? '0' : '') + rest;
   },
   checkPairing() {
-    if (!this.pairingCode || this.pairingPollBusy) return;
+    if (!this.pageVisible || !this.pairingCode || this.pairingPollBusy) return;
     this.pairingPollBusy = true;
     const code = this.pairingCode;
-    cloudService.pollPairing(code).then((result) => {
-      if (!this.pageActive) return null;
+    cloudService.pollPairing(code).then(result => {
+      if (!this.pageActive || !this.pageVisible) return null;
       if (code !== this.pairingCode) return null;
       this.pairingPollError = false;
       if (result.status === 'claimed') {
         this.updatePairingStatus('网页已确认，正在完成配对');
         return cloudService.exchangePairing(code, this.deviceName).then(() => {
-          if (code !== this.pairingCode) return;
+          if (!this.pageActive || code !== this.pairingCode) return;
           this.clearPairing();
           showToast('配对成功');
           this.loadState();
         });
       }
-      if (result.status === 'expired' || result.status === 'used') { this.clearPairing(); showToast('配对码已失效，请重新生成'); }
-      else this.updatePairingStatus('等待网页确认');
+      if (result.status === 'expired' || result.status === 'used') {
+        this.clearPairing();
+        showToast('配对码已失效，请重新生成');
+      } else this.updatePairingStatus('等待网页确认');
       return null;
-    }).catch((error) => {
+    }).catch(error => {
       if (!this.pageActive) return;
       if (code === this.pairingCode) {
         this.pairingPollError = true;
         this.updatePairingStatus(cloudService.errorMessage(error, '查询配对确认状态'));
       }
-    }).then(() => { if (this.pageActive) this.pairingPollBusy = false; });
+    }).then(() => {
+      if (this.pageActive) this.pairingPollBusy = false;
+    });
   },
   cancelPairing() {
     if (!this.pairingCode) return;
-    const opened = this.$app.$def.openDialog('confirm', {
+    this.$app.$def.openDialog('confirm', {
       title: '取消配对？',
-      message: '当前配对码将立即失效，需要重新生成。',
-      callbacks: { onConfirm: () => this.confirmCancelPairing() }
+      message: '当前配对码将立即失效，需要重新生成。'
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        this.confirmCancelPairing();
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
-    if (!opened) showToast('当前有其他操作待处理');
   },
   confirmCancelPairing() {
     const code = this.pairingCode;
     this.clearPairing();
-    if (code) cloudService.cancelPairing(code).catch((error) => {
+    if (code) cloudService.cancelPairing(code).catch(error => {
       if (this.pageActive) showToast(cloudService.errorMessage(error, '通知云服务取消配对码'));
     });
   },
@@ -235,48 +274,56 @@ export default {
     return transport === 'interconnect' ? 'AstroBox 网络桥接' : 'fetch 直连';
   },
   selectTransport() {
-    if (this.busy) return;
+    if (this.busy || this.loading) return;
     vibrate('short');
-    const opened = this.$app.$def.openDialog('select', {
+    this.$app.$def.openDialog('select', {
       title: '传输方式',
       message: '选择云 API 的请求方式',
-      options: ['fetch 直连', 'AstroBox 网络桥接'],
-      initialValue: this.transportLabel,
-      callbacks: { onSelect: label => this.saveTransport(label) }
+      items: [{label:'fetch 直连',value:'fetch'},{label:'AstroBox 网络桥接',value:'interconnect'}],
+      value: this.transport
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        this.saveTransport(result.value);
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
-    if (!opened) showToast('当前有其他操作待处理');
   },
-  saveTransport(label) {
+  saveTransport(transport) {
     if (this.busy) return;
-    const transport = label === 'AstroBox 网络桥接' ? 'interconnect' : 'fetch';
     const changeId = this.transportChangeId + 1;
     this.transportChangeId = changeId;
     this.busy = true;
     configManager.set('cloud.transport', transport).then(() => {
       if (!this.pageActive || changeId !== this.transportChangeId) return;
-      if (transport === 'interconnect') companionBridge.start();
-      else companionBridge.stop();
       this.transport = transport;
       this.transportLabel = this.getTransportLabel(transport);
       this.busy = false;
       this.loadState();
       showToast('已切换为' + this.transportLabel);
-    }).catch((error) => { if (this.pageActive && changeId === this.transportChangeId) showToast(formatError(error, '保存云服务传输方式')); })
-      .then(() => { if (this.pageActive && changeId === this.transportChangeId) this.busy = false; });
+    }).catch(error => {
+      if (this.pageActive && changeId === this.transportChangeId) showToast(formatError(error, '保存云服务传输方式'));
+    }).then(() => {
+      if (this.pageActive && changeId === this.transportChangeId) this.busy = false;
+    });
   },
   logout() {
-    if (this.busy) return;
-    const opened = this.$app.$def.openDialog('confirm', {
+    if (this.busy || this.loading) return;
+    this.$app.$def.openDialog('confirm', {
       title: '退出当前设备？',
-      message: '退出后需要重新配对才能使用云空间和 AI。',
-      callbacks: { onConfirm: () => this.confirmLogout() }
+      message: '退出后需要重新配对才能使用云空间和 AI。'
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        this.confirmLogout();
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
-    if (!opened) showToast('当前有其他操作待处理');
   },
   confirmLogout() {
     if (this.busy) return;
     this.busy = true;
-    cloudService.logout().then((result) => {
+    cloudService.logout().then(result => {
       if (!this.pageActive) return;
       showToast(result && result.alreadyRevoked ? '设备已失效，本地已退出' : '已退出');
       this.paired = false;
@@ -285,16 +332,23 @@ export default {
       this.activationText = '配对后可在网页端激活';
       this.busy = false;
       this.loadState();
-    }).catch((error) => { if (this.pageActive) showToast(cloudService.errorMessage(error, '撤销当前设备并退出')); }).then(() => { if (this.pageActive) this.busy = false; });
+    }).catch(error => {
+      if (this.pageActive) showToast(cloudService.errorMessage(error, '撤销当前设备并退出'));
+    }).then(() => {
+      if (this.pageActive) this.busy = false;
+    });
   },
-  goBack() { vibrate('short'); back(); }
+  goBack() {
+    vibrate('short');
+    back();
+  }
 };
 </script>
 
 <style>
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
-.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 84px; flex-direction:column; }
-.header { position:absolute; left:0px; top:0px; width:336px; height:102px; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
+.header { position:absolute; left:0px; top:0px; width:336px; height:84px; }
 .back { position:absolute; left:6px; top:6px; width:72px; height:72px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }

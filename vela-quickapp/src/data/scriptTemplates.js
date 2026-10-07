@@ -1,6 +1,6 @@
 import ui2048Example from './examples/ui2048Example.js';
 
-export const CONSOLE_TEMPLATES = [
+const LOG_TEMPLATES = [
   {
     label: '空白脚本',
     content: ''
@@ -60,8 +60,8 @@ console.log('校验值:', result.checksum);`
   },
   {
     label: '用户输入',
-    content: `dialog.text({ title: '用户输入', message: '请输入你的名字', maxLength: 20 })
-  .then(name => console.log(name === null ? '已取消' : '你好，' + name + '！'))
+    content: `return dialog.text({ title: '用户输入', message: '请输入你的名字', maxLength: 20 })
+  .then(result => console.log(result.action === 'cancel' ? '已取消' : '你好，' + result.value + '！'))
   .catch(error => console.error(error.message));`
   },
   {
@@ -80,11 +80,7 @@ console.log('校验值:', result.checksum);`
   }
 ];
 
-export const UI_TEMPLATES = [
-  {
-    label: '空白脚本',
-    content: ''
-  },
+const UI_TEMPLATES = [
   {
     label: 'UI Hello World',
     content: `ui.render([
@@ -130,7 +126,7 @@ ui.render(() => [
 ]);`
   },
   {
-    label: 'UI 布局与二维码',
+    label: '布局与二维码',
     content: `const count = ui.signal(0);
 // 不变的组件可在渲染函数外构造。
 const qr = ui.qrcode('https://ccicc.icu', { id: 'site-qr', size: 160 });
@@ -145,16 +141,31 @@ ui.render(() => ui.column([
     ui.button('+1', () => count.update(value => value + 1), {
       id: 'add', background: '#176b45', color: '#ffffff'
     }),
-    ui.button('退出', () => script.exit(), { id: 'exit', background: '#34373d' })
+    ui.button('日志', () => ui.hide(), { id: 'exit', background: '#34373d' })
   ], { gap: 8 })
 ], { padding: 12, gap: 12, background: '#20242a', radius: 24 }));`
   },
   {
     label: 'UI 2048 游戏',
     content: ui2048Example
-  }
+  },
+  { label: '对话框与日志', content: `async function main() {
+  const number = await dialog.number({ title: '温度', value: -2.5, min: -20, max: 50, decimals: 1 });
+  console.log(number.action, number.value);
+  const choices = await dialog.select({ title: '多选', multiple: true, minSelected: 1,
+    items: [{ label: '游戏', value: 'game' }, { label: '工具', value: 'tool' }] });
+  console.log(choices.action, choices.value);
+}
+return main();` },
+  { label: '界面与日志切换', content: `ui.setTitle('界面与日志');
+ui.showHeader(false);
+const count = ui.signal(0);
+ui.render(() => [ui.heading('次数：' + count.get()),
+  ui.button('增加', () => { count.update(n => n + 1); console.log('次数', count.get()); }),
+  ui.button('查看日志', () => ui.hide()),
+  ui.button('完整重载', () => script.reload()),
+  ui.button('退出', () => script.exit())]);` }
 ];
 
-export function getTemplatesForMode(modeIndex) {
-  return modeIndex === 1 ? UI_TEMPLATES : CONSOLE_TEMPLATES;
-}
+export const SCRIPT_TEMPLATES = LOG_TEMPLATES.concat(UI_TEMPLATES);
+export function getTemplates() { return SCRIPT_TEMPLATES; }

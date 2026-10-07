@@ -11,45 +11,49 @@ function directory(id, title, summary, items) {
 }
 
 const START = [
-  document('guide-start', '新建、保存与运行', '从文件名选择脚本模式', '新建时选择文件名和模板。普通 .js 在 Console 运行页执行；以 .ui.js 结尾的文件在 UI 运行页执行。保存后从编辑器运行，修改后需要再次运行。', [
-    method('start-console', 'demo.js', 'Console 脚本适合计算、输出、输入和一次性任务。', "console.log('Hello, JSLab!')"),
-    method('start-ui', 'counter.ui.js', 'UI 脚本使用声明式组件构建可交互界面。', "ui.render([ui.heading('Hello'), ui.text('JSLab')])"),
-    method('start-switch-mode', '切换模式', '编辑器菜单会修改 .js / .ui.js 扩展名；切换后同步调整代码 API。', 'demo.js  ->  demo.ui.js')
-  ], '文件扩展名是唯一的模式依据，旧版首行模式注释无效。'),
-  document('guide-runtime', '运行时对象', '脚本只使用 JSLab 注入的对象', '所有脚本都可使用 script、dialog、system。Console 模式额外提供 console；UI 模式额外提供 ui，且没有 console。不要 import、require 或使用裸 Vela 模块。', [
-    method('runtime-common', 'script / dialog / system', '两个模式共用的 API。', "script.toast('已启动')"),
-    method('runtime-console', 'console', '仅普通 .js 可用，用于结果输出。', "console.log('结果：', 42)"),
-    method('runtime-ui', 'ui', '仅 .ui.js 可用，用于显示状态和操作。', "ui.render([ui.text('准备就绪')])")
-  ], 'UI 脚本请用 ui.text、ui.progress 或 script.toast 呈现状态与错误。')
+  document('guide-start','新建、保存与运行','统一 JavaScript 运行器','新建时选择名字和用途模板，默认 .js。创建后进入编辑器，关闭编辑器回到首页。所有编辑器的运行都使用当前编辑内容，不自动保存；保存请点保存按钮。Console 与 UI 是同一次执行的两个视图；旧 .ui.js 名字不改动。右上重载复用本次源码快照。',[
+    method('start-editor','编辑器操作','返回先关闭菜单、收起键盘或光标控制，再询问未保存修改。v2 右上角菜单提供 AI 生成、另存为和编辑器设置。'),
+    method('start-console','日志','计算和日志，无需 UI。',"console.log('Hello, JSLab!')"),
+    method('start-ui','界面与日志','所有脚本都可用 UI，同时可以输出日志。',"console.log('启动'); ui.render([ui.heading('Hello')])")
+  ]),
+  document('guide-runtime','运行时对象','console / ui / dialog / script / system','五个对象同时注入；不要 import、require 或使用裸 Vela 模块。页面初始化一次，UI/Console 切换和对话框恢复不重跑。',[
+    method('runtime-views','ui.show / ui.hide','成功 render 后轻点 Console 内容也能恢复 UI；UI 返回到 Console，Console 返回离开。','ui.hide(); ui.show();'),
+    method('runtime-reload','script.reload / script.exit','reload 原生替换页面重建本次运行；exit 直接退出。没有运行菜单、停止或页面内重跑。','script.reload()')
+  ],'顶层 await 无效，await 放在 async 函数中；return main() 可让宿主观察其拒绝。页替换不等于重启共享 JS context。')
 ];
-
 const SCRIPT_API = [
-  document('api-script-core', 'script', '文件信息、能力、退出和提示', 'script 是每次执行均可使用的脚本控制对象。', [
-    method('script-info', 'script.name / script.mode', '当前文件名及模式，mode 为 console 或 ui。', "if (script.mode === 'ui') script.toast(script.name)"),
-    method('script-capability', 'script.canUse(capability)', '检查可选系统模块或方法。', "if (script.canUse('@system.sensor.subscribeAccelerometer')) {\n  script.toast('支持加速度计')\n}"),
-    method('script-locale', 'script.locale()', '读取当前语言和地区。', "const locale = script.locale()"),
-    method('script-exit', 'script.exit()', '退出当前运行页。停止订阅、计时器、上传或媒体后再退出。', 'script.exit()'),
-    method('script-toast', 'script.toast(message, duration)', '显示 1500 至 10000 ms 的提示。', "script.toast('保存成功', 1500)")
+  document('api-script-core','script','文件信息、能力、重载、退出和提示','脚本控制对象。',[
+    method('script-info','script.name','实际文件名也是持久化命名空间。',"console.log(script.name)"),
+    method('script-capability','script.canUse(capability)','查询原生可选能力。',"script.canUse('@system.sensor.subscribeAccelerometer')"),
+    method('script-locale','script.locale()','语言及地区。','console.log(script.locale())'),
+    method('script-reload','script.reload()','与右上按钮共用完整页面重建，不重新读取磁盘。','script.reload()'),
+    method('script-exit','script.exit()','直接退出；自己的原生订阅/媒体任务仍应结束。','script.exit()'),
+    method('script-toast','script.toast(message,duration)','1500–10000ms 提示。',"script.toast('已保存')")
   ]),
-  document('api-script-data', 'script.data 与 script.config', '按脚本文件名隔离的持久化数据', '两者 API 相同，均返回 Promise。data 适合运行数据，config 适合用户设置；单值最多 16 KiB，每个区域最多 64 KiB。', [
-    method('script-store-get', 'get(key, fallback)', '读取值，缺失时返回 fallback。', "script.data.get('count', 0).then(value => {\n  script.toast('计数：' + value)\n})"),
-    method('script-store-set', 'set(key, value)', '保存 JSON 可序列化数据。', "script.config.set('unit', 'metric').catch(error => script.toast(error.message))"),
-    method('script-store-manage', 'delete / clear / all', '删除键、清空区域或读取全部数据。', "script.data.delete('count')")
+  document('api-console','console','有界日志','log/info/warn/error/clear；最多64条、合计6144字符、每条1024字符。隐藏 Console 只记录缓冲，错误前日志保留，不自动写文件。',[
+    method('console-output','log/info/warn/error','多参数、浅层对象预览；error 只是日志级别。',"console.log('结果',42)"),
+    method('console-clear','console.clear()','清空本次日志。','console.clear()')
   ]),
-  document('api-dialog', 'dialog', 'Console 与 UI 共用的输入对话框', '所有方法返回 Promise；同一时间只能打开一个对话框。用户取消不是错误，返回 null；无法显示或脚本退出才会 reject。', [
-    method('dialog-text', 'dialog.text(options)', '输入文本。', "dialog.text({ title: '名称', maxLength: 20 }).then(value => {\n  if (value !== null) script.toast(value)\n})"),
-    method('dialog-number', 'dialog.number(options)', '输入非负整数。', "dialog.number({ title: '数量', initialValue: 1 })"),
-    method('dialog-select', 'dialog.select(options)', '从短字符串数组选择。', "dialog.select({ title: '颜色', options: ['红色', '蓝色'] })"),
-    method('dialog-confirm', 'dialog.confirm(options)', '确认 true、拒绝 false、返回或取消 null。', "dialog.confirm({ title: '删除', message: '确定删除吗？' })")
-  ])
+  document('api-script-data','script.data 与 script.config','按文件名隔离','API 相同，都返回 Promise；单值16KiB，每区64KiB。',[
+    method('script-store-get','get(key,fallback)','读取或使用默认值。',"script.data.get('count',0).then(console.log)"),
+    method('script-store-set','set(key,value)','保存可序列化数据。',"script.config.set('unit','metric')"),
+    method('script-store-manage','delete/clear/all','删除键、清空或读取全部。',"script.data.delete('count')")
+  ]),
+  document('api-dialog','dialog','五种单项对话框','全部返回 Promise<{action,value}>；正常取消 action=cancel,value=null。先检查 action，空串、0、false 是有效业务值。同一时间一个，没有嵌套队列。',[
+    method('dialog-alert','dialog.alert','信息提示，确认值 null。',"dialog.alert({title:'完成',message:'已完成'})"),
+    method('dialog-confirm','dialog.confirm','可选 secondaryText；通过 action 区分三个动作。',"dialog.confirm({title:'保存？',confirmText:'保存',secondaryText:'不保存',cancelText:'继续编辑'}).then(r => console.log(r.action))"),
+    method('dialog-text','dialog.text','value/placeholder/required/minLength/maxLength/language；默认64，最大8000字符，不自动 trim。',"dialog.text({title:'名称',value:'测试',maxLength:100}).then(r => {if(r.action==='confirm') console.log(r.value)})"),
+    method('dialog-number','dialog.number','支持负数小数；required/min/max/decimals，默认6位小数，0为整数。',"dialog.number({title:'温度',value:-2.5,min:-20,max:50,decimals:1})"),
+    method('dialog-select','dialog.select','items 的 label/value 分开；支持 description/disabled、多选/数量约束，最多100项，原生列表连续滚动。',"dialog.select({items:[{label:'工具',value:'tool'},{label:'游戏',value:'game'}],multiple:true,minSelected:1})")
+  ],'无效参数 DIALOG_INVALID；已有对话框 DIALOG_BUSY；打开失败 DIALOG_OPEN_FAILED；退出来源 DIALOG_INACTIVE。结果在来源页面恢复后交付。')
 ];
 
 const UI_API = [
-  document('api-ui-runtime', 'ui 渲染与状态', 'UI API v2', 'UI 模式调用 ui.render 显示界面；用组件和 script.toast 显示结果。渲染函数保持纯函数，不在其中请求网络、创建计时器或更新状态。', [
+  document('api-ui-runtime', 'ui 渲染与状态', 'UI API v2', '所有脚本调用 ui.render 成功提交后显示界面；同时可输出 console 日志。渲染函数保持纯函数，不在其中请求网络、创建计时器或更新状态。', [
     method('ui-render', 'ui.render(view | factory)', '立即显示组件、数组或纯渲染函数的结果。null 和 false 不占位置。', "const count = ui.signal(0)\nui.render(() => [\n  ui.text('当前：' + count.get(), { lines: 1 }),\n  ui.button('增加', () => count.update(n => n + 1), { id: 'add' })\n])"),
     method('ui-refresh', 'ui.refresh()', '请求重绘；同一轮多次更新合并一次，不立即刷新。', 'ui.refresh()'),
     method('ui-signal', 'ui.signal(initial)', 'get/set/update 立即读写值。相同值或相同对象引用不刷新；对象请创建新对象。', "const state = ui.signal({ count: 0 })\nstate.update(old => ({ count: old.count + 1 }))"),
-    method('ui-page', 'setTitle / showHeader / scroll', '标题最多10字符；显示顶栏时内容从102px开始，隐藏后从12px开始。', "ui.setTitle('设置')\nui.showHeader(false)\nui.scrollTop()")
+    method('ui-page', 'setTitle / showHeader / scroll', '标题最多80字符；显示顶栏时内容从84px开始，隐藏后从12px开始。', "ui.setTitle('设置')\nui.showHeader(false)\nui.scrollTop()")
   ], '40个声明节点（含布局、buttonRow按钮，不含grid格子）；布局最多4层；展开后最多160个绘制节点；二维码最多2个。超限显示错误，不截断。id全页唯一、最长56字符且不能以$开头。'),
   document('api-ui-layout', '行、列与叠放', '少量布局描述，浅层渲染', '布局容器默认不生成原生节点。设置background才绘制背景。尺寸单位为设计像素，页面内容宽324px；默认根节点纵向间距10px。', [
     method('ui-row', 'ui.row(children, options)', '横向排列；未指定宽度的子项按flex分配剩余宽度，默认等分。', "ui.row([\n  ui.text('左', { width: 100, lines: 1 }),\n  ui.text('右', { lines: 1 })\n], { gap: 8, align: 'center' })"),
@@ -58,7 +62,7 @@ const UI_API = [
     method('ui-size', 'width / height / gap / padding', 'width支持像素或百分比；height为像素。gap默认8、范围0–48；padding为统一内边距0–48。背景用background，圆角用radius。', "ui.column([ui.text('居中', { width: '60%', lines: 1 })], { align: 'center' })"),
     method('ui-align', 'align / justify / flex', '布局align支持start/center/end；justify还支持between。row按高度对齐，column按宽度对齐；justify分配剩余主轴空间。flex只分配row子项的剩余宽度。', "ui.row([ui.text('1', { flex: 1, lines: 1 }), ui.text('2', { flex: 2, lines: 1 })])")
   ], '不支持CSS、递归原生组件或自动换行row。布局height不会压缩内容；叶子height会裁剪内容。短标签推荐lines:1；自动文本高度采用保守估算，精确面板显式设置lines/lineHeight。'),
-  document('api-ui-components', '组件与颜色', '现有组件 + 二维码', '交互仅支持原来的点击和数值变化；不增加disabled/busy/长按。使用状态判断阻止重复操作，用背景色和文字色表达状态。', [
+  document('api-ui-components', '组件与颜色', '现有组件 + 二维码', '交互使用原生点击和数值变化；按钮 disabled 排除回调并显示禁用样式。', [
     method('ui-text', 'heading / text', 'size为16–36；color文字色；align为left/center/right；支持bold、lines、lineHeight及通用宽高背景。', "ui.text('正文', { lines: 2, color: '#abc', lineHeight: 32 })"),
     method('ui-action', 'button / buttonRow', '按钮color控制文字、background控制背景。tone仍支持primary/neutral/danger。buttonRow最多4项，子按钮id有效。', "ui.button('操作', run, { id: 'run', background: '#176b45', color: '#fff' })"),
     method('ui-input', 'switch / slider', 'color为标题色、background为卡片背景、accent为滑轨强调色、thumbColor为滑块色。slider另有trackColor、min/max/step；switch另有detail/detailColor。最小宽160px。', "ui.switch('启用', true, value => script.toast(String(value)), { id: 'enabled', accent: '#176b45' })"),
@@ -123,12 +127,12 @@ const SYSTEM_API = [
 const CLOUD = document('guide-cloud', '云端文件与 JS 市场', '手动上传、下载与市场脚本', '云空间只保存当前文件。手环生成一次性配对码和二维码，用户在 ccicc.icu 的网页确认；设备不会保存主站密码。', [
   method('cloud-pair', '手环发起配对', '在云账户生成配对码或二维码，再在网页确认。', '云账户 -> 生成配对码 -> 网页确认'),
   method('cloud-files', '云空间', '从本地文件操作中手动上传，或从云端文件手动下载。', '同名上传会替换云端当前内容'),
-  method('cloud-market', 'JS 市场', '市场脚本只下载到本地；发布在网页端完成。', '下载同名文件前确认覆盖')
+  method('cloud-market', 'JS 市场', '市场右上角可选择本地脚本，填写名称、说明与标签后提交审核；市场脚本也可下载到本地。', '下载同名文件前确认覆盖')
 ]);
 
 export const HELP_ROOT = [
-  directory('getting-started', '快速开始', '创建、运行与模式选择', START),
-  directory('script-api', 'JSLab 脚本 API', 'script、dialog 与 UI', SCRIPT_API.concat([directory('ui-api', 'UI API', '仅 UI 模式的界面组件', UI_API)])),
+  directory('getting-started', '快速开始', '创建、运行与视图切换', START),
+  directory('script-api', 'JSLab 脚本 API', 'script、dialog 与 UI', SCRIPT_API.concat([directory('ui-api', 'UI API', '所有脚本可用的界面组件', UI_API)])),
   directory('system-api', '系统 API', '统一从 system 访问 Vela 能力', SYSTEM_API),
   directory('tools-support', '工具与云端', '云端文件与市场', [CLOUD])
 ];

@@ -11,6 +11,7 @@ const ERROR_MESSAGES = Object.freeze({
   pairing_unavailable: '配对码已经确认、使用或过期，不能再次确认。',
   invalid_activation_code: '激活码格式错误、已使用或不存在。',
   invalid_activation: '激活码无效或已经使用。',
+  runtime_contract_mismatch: '设备与云端的脚本运行契约不一致，请同步更新应用和云插件；本次未调用模型或计费。',
   invalid_ai_request: 'AI 请求缺少有效的生成模式、需求说明或脚本内容。',
   ai_not_configured: '服务器尚未配置代码生成 AI 的地址、密钥或模型。',
   ai_credit_insufficient: '账户的 AI 余额不足以完成本次生成。',
@@ -24,7 +25,6 @@ const ERROR_MESSAGES = Object.freeze({
   reason_required: '举报原因不能为空。',
   market_source_rejected: '脚本包含市场不允许发布的内容。',
   name_required: '市场名称不能为空。',
-  type_required: '必须选择脚本类型。',
   description_required: '市场说明不能为空。'
 });
 

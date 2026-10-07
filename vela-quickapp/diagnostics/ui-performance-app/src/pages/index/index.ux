@@ -1,0 +1,1051 @@
+<template>
+  <div class="page">
+    <scroll if="{{!running && !resultVisible}}" class="menu" scroll-y="true">
+      <div class="menu-inner">
+        <text class="title">UI 性能诊断 v5</text>
+        <text class="description">比较字符串与对象样式。测试时保持常亮，结束恢复。自动测试期间不要点击。约 1–3 分钟。</text>
+        <div class="action" @click="start"><text class="action-text">开始自动测试</text></div>
+        <div class="action secondary" @click="startManual"><text class="action-text">手动点击 A/B</text></div>
+        <div if="{{hasResults}}" class="action secondary" @click="showResults"><text class="action-text">查看结果（拍照）</text></div>
+        <text class="description">{{status}}</text>
+      </div>
+    </scroll>
+    <scroll if="{{running}}" class="content" scroll-y="true" bounces="true">
+      <div class="content-inner">
+        <div if="{{!lean && !fixed && !objectStyles}}" class="surface">
+        <div for="{{node in uiNodes}}" tid="id" class="node-wrap" style="left: {{node.x}}px; top: {{node.y}}px; width: {{node.width}}px; height: {{node.height}}px; background-color: {{node.background}}; border-radius: {{node.radius}}px;">
+          <text if="{{node.kind === 'heading' || node.kind === 'text'}}" class="ui-text" style="color: {{node.color}}; font-size: {{node.size}}px; line-height: {{node.lineHeight}}px; font-weight: {{node.bold}}; text-align: {{node.align}}; lines: {{node.lines}};">{{node.text}}</text>
+          <div elif="{{node.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{node.color}}; font-size: {{node.size}}px; line-height: {{node.lineHeight}}px; lines: {{node.lines}}; font-weight: bold; text-align: center;">{{node.text}}</text>
+          </div>
+          <div elif="{{node.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{node.copyWidth}}px;">
+              <text class="control-label" style="color: {{node.color}};">{{node.text}}</text>
+              <text if="{{node.detail}}" class="control-detail" style="color: {{node.detailColor}};">{{node.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{node.checked}}" style="track-color: {{node.accent}}; thumb-color: {{node.thumbColor}};"></switch>
+          </div>
+          <div elif="{{node.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{node.color}};">{{node.text}}</text>
+              <text class="value-text" style="color: {{node.accent}};">{{node.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{node.min}}" max="{{node.max}}" step="{{node.step}}" value="{{node.value}}" style="color: {{node.trackColor}}; selected-color: {{node.accent}}; block-color: {{node.thumbColor}};"></slider>
+          </div>
+          <div elif="{{node.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{node.color}};">{{node.text}}</text>
+              <text class="value-text" style="color: {{node.accent}};">{{node.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{node.percent}}" style="color: {{node.accent}}; layer-color: {{node.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{node.kind === 'qrcode'}}" value="{{node.value}}" style="width: {{node.qrSize}}px; height: {{node.qrSize}}px; color: {{node.color}}; background-color: {{node.background}};"></qrcode>
+        </div>
+        </div>
+        <div if="{{objectStyles}}" class="surface">
+        <!-- OBJECT_NODES_START -->
+        <div for="{{node in uiNodes}}" tid="id" class="node-wrap" style="{{ { left: '' + (node.x) + 'px', top: '' + (node.y) + 'px', width: '' + (node.width) + 'px', height: '' + (node.height) + 'px', backgroundColor: '' + (node.background), borderRadius: '' + (node.radius) + 'px' } }}">
+          <text if="{{node.kind === 'heading' || node.kind === 'text'}}" class="ui-text" style="{{ { color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', fontWeight: '' + (node.bold), textAlign: '' + (node.align), lines: '' + (node.lines) } }}">{{node.text}}</text>
+          <div elif="{{node.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="{{ { color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', lines: '' + (node.lines), fontWeight: '' + 'bold', textAlign: '' + 'center' } }}">{{node.text}}</text>
+          </div>
+          <div elif="{{node.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="{{ { width: '' + (node.copyWidth) + 'px' } }}">
+              <text class="control-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+              <text if="{{node.detail}}" class="control-detail" style="{{ { color: '' + (node.detailColor) } }}">{{node.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{node.checked}}" style="{{ { trackColor: '' + (node.accent), thumbColor: '' + (node.thumbColor) } }}"></switch>
+          </div>
+          <div elif="{{node.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+              <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{node.min}}" max="{{node.max}}" step="{{node.step}}" value="{{node.value}}" style="{{ { color: '' + (node.trackColor), selectedColor: '' + (node.accent), blockColor: '' + (node.thumbColor) } }}"></slider>
+          </div>
+          <div elif="{{node.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+              <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{node.percent}}" style="{{ { color: '' + (node.accent), layerColor: '' + (node.trackColor) } }}"></progress>
+          </div>
+          <qrcode elif="{{node.kind === 'qrcode'}}" value="{{node.value}}" style="{{ { width: '' + (node.qrSize) + 'px', height: '' + (node.qrSize) + 'px', color: '' + (node.color), backgroundColor: '' + (node.background) } }}"></qrcode>
+        </div>
+        <!-- OBJECT_NODES_END -->
+        </div>
+        <div if="{{fixed && fixedReady}}" class="surface">
+        <!-- FIXED_NODES_START -->
+        <div class="node-wrap" style="left: {{slot0.x}}px; top: {{slot0.y}}px; width: {{slot0.width}}px; height: {{slot0.height}}px; background-color: {{slot0.background}}; border-radius: {{slot0.radius}}px;">
+          <text if="{{slot0.kind === 'heading' || slot0.kind === 'text'}}" class="ui-text" style="color: {{slot0.color}}; font-size: {{slot0.size}}px; line-height: {{slot0.lineHeight}}px; font-weight: {{slot0.bold}}; text-align: {{slot0.align}}; lines: {{slot0.lines}};">{{slot0.text}}</text>
+          <div elif="{{slot0.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot0.color}}; font-size: {{slot0.size}}px; line-height: {{slot0.lineHeight}}px; lines: {{slot0.lines}}; font-weight: bold; text-align: center;">{{slot0.text}}</text>
+          </div>
+          <div elif="{{slot0.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot0.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot0.color}};">{{slot0.text}}</text>
+              <text if="{{slot0.detail}}" class="control-detail" style="color: {{slot0.detailColor}};">{{slot0.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot0.checked}}" style="track-color: {{slot0.accent}}; thumb-color: {{slot0.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot0.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot0.color}};">{{slot0.text}}</text>
+              <text class="value-text" style="color: {{slot0.accent}};">{{slot0.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot0.min}}" max="{{slot0.max}}" step="{{slot0.step}}" value="{{slot0.value}}" style="color: {{slot0.trackColor}}; selected-color: {{slot0.accent}}; block-color: {{slot0.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot0.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot0.color}};">{{slot0.text}}</text>
+              <text class="value-text" style="color: {{slot0.accent}};">{{slot0.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot0.percent}}" style="color: {{slot0.accent}}; layer-color: {{slot0.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot0.kind === 'qrcode'}}" value="{{slot0.value}}" style="width: {{slot0.qrSize}}px; height: {{slot0.qrSize}}px; color: {{slot0.color}}; background-color: {{slot0.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot1.x}}px; top: {{slot1.y}}px; width: {{slot1.width}}px; height: {{slot1.height}}px; background-color: {{slot1.background}}; border-radius: {{slot1.radius}}px;">
+          <text if="{{slot1.kind === 'heading' || slot1.kind === 'text'}}" class="ui-text" style="color: {{slot1.color}}; font-size: {{slot1.size}}px; line-height: {{slot1.lineHeight}}px; font-weight: {{slot1.bold}}; text-align: {{slot1.align}}; lines: {{slot1.lines}};">{{slot1.text}}</text>
+          <div elif="{{slot1.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot1.color}}; font-size: {{slot1.size}}px; line-height: {{slot1.lineHeight}}px; lines: {{slot1.lines}}; font-weight: bold; text-align: center;">{{slot1.text}}</text>
+          </div>
+          <div elif="{{slot1.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot1.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot1.color}};">{{slot1.text}}</text>
+              <text if="{{slot1.detail}}" class="control-detail" style="color: {{slot1.detailColor}};">{{slot1.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot1.checked}}" style="track-color: {{slot1.accent}}; thumb-color: {{slot1.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot1.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot1.color}};">{{slot1.text}}</text>
+              <text class="value-text" style="color: {{slot1.accent}};">{{slot1.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot1.min}}" max="{{slot1.max}}" step="{{slot1.step}}" value="{{slot1.value}}" style="color: {{slot1.trackColor}}; selected-color: {{slot1.accent}}; block-color: {{slot1.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot1.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot1.color}};">{{slot1.text}}</text>
+              <text class="value-text" style="color: {{slot1.accent}};">{{slot1.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot1.percent}}" style="color: {{slot1.accent}}; layer-color: {{slot1.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot1.kind === 'qrcode'}}" value="{{slot1.value}}" style="width: {{slot1.qrSize}}px; height: {{slot1.qrSize}}px; color: {{slot1.color}}; background-color: {{slot1.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot2.x}}px; top: {{slot2.y}}px; width: {{slot2.width}}px; height: {{slot2.height}}px; background-color: {{slot2.background}}; border-radius: {{slot2.radius}}px;">
+          <text if="{{slot2.kind === 'heading' || slot2.kind === 'text'}}" class="ui-text" style="color: {{slot2.color}}; font-size: {{slot2.size}}px; line-height: {{slot2.lineHeight}}px; font-weight: {{slot2.bold}}; text-align: {{slot2.align}}; lines: {{slot2.lines}};">{{slot2.text}}</text>
+          <div elif="{{slot2.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot2.color}}; font-size: {{slot2.size}}px; line-height: {{slot2.lineHeight}}px; lines: {{slot2.lines}}; font-weight: bold; text-align: center;">{{slot2.text}}</text>
+          </div>
+          <div elif="{{slot2.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot2.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot2.color}};">{{slot2.text}}</text>
+              <text if="{{slot2.detail}}" class="control-detail" style="color: {{slot2.detailColor}};">{{slot2.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot2.checked}}" style="track-color: {{slot2.accent}}; thumb-color: {{slot2.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot2.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot2.color}};">{{slot2.text}}</text>
+              <text class="value-text" style="color: {{slot2.accent}};">{{slot2.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot2.min}}" max="{{slot2.max}}" step="{{slot2.step}}" value="{{slot2.value}}" style="color: {{slot2.trackColor}}; selected-color: {{slot2.accent}}; block-color: {{slot2.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot2.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot2.color}};">{{slot2.text}}</text>
+              <text class="value-text" style="color: {{slot2.accent}};">{{slot2.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot2.percent}}" style="color: {{slot2.accent}}; layer-color: {{slot2.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot2.kind === 'qrcode'}}" value="{{slot2.value}}" style="width: {{slot2.qrSize}}px; height: {{slot2.qrSize}}px; color: {{slot2.color}}; background-color: {{slot2.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot3.x}}px; top: {{slot3.y}}px; width: {{slot3.width}}px; height: {{slot3.height}}px; background-color: {{slot3.background}}; border-radius: {{slot3.radius}}px;">
+          <text if="{{slot3.kind === 'heading' || slot3.kind === 'text'}}" class="ui-text" style="color: {{slot3.color}}; font-size: {{slot3.size}}px; line-height: {{slot3.lineHeight}}px; font-weight: {{slot3.bold}}; text-align: {{slot3.align}}; lines: {{slot3.lines}};">{{slot3.text}}</text>
+          <div elif="{{slot3.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot3.color}}; font-size: {{slot3.size}}px; line-height: {{slot3.lineHeight}}px; lines: {{slot3.lines}}; font-weight: bold; text-align: center;">{{slot3.text}}</text>
+          </div>
+          <div elif="{{slot3.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot3.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot3.color}};">{{slot3.text}}</text>
+              <text if="{{slot3.detail}}" class="control-detail" style="color: {{slot3.detailColor}};">{{slot3.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot3.checked}}" style="track-color: {{slot3.accent}}; thumb-color: {{slot3.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot3.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot3.color}};">{{slot3.text}}</text>
+              <text class="value-text" style="color: {{slot3.accent}};">{{slot3.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot3.min}}" max="{{slot3.max}}" step="{{slot3.step}}" value="{{slot3.value}}" style="color: {{slot3.trackColor}}; selected-color: {{slot3.accent}}; block-color: {{slot3.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot3.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot3.color}};">{{slot3.text}}</text>
+              <text class="value-text" style="color: {{slot3.accent}};">{{slot3.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot3.percent}}" style="color: {{slot3.accent}}; layer-color: {{slot3.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot3.kind === 'qrcode'}}" value="{{slot3.value}}" style="width: {{slot3.qrSize}}px; height: {{slot3.qrSize}}px; color: {{slot3.color}}; background-color: {{slot3.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot4.x}}px; top: {{slot4.y}}px; width: {{slot4.width}}px; height: {{slot4.height}}px; background-color: {{slot4.background}}; border-radius: {{slot4.radius}}px;">
+          <text if="{{slot4.kind === 'heading' || slot4.kind === 'text'}}" class="ui-text" style="color: {{slot4.color}}; font-size: {{slot4.size}}px; line-height: {{slot4.lineHeight}}px; font-weight: {{slot4.bold}}; text-align: {{slot4.align}}; lines: {{slot4.lines}};">{{slot4.text}}</text>
+          <div elif="{{slot4.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot4.color}}; font-size: {{slot4.size}}px; line-height: {{slot4.lineHeight}}px; lines: {{slot4.lines}}; font-weight: bold; text-align: center;">{{slot4.text}}</text>
+          </div>
+          <div elif="{{slot4.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot4.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot4.color}};">{{slot4.text}}</text>
+              <text if="{{slot4.detail}}" class="control-detail" style="color: {{slot4.detailColor}};">{{slot4.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot4.checked}}" style="track-color: {{slot4.accent}}; thumb-color: {{slot4.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot4.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot4.color}};">{{slot4.text}}</text>
+              <text class="value-text" style="color: {{slot4.accent}};">{{slot4.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot4.min}}" max="{{slot4.max}}" step="{{slot4.step}}" value="{{slot4.value}}" style="color: {{slot4.trackColor}}; selected-color: {{slot4.accent}}; block-color: {{slot4.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot4.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot4.color}};">{{slot4.text}}</text>
+              <text class="value-text" style="color: {{slot4.accent}};">{{slot4.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot4.percent}}" style="color: {{slot4.accent}}; layer-color: {{slot4.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot4.kind === 'qrcode'}}" value="{{slot4.value}}" style="width: {{slot4.qrSize}}px; height: {{slot4.qrSize}}px; color: {{slot4.color}}; background-color: {{slot4.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot5.x}}px; top: {{slot5.y}}px; width: {{slot5.width}}px; height: {{slot5.height}}px; background-color: {{slot5.background}}; border-radius: {{slot5.radius}}px;">
+          <text if="{{slot5.kind === 'heading' || slot5.kind === 'text'}}" class="ui-text" style="color: {{slot5.color}}; font-size: {{slot5.size}}px; line-height: {{slot5.lineHeight}}px; font-weight: {{slot5.bold}}; text-align: {{slot5.align}}; lines: {{slot5.lines}};">{{slot5.text}}</text>
+          <div elif="{{slot5.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot5.color}}; font-size: {{slot5.size}}px; line-height: {{slot5.lineHeight}}px; lines: {{slot5.lines}}; font-weight: bold; text-align: center;">{{slot5.text}}</text>
+          </div>
+          <div elif="{{slot5.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot5.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot5.color}};">{{slot5.text}}</text>
+              <text if="{{slot5.detail}}" class="control-detail" style="color: {{slot5.detailColor}};">{{slot5.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot5.checked}}" style="track-color: {{slot5.accent}}; thumb-color: {{slot5.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot5.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot5.color}};">{{slot5.text}}</text>
+              <text class="value-text" style="color: {{slot5.accent}};">{{slot5.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot5.min}}" max="{{slot5.max}}" step="{{slot5.step}}" value="{{slot5.value}}" style="color: {{slot5.trackColor}}; selected-color: {{slot5.accent}}; block-color: {{slot5.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot5.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot5.color}};">{{slot5.text}}</text>
+              <text class="value-text" style="color: {{slot5.accent}};">{{slot5.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot5.percent}}" style="color: {{slot5.accent}}; layer-color: {{slot5.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot5.kind === 'qrcode'}}" value="{{slot5.value}}" style="width: {{slot5.qrSize}}px; height: {{slot5.qrSize}}px; color: {{slot5.color}}; background-color: {{slot5.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot6.x}}px; top: {{slot6.y}}px; width: {{slot6.width}}px; height: {{slot6.height}}px; background-color: {{slot6.background}}; border-radius: {{slot6.radius}}px;">
+          <text if="{{slot6.kind === 'heading' || slot6.kind === 'text'}}" class="ui-text" style="color: {{slot6.color}}; font-size: {{slot6.size}}px; line-height: {{slot6.lineHeight}}px; font-weight: {{slot6.bold}}; text-align: {{slot6.align}}; lines: {{slot6.lines}};">{{slot6.text}}</text>
+          <div elif="{{slot6.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot6.color}}; font-size: {{slot6.size}}px; line-height: {{slot6.lineHeight}}px; lines: {{slot6.lines}}; font-weight: bold; text-align: center;">{{slot6.text}}</text>
+          </div>
+          <div elif="{{slot6.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot6.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot6.color}};">{{slot6.text}}</text>
+              <text if="{{slot6.detail}}" class="control-detail" style="color: {{slot6.detailColor}};">{{slot6.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot6.checked}}" style="track-color: {{slot6.accent}}; thumb-color: {{slot6.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot6.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot6.color}};">{{slot6.text}}</text>
+              <text class="value-text" style="color: {{slot6.accent}};">{{slot6.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot6.min}}" max="{{slot6.max}}" step="{{slot6.step}}" value="{{slot6.value}}" style="color: {{slot6.trackColor}}; selected-color: {{slot6.accent}}; block-color: {{slot6.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot6.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot6.color}};">{{slot6.text}}</text>
+              <text class="value-text" style="color: {{slot6.accent}};">{{slot6.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot6.percent}}" style="color: {{slot6.accent}}; layer-color: {{slot6.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot6.kind === 'qrcode'}}" value="{{slot6.value}}" style="width: {{slot6.qrSize}}px; height: {{slot6.qrSize}}px; color: {{slot6.color}}; background-color: {{slot6.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot7.x}}px; top: {{slot7.y}}px; width: {{slot7.width}}px; height: {{slot7.height}}px; background-color: {{slot7.background}}; border-radius: {{slot7.radius}}px;">
+          <text if="{{slot7.kind === 'heading' || slot7.kind === 'text'}}" class="ui-text" style="color: {{slot7.color}}; font-size: {{slot7.size}}px; line-height: {{slot7.lineHeight}}px; font-weight: {{slot7.bold}}; text-align: {{slot7.align}}; lines: {{slot7.lines}};">{{slot7.text}}</text>
+          <div elif="{{slot7.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot7.color}}; font-size: {{slot7.size}}px; line-height: {{slot7.lineHeight}}px; lines: {{slot7.lines}}; font-weight: bold; text-align: center;">{{slot7.text}}</text>
+          </div>
+          <div elif="{{slot7.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot7.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot7.color}};">{{slot7.text}}</text>
+              <text if="{{slot7.detail}}" class="control-detail" style="color: {{slot7.detailColor}};">{{slot7.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot7.checked}}" style="track-color: {{slot7.accent}}; thumb-color: {{slot7.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot7.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot7.color}};">{{slot7.text}}</text>
+              <text class="value-text" style="color: {{slot7.accent}};">{{slot7.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot7.min}}" max="{{slot7.max}}" step="{{slot7.step}}" value="{{slot7.value}}" style="color: {{slot7.trackColor}}; selected-color: {{slot7.accent}}; block-color: {{slot7.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot7.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot7.color}};">{{slot7.text}}</text>
+              <text class="value-text" style="color: {{slot7.accent}};">{{slot7.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot7.percent}}" style="color: {{slot7.accent}}; layer-color: {{slot7.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot7.kind === 'qrcode'}}" value="{{slot7.value}}" style="width: {{slot7.qrSize}}px; height: {{slot7.qrSize}}px; color: {{slot7.color}}; background-color: {{slot7.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot8.x}}px; top: {{slot8.y}}px; width: {{slot8.width}}px; height: {{slot8.height}}px; background-color: {{slot8.background}}; border-radius: {{slot8.radius}}px;">
+          <text if="{{slot8.kind === 'heading' || slot8.kind === 'text'}}" class="ui-text" style="color: {{slot8.color}}; font-size: {{slot8.size}}px; line-height: {{slot8.lineHeight}}px; font-weight: {{slot8.bold}}; text-align: {{slot8.align}}; lines: {{slot8.lines}};">{{slot8.text}}</text>
+          <div elif="{{slot8.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot8.color}}; font-size: {{slot8.size}}px; line-height: {{slot8.lineHeight}}px; lines: {{slot8.lines}}; font-weight: bold; text-align: center;">{{slot8.text}}</text>
+          </div>
+          <div elif="{{slot8.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot8.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot8.color}};">{{slot8.text}}</text>
+              <text if="{{slot8.detail}}" class="control-detail" style="color: {{slot8.detailColor}};">{{slot8.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot8.checked}}" style="track-color: {{slot8.accent}}; thumb-color: {{slot8.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot8.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot8.color}};">{{slot8.text}}</text>
+              <text class="value-text" style="color: {{slot8.accent}};">{{slot8.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot8.min}}" max="{{slot8.max}}" step="{{slot8.step}}" value="{{slot8.value}}" style="color: {{slot8.trackColor}}; selected-color: {{slot8.accent}}; block-color: {{slot8.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot8.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot8.color}};">{{slot8.text}}</text>
+              <text class="value-text" style="color: {{slot8.accent}};">{{slot8.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot8.percent}}" style="color: {{slot8.accent}}; layer-color: {{slot8.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot8.kind === 'qrcode'}}" value="{{slot8.value}}" style="width: {{slot8.qrSize}}px; height: {{slot8.qrSize}}px; color: {{slot8.color}}; background-color: {{slot8.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot9.x}}px; top: {{slot9.y}}px; width: {{slot9.width}}px; height: {{slot9.height}}px; background-color: {{slot9.background}}; border-radius: {{slot9.radius}}px;">
+          <text if="{{slot9.kind === 'heading' || slot9.kind === 'text'}}" class="ui-text" style="color: {{slot9.color}}; font-size: {{slot9.size}}px; line-height: {{slot9.lineHeight}}px; font-weight: {{slot9.bold}}; text-align: {{slot9.align}}; lines: {{slot9.lines}};">{{slot9.text}}</text>
+          <div elif="{{slot9.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot9.color}}; font-size: {{slot9.size}}px; line-height: {{slot9.lineHeight}}px; lines: {{slot9.lines}}; font-weight: bold; text-align: center;">{{slot9.text}}</text>
+          </div>
+          <div elif="{{slot9.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot9.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot9.color}};">{{slot9.text}}</text>
+              <text if="{{slot9.detail}}" class="control-detail" style="color: {{slot9.detailColor}};">{{slot9.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot9.checked}}" style="track-color: {{slot9.accent}}; thumb-color: {{slot9.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot9.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot9.color}};">{{slot9.text}}</text>
+              <text class="value-text" style="color: {{slot9.accent}};">{{slot9.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot9.min}}" max="{{slot9.max}}" step="{{slot9.step}}" value="{{slot9.value}}" style="color: {{slot9.trackColor}}; selected-color: {{slot9.accent}}; block-color: {{slot9.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot9.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot9.color}};">{{slot9.text}}</text>
+              <text class="value-text" style="color: {{slot9.accent}};">{{slot9.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot9.percent}}" style="color: {{slot9.accent}}; layer-color: {{slot9.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot9.kind === 'qrcode'}}" value="{{slot9.value}}" style="width: {{slot9.qrSize}}px; height: {{slot9.qrSize}}px; color: {{slot9.color}}; background-color: {{slot9.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot10.x}}px; top: {{slot10.y}}px; width: {{slot10.width}}px; height: {{slot10.height}}px; background-color: {{slot10.background}}; border-radius: {{slot10.radius}}px;">
+          <text if="{{slot10.kind === 'heading' || slot10.kind === 'text'}}" class="ui-text" style="color: {{slot10.color}}; font-size: {{slot10.size}}px; line-height: {{slot10.lineHeight}}px; font-weight: {{slot10.bold}}; text-align: {{slot10.align}}; lines: {{slot10.lines}};">{{slot10.text}}</text>
+          <div elif="{{slot10.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot10.color}}; font-size: {{slot10.size}}px; line-height: {{slot10.lineHeight}}px; lines: {{slot10.lines}}; font-weight: bold; text-align: center;">{{slot10.text}}</text>
+          </div>
+          <div elif="{{slot10.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot10.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot10.color}};">{{slot10.text}}</text>
+              <text if="{{slot10.detail}}" class="control-detail" style="color: {{slot10.detailColor}};">{{slot10.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot10.checked}}" style="track-color: {{slot10.accent}}; thumb-color: {{slot10.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot10.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot10.color}};">{{slot10.text}}</text>
+              <text class="value-text" style="color: {{slot10.accent}};">{{slot10.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot10.min}}" max="{{slot10.max}}" step="{{slot10.step}}" value="{{slot10.value}}" style="color: {{slot10.trackColor}}; selected-color: {{slot10.accent}}; block-color: {{slot10.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot10.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot10.color}};">{{slot10.text}}</text>
+              <text class="value-text" style="color: {{slot10.accent}};">{{slot10.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot10.percent}}" style="color: {{slot10.accent}}; layer-color: {{slot10.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot10.kind === 'qrcode'}}" value="{{slot10.value}}" style="width: {{slot10.qrSize}}px; height: {{slot10.qrSize}}px; color: {{slot10.color}}; background-color: {{slot10.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot11.x}}px; top: {{slot11.y}}px; width: {{slot11.width}}px; height: {{slot11.height}}px; background-color: {{slot11.background}}; border-radius: {{slot11.radius}}px;">
+          <text if="{{slot11.kind === 'heading' || slot11.kind === 'text'}}" class="ui-text" style="color: {{slot11.color}}; font-size: {{slot11.size}}px; line-height: {{slot11.lineHeight}}px; font-weight: {{slot11.bold}}; text-align: {{slot11.align}}; lines: {{slot11.lines}};">{{slot11.text}}</text>
+          <div elif="{{slot11.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot11.color}}; font-size: {{slot11.size}}px; line-height: {{slot11.lineHeight}}px; lines: {{slot11.lines}}; font-weight: bold; text-align: center;">{{slot11.text}}</text>
+          </div>
+          <div elif="{{slot11.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot11.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot11.color}};">{{slot11.text}}</text>
+              <text if="{{slot11.detail}}" class="control-detail" style="color: {{slot11.detailColor}};">{{slot11.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot11.checked}}" style="track-color: {{slot11.accent}}; thumb-color: {{slot11.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot11.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot11.color}};">{{slot11.text}}</text>
+              <text class="value-text" style="color: {{slot11.accent}};">{{slot11.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot11.min}}" max="{{slot11.max}}" step="{{slot11.step}}" value="{{slot11.value}}" style="color: {{slot11.trackColor}}; selected-color: {{slot11.accent}}; block-color: {{slot11.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot11.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot11.color}};">{{slot11.text}}</text>
+              <text class="value-text" style="color: {{slot11.accent}};">{{slot11.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot11.percent}}" style="color: {{slot11.accent}}; layer-color: {{slot11.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot11.kind === 'qrcode'}}" value="{{slot11.value}}" style="width: {{slot11.qrSize}}px; height: {{slot11.qrSize}}px; color: {{slot11.color}}; background-color: {{slot11.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot12.x}}px; top: {{slot12.y}}px; width: {{slot12.width}}px; height: {{slot12.height}}px; background-color: {{slot12.background}}; border-radius: {{slot12.radius}}px;">
+          <text if="{{slot12.kind === 'heading' || slot12.kind === 'text'}}" class="ui-text" style="color: {{slot12.color}}; font-size: {{slot12.size}}px; line-height: {{slot12.lineHeight}}px; font-weight: {{slot12.bold}}; text-align: {{slot12.align}}; lines: {{slot12.lines}};">{{slot12.text}}</text>
+          <div elif="{{slot12.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot12.color}}; font-size: {{slot12.size}}px; line-height: {{slot12.lineHeight}}px; lines: {{slot12.lines}}; font-weight: bold; text-align: center;">{{slot12.text}}</text>
+          </div>
+          <div elif="{{slot12.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot12.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot12.color}};">{{slot12.text}}</text>
+              <text if="{{slot12.detail}}" class="control-detail" style="color: {{slot12.detailColor}};">{{slot12.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot12.checked}}" style="track-color: {{slot12.accent}}; thumb-color: {{slot12.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot12.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot12.color}};">{{slot12.text}}</text>
+              <text class="value-text" style="color: {{slot12.accent}};">{{slot12.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot12.min}}" max="{{slot12.max}}" step="{{slot12.step}}" value="{{slot12.value}}" style="color: {{slot12.trackColor}}; selected-color: {{slot12.accent}}; block-color: {{slot12.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot12.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot12.color}};">{{slot12.text}}</text>
+              <text class="value-text" style="color: {{slot12.accent}};">{{slot12.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot12.percent}}" style="color: {{slot12.accent}}; layer-color: {{slot12.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot12.kind === 'qrcode'}}" value="{{slot12.value}}" style="width: {{slot12.qrSize}}px; height: {{slot12.qrSize}}px; color: {{slot12.color}}; background-color: {{slot12.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot13.x}}px; top: {{slot13.y}}px; width: {{slot13.width}}px; height: {{slot13.height}}px; background-color: {{slot13.background}}; border-radius: {{slot13.radius}}px;">
+          <text if="{{slot13.kind === 'heading' || slot13.kind === 'text'}}" class="ui-text" style="color: {{slot13.color}}; font-size: {{slot13.size}}px; line-height: {{slot13.lineHeight}}px; font-weight: {{slot13.bold}}; text-align: {{slot13.align}}; lines: {{slot13.lines}};">{{slot13.text}}</text>
+          <div elif="{{slot13.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot13.color}}; font-size: {{slot13.size}}px; line-height: {{slot13.lineHeight}}px; lines: {{slot13.lines}}; font-weight: bold; text-align: center;">{{slot13.text}}</text>
+          </div>
+          <div elif="{{slot13.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot13.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot13.color}};">{{slot13.text}}</text>
+              <text if="{{slot13.detail}}" class="control-detail" style="color: {{slot13.detailColor}};">{{slot13.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot13.checked}}" style="track-color: {{slot13.accent}}; thumb-color: {{slot13.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot13.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot13.color}};">{{slot13.text}}</text>
+              <text class="value-text" style="color: {{slot13.accent}};">{{slot13.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot13.min}}" max="{{slot13.max}}" step="{{slot13.step}}" value="{{slot13.value}}" style="color: {{slot13.trackColor}}; selected-color: {{slot13.accent}}; block-color: {{slot13.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot13.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot13.color}};">{{slot13.text}}</text>
+              <text class="value-text" style="color: {{slot13.accent}};">{{slot13.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot13.percent}}" style="color: {{slot13.accent}}; layer-color: {{slot13.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot13.kind === 'qrcode'}}" value="{{slot13.value}}" style="width: {{slot13.qrSize}}px; height: {{slot13.qrSize}}px; color: {{slot13.color}}; background-color: {{slot13.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot14.x}}px; top: {{slot14.y}}px; width: {{slot14.width}}px; height: {{slot14.height}}px; background-color: {{slot14.background}}; border-radius: {{slot14.radius}}px;">
+          <text if="{{slot14.kind === 'heading' || slot14.kind === 'text'}}" class="ui-text" style="color: {{slot14.color}}; font-size: {{slot14.size}}px; line-height: {{slot14.lineHeight}}px; font-weight: {{slot14.bold}}; text-align: {{slot14.align}}; lines: {{slot14.lines}};">{{slot14.text}}</text>
+          <div elif="{{slot14.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot14.color}}; font-size: {{slot14.size}}px; line-height: {{slot14.lineHeight}}px; lines: {{slot14.lines}}; font-weight: bold; text-align: center;">{{slot14.text}}</text>
+          </div>
+          <div elif="{{slot14.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot14.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot14.color}};">{{slot14.text}}</text>
+              <text if="{{slot14.detail}}" class="control-detail" style="color: {{slot14.detailColor}};">{{slot14.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot14.checked}}" style="track-color: {{slot14.accent}}; thumb-color: {{slot14.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot14.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot14.color}};">{{slot14.text}}</text>
+              <text class="value-text" style="color: {{slot14.accent}};">{{slot14.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot14.min}}" max="{{slot14.max}}" step="{{slot14.step}}" value="{{slot14.value}}" style="color: {{slot14.trackColor}}; selected-color: {{slot14.accent}}; block-color: {{slot14.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot14.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot14.color}};">{{slot14.text}}</text>
+              <text class="value-text" style="color: {{slot14.accent}};">{{slot14.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot14.percent}}" style="color: {{slot14.accent}}; layer-color: {{slot14.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot14.kind === 'qrcode'}}" value="{{slot14.value}}" style="width: {{slot14.qrSize}}px; height: {{slot14.qrSize}}px; color: {{slot14.color}}; background-color: {{slot14.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot15.x}}px; top: {{slot15.y}}px; width: {{slot15.width}}px; height: {{slot15.height}}px; background-color: {{slot15.background}}; border-radius: {{slot15.radius}}px;">
+          <text if="{{slot15.kind === 'heading' || slot15.kind === 'text'}}" class="ui-text" style="color: {{slot15.color}}; font-size: {{slot15.size}}px; line-height: {{slot15.lineHeight}}px; font-weight: {{slot15.bold}}; text-align: {{slot15.align}}; lines: {{slot15.lines}};">{{slot15.text}}</text>
+          <div elif="{{slot15.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot15.color}}; font-size: {{slot15.size}}px; line-height: {{slot15.lineHeight}}px; lines: {{slot15.lines}}; font-weight: bold; text-align: center;">{{slot15.text}}</text>
+          </div>
+          <div elif="{{slot15.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot15.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot15.color}};">{{slot15.text}}</text>
+              <text if="{{slot15.detail}}" class="control-detail" style="color: {{slot15.detailColor}};">{{slot15.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot15.checked}}" style="track-color: {{slot15.accent}}; thumb-color: {{slot15.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot15.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot15.color}};">{{slot15.text}}</text>
+              <text class="value-text" style="color: {{slot15.accent}};">{{slot15.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot15.min}}" max="{{slot15.max}}" step="{{slot15.step}}" value="{{slot15.value}}" style="color: {{slot15.trackColor}}; selected-color: {{slot15.accent}}; block-color: {{slot15.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot15.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot15.color}};">{{slot15.text}}</text>
+              <text class="value-text" style="color: {{slot15.accent}};">{{slot15.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot15.percent}}" style="color: {{slot15.accent}}; layer-color: {{slot15.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot15.kind === 'qrcode'}}" value="{{slot15.value}}" style="width: {{slot15.qrSize}}px; height: {{slot15.qrSize}}px; color: {{slot15.color}}; background-color: {{slot15.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot16.x}}px; top: {{slot16.y}}px; width: {{slot16.width}}px; height: {{slot16.height}}px; background-color: {{slot16.background}}; border-radius: {{slot16.radius}}px;">
+          <text if="{{slot16.kind === 'heading' || slot16.kind === 'text'}}" class="ui-text" style="color: {{slot16.color}}; font-size: {{slot16.size}}px; line-height: {{slot16.lineHeight}}px; font-weight: {{slot16.bold}}; text-align: {{slot16.align}}; lines: {{slot16.lines}};">{{slot16.text}}</text>
+          <div elif="{{slot16.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot16.color}}; font-size: {{slot16.size}}px; line-height: {{slot16.lineHeight}}px; lines: {{slot16.lines}}; font-weight: bold; text-align: center;">{{slot16.text}}</text>
+          </div>
+          <div elif="{{slot16.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot16.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot16.color}};">{{slot16.text}}</text>
+              <text if="{{slot16.detail}}" class="control-detail" style="color: {{slot16.detailColor}};">{{slot16.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot16.checked}}" style="track-color: {{slot16.accent}}; thumb-color: {{slot16.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot16.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot16.color}};">{{slot16.text}}</text>
+              <text class="value-text" style="color: {{slot16.accent}};">{{slot16.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot16.min}}" max="{{slot16.max}}" step="{{slot16.step}}" value="{{slot16.value}}" style="color: {{slot16.trackColor}}; selected-color: {{slot16.accent}}; block-color: {{slot16.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot16.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot16.color}};">{{slot16.text}}</text>
+              <text class="value-text" style="color: {{slot16.accent}};">{{slot16.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot16.percent}}" style="color: {{slot16.accent}}; layer-color: {{slot16.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot16.kind === 'qrcode'}}" value="{{slot16.value}}" style="width: {{slot16.qrSize}}px; height: {{slot16.qrSize}}px; color: {{slot16.color}}; background-color: {{slot16.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot17.x}}px; top: {{slot17.y}}px; width: {{slot17.width}}px; height: {{slot17.height}}px; background-color: {{slot17.background}}; border-radius: {{slot17.radius}}px;">
+          <text if="{{slot17.kind === 'heading' || slot17.kind === 'text'}}" class="ui-text" style="color: {{slot17.color}}; font-size: {{slot17.size}}px; line-height: {{slot17.lineHeight}}px; font-weight: {{slot17.bold}}; text-align: {{slot17.align}}; lines: {{slot17.lines}};">{{slot17.text}}</text>
+          <div elif="{{slot17.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot17.color}}; font-size: {{slot17.size}}px; line-height: {{slot17.lineHeight}}px; lines: {{slot17.lines}}; font-weight: bold; text-align: center;">{{slot17.text}}</text>
+          </div>
+          <div elif="{{slot17.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot17.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot17.color}};">{{slot17.text}}</text>
+              <text if="{{slot17.detail}}" class="control-detail" style="color: {{slot17.detailColor}};">{{slot17.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot17.checked}}" style="track-color: {{slot17.accent}}; thumb-color: {{slot17.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot17.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot17.color}};">{{slot17.text}}</text>
+              <text class="value-text" style="color: {{slot17.accent}};">{{slot17.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot17.min}}" max="{{slot17.max}}" step="{{slot17.step}}" value="{{slot17.value}}" style="color: {{slot17.trackColor}}; selected-color: {{slot17.accent}}; block-color: {{slot17.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot17.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot17.color}};">{{slot17.text}}</text>
+              <text class="value-text" style="color: {{slot17.accent}};">{{slot17.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot17.percent}}" style="color: {{slot17.accent}}; layer-color: {{slot17.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot17.kind === 'qrcode'}}" value="{{slot17.value}}" style="width: {{slot17.qrSize}}px; height: {{slot17.qrSize}}px; color: {{slot17.color}}; background-color: {{slot17.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot18.x}}px; top: {{slot18.y}}px; width: {{slot18.width}}px; height: {{slot18.height}}px; background-color: {{slot18.background}}; border-radius: {{slot18.radius}}px;">
+          <text if="{{slot18.kind === 'heading' || slot18.kind === 'text'}}" class="ui-text" style="color: {{slot18.color}}; font-size: {{slot18.size}}px; line-height: {{slot18.lineHeight}}px; font-weight: {{slot18.bold}}; text-align: {{slot18.align}}; lines: {{slot18.lines}};">{{slot18.text}}</text>
+          <div elif="{{slot18.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot18.color}}; font-size: {{slot18.size}}px; line-height: {{slot18.lineHeight}}px; lines: {{slot18.lines}}; font-weight: bold; text-align: center;">{{slot18.text}}</text>
+          </div>
+          <div elif="{{slot18.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot18.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot18.color}};">{{slot18.text}}</text>
+              <text if="{{slot18.detail}}" class="control-detail" style="color: {{slot18.detailColor}};">{{slot18.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot18.checked}}" style="track-color: {{slot18.accent}}; thumb-color: {{slot18.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot18.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot18.color}};">{{slot18.text}}</text>
+              <text class="value-text" style="color: {{slot18.accent}};">{{slot18.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot18.min}}" max="{{slot18.max}}" step="{{slot18.step}}" value="{{slot18.value}}" style="color: {{slot18.trackColor}}; selected-color: {{slot18.accent}}; block-color: {{slot18.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot18.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot18.color}};">{{slot18.text}}</text>
+              <text class="value-text" style="color: {{slot18.accent}};">{{slot18.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot18.percent}}" style="color: {{slot18.accent}}; layer-color: {{slot18.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot18.kind === 'qrcode'}}" value="{{slot18.value}}" style="width: {{slot18.qrSize}}px; height: {{slot18.qrSize}}px; color: {{slot18.color}}; background-color: {{slot18.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot19.x}}px; top: {{slot19.y}}px; width: {{slot19.width}}px; height: {{slot19.height}}px; background-color: {{slot19.background}}; border-radius: {{slot19.radius}}px;">
+          <text if="{{slot19.kind === 'heading' || slot19.kind === 'text'}}" class="ui-text" style="color: {{slot19.color}}; font-size: {{slot19.size}}px; line-height: {{slot19.lineHeight}}px; font-weight: {{slot19.bold}}; text-align: {{slot19.align}}; lines: {{slot19.lines}};">{{slot19.text}}</text>
+          <div elif="{{slot19.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot19.color}}; font-size: {{slot19.size}}px; line-height: {{slot19.lineHeight}}px; lines: {{slot19.lines}}; font-weight: bold; text-align: center;">{{slot19.text}}</text>
+          </div>
+          <div elif="{{slot19.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot19.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot19.color}};">{{slot19.text}}</text>
+              <text if="{{slot19.detail}}" class="control-detail" style="color: {{slot19.detailColor}};">{{slot19.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot19.checked}}" style="track-color: {{slot19.accent}}; thumb-color: {{slot19.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot19.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot19.color}};">{{slot19.text}}</text>
+              <text class="value-text" style="color: {{slot19.accent}};">{{slot19.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot19.min}}" max="{{slot19.max}}" step="{{slot19.step}}" value="{{slot19.value}}" style="color: {{slot19.trackColor}}; selected-color: {{slot19.accent}}; block-color: {{slot19.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot19.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot19.color}};">{{slot19.text}}</text>
+              <text class="value-text" style="color: {{slot19.accent}};">{{slot19.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot19.percent}}" style="color: {{slot19.accent}}; layer-color: {{slot19.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot19.kind === 'qrcode'}}" value="{{slot19.value}}" style="width: {{slot19.qrSize}}px; height: {{slot19.qrSize}}px; color: {{slot19.color}}; background-color: {{slot19.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot20.x}}px; top: {{slot20.y}}px; width: {{slot20.width}}px; height: {{slot20.height}}px; background-color: {{slot20.background}}; border-radius: {{slot20.radius}}px;">
+          <text if="{{slot20.kind === 'heading' || slot20.kind === 'text'}}" class="ui-text" style="color: {{slot20.color}}; font-size: {{slot20.size}}px; line-height: {{slot20.lineHeight}}px; font-weight: {{slot20.bold}}; text-align: {{slot20.align}}; lines: {{slot20.lines}};">{{slot20.text}}</text>
+          <div elif="{{slot20.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot20.color}}; font-size: {{slot20.size}}px; line-height: {{slot20.lineHeight}}px; lines: {{slot20.lines}}; font-weight: bold; text-align: center;">{{slot20.text}}</text>
+          </div>
+          <div elif="{{slot20.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot20.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot20.color}};">{{slot20.text}}</text>
+              <text if="{{slot20.detail}}" class="control-detail" style="color: {{slot20.detailColor}};">{{slot20.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot20.checked}}" style="track-color: {{slot20.accent}}; thumb-color: {{slot20.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot20.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot20.color}};">{{slot20.text}}</text>
+              <text class="value-text" style="color: {{slot20.accent}};">{{slot20.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot20.min}}" max="{{slot20.max}}" step="{{slot20.step}}" value="{{slot20.value}}" style="color: {{slot20.trackColor}}; selected-color: {{slot20.accent}}; block-color: {{slot20.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot20.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot20.color}};">{{slot20.text}}</text>
+              <text class="value-text" style="color: {{slot20.accent}};">{{slot20.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot20.percent}}" style="color: {{slot20.accent}}; layer-color: {{slot20.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot20.kind === 'qrcode'}}" value="{{slot20.value}}" style="width: {{slot20.qrSize}}px; height: {{slot20.qrSize}}px; color: {{slot20.color}}; background-color: {{slot20.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot21.x}}px; top: {{slot21.y}}px; width: {{slot21.width}}px; height: {{slot21.height}}px; background-color: {{slot21.background}}; border-radius: {{slot21.radius}}px;">
+          <text if="{{slot21.kind === 'heading' || slot21.kind === 'text'}}" class="ui-text" style="color: {{slot21.color}}; font-size: {{slot21.size}}px; line-height: {{slot21.lineHeight}}px; font-weight: {{slot21.bold}}; text-align: {{slot21.align}}; lines: {{slot21.lines}};">{{slot21.text}}</text>
+          <div elif="{{slot21.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot21.color}}; font-size: {{slot21.size}}px; line-height: {{slot21.lineHeight}}px; lines: {{slot21.lines}}; font-weight: bold; text-align: center;">{{slot21.text}}</text>
+          </div>
+          <div elif="{{slot21.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot21.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot21.color}};">{{slot21.text}}</text>
+              <text if="{{slot21.detail}}" class="control-detail" style="color: {{slot21.detailColor}};">{{slot21.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot21.checked}}" style="track-color: {{slot21.accent}}; thumb-color: {{slot21.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot21.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot21.color}};">{{slot21.text}}</text>
+              <text class="value-text" style="color: {{slot21.accent}};">{{slot21.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot21.min}}" max="{{slot21.max}}" step="{{slot21.step}}" value="{{slot21.value}}" style="color: {{slot21.trackColor}}; selected-color: {{slot21.accent}}; block-color: {{slot21.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot21.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot21.color}};">{{slot21.text}}</text>
+              <text class="value-text" style="color: {{slot21.accent}};">{{slot21.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot21.percent}}" style="color: {{slot21.accent}}; layer-color: {{slot21.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot21.kind === 'qrcode'}}" value="{{slot21.value}}" style="width: {{slot21.qrSize}}px; height: {{slot21.qrSize}}px; color: {{slot21.color}}; background-color: {{slot21.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot22.x}}px; top: {{slot22.y}}px; width: {{slot22.width}}px; height: {{slot22.height}}px; background-color: {{slot22.background}}; border-radius: {{slot22.radius}}px;">
+          <text if="{{slot22.kind === 'heading' || slot22.kind === 'text'}}" class="ui-text" style="color: {{slot22.color}}; font-size: {{slot22.size}}px; line-height: {{slot22.lineHeight}}px; font-weight: {{slot22.bold}}; text-align: {{slot22.align}}; lines: {{slot22.lines}};">{{slot22.text}}</text>
+          <div elif="{{slot22.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot22.color}}; font-size: {{slot22.size}}px; line-height: {{slot22.lineHeight}}px; lines: {{slot22.lines}}; font-weight: bold; text-align: center;">{{slot22.text}}</text>
+          </div>
+          <div elif="{{slot22.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot22.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot22.color}};">{{slot22.text}}</text>
+              <text if="{{slot22.detail}}" class="control-detail" style="color: {{slot22.detailColor}};">{{slot22.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot22.checked}}" style="track-color: {{slot22.accent}}; thumb-color: {{slot22.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot22.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot22.color}};">{{slot22.text}}</text>
+              <text class="value-text" style="color: {{slot22.accent}};">{{slot22.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot22.min}}" max="{{slot22.max}}" step="{{slot22.step}}" value="{{slot22.value}}" style="color: {{slot22.trackColor}}; selected-color: {{slot22.accent}}; block-color: {{slot22.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot22.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot22.color}};">{{slot22.text}}</text>
+              <text class="value-text" style="color: {{slot22.accent}};">{{slot22.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot22.percent}}" style="color: {{slot22.accent}}; layer-color: {{slot22.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot22.kind === 'qrcode'}}" value="{{slot22.value}}" style="width: {{slot22.qrSize}}px; height: {{slot22.qrSize}}px; color: {{slot22.color}}; background-color: {{slot22.background}};"></qrcode>
+        </div>
+        <div class="node-wrap" style="left: {{slot23.x}}px; top: {{slot23.y}}px; width: {{slot23.width}}px; height: {{slot23.height}}px; background-color: {{slot23.background}}; border-radius: {{slot23.radius}}px;">
+          <text if="{{slot23.kind === 'heading' || slot23.kind === 'text'}}" class="ui-text" style="color: {{slot23.color}}; font-size: {{slot23.size}}px; line-height: {{slot23.lineHeight}}px; font-weight: {{slot23.bold}}; text-align: {{slot23.align}}; lines: {{slot23.lines}};">{{slot23.text}}</text>
+          <div elif="{{slot23.kind === 'button'}}" class="ui-button" @click="manualTap">
+            <text class="ui-text" style="color: {{slot23.color}}; font-size: {{slot23.size}}px; line-height: {{slot23.lineHeight}}px; lines: {{slot23.lines}}; font-weight: bold; text-align: center;">{{slot23.text}}</text>
+          </div>
+          <div elif="{{slot23.kind === 'switch'}}" class="control-card">
+            <div class="control-copy" style="width: {{slot23.copyWidth}}px;">
+              <text class="control-label" style="color: {{slot23.color}};">{{slot23.text}}</text>
+              <text if="{{slot23.detail}}" class="control-detail" style="color: {{slot23.detailColor}};">{{slot23.detail}}</text>
+            </div>
+            <switch class="ui-switch" checked="{{slot23.checked}}" style="track-color: {{slot23.accent}}; thumb-color: {{slot23.thumbColor}};"></switch>
+          </div>
+          <div elif="{{slot23.kind === 'slider'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot23.color}};">{{slot23.text}}</text>
+              <text class="value-text" style="color: {{slot23.accent}};">{{slot23.value}}</text>
+            </div>
+            <slider class="ui-slider" min="{{slot23.min}}" max="{{slot23.max}}" step="{{slot23.step}}" value="{{slot23.value}}" style="color: {{slot23.trackColor}}; selected-color: {{slot23.accent}}; block-color: {{slot23.thumbColor}};"></slider>
+          </div>
+          <div elif="{{slot23.kind === 'progress'}}" class="value-card">
+            <div class="value-header">
+              <text class="value-label" style="color: {{slot23.color}};">{{slot23.text}}</text>
+              <text class="value-text" style="color: {{slot23.accent}};">{{slot23.percent}}%</text>
+            </div>
+            <progress class="ui-progress" percent="{{slot23.percent}}" style="color: {{slot23.accent}}; layer-color: {{slot23.trackColor}};"></progress>
+          </div>
+          <qrcode elif="{{slot23.kind === 'qrcode'}}" value="{{slot23.value}}" style="width: {{slot23.qrSize}}px; height: {{slot23.qrSize}}px; color: {{slot23.color}}; background-color: {{slot23.background}};"></qrcode>
+        </div>
+        <!-- FIXED_NODES_END -->
+        </div>
+        <div if="{{lean && !fixed}}" class="surface">
+        <div for="{{node in uiNodes}}" tid="id" class="node-wrap" style="left: {{node.x}}px; top: {{node.y}}px; width: {{node.width}}px; height: {{node.height}}px; background-color: {{node.background}}; border-radius: {{square ? 0 : node.radius}}px;">
+          <text class="ui-text" style="color: {{node.color}}; font-size: {{node.size}}px; line-height: {{node.lineHeight}}px; font-weight: {{node.bold}}; text-align: {{node.kind === 'button' ? 'center' : node.align}}; lines: {{node.lines}};">{{node.text}}</text>
+        </div>
+        </div>
+      </div>
+    </scroll>
+    <text if="{{running}}" class="stage">{{stage}}</text>
+    <div if="{{resultVisible}}" class="result-screen">
+      <text class="result-title">{{resultTitle}}</text>
+      <text class="result-hint">{{resultHint}}</text>
+      <div class="result-body">
+        <text if="{{resultOverview}}" class="result-overview">{{resultOverview}}</text>
+        <div class="result-card" for="{{card in resultCards}}" tid="id">
+          <text class="result-card-title">{{card.label}}</text>
+          <text class="result-card-metrics">{{card.text}}</text>
+        </div>
+      </div>
+      <div class="result-pager">
+        <div class="pager-action secondary" @click="previousResult"><text class="pager-text">上一页</text></div>
+        <div class="pager-action" @click="nextResult"><text class="pager-text">下一页</text></div>
+        <div class="pager-action secondary" @click="closeResults"><text class="pager-text">菜单</text></div>
+      </div>
+    </div>
+    <div if="{{manual}}" class="manual-overlay">
+      <div class="manual-action" @click="manualTap"><text class="action-text">点此测试</text></div>
+      <div class="manual-action secondary" @click="nextManual"><text class="action-text">切换方案</text></div>
+      <div class="manual-action secondary" @click="endManual"><text class="action-text">完成</text></div>
+    </div>
+  </div>
+</template>
+
+<script>
+import device from '@system.device';
+import brightness from '@system.brightness';
+import { STYLE_CASES as CASES, createCase, statistics, summarize, buildReportPages } from '../../utils/benchmark.js';
+
+const states = new WeakMap();
+const now = () => Date.now();
+const SAMPLE_COUNT = 8;
+const WARMUP_COUNT = 2;
+
+function keepScreen(state, enabled) {
+  if (typeof brightness.setKeepScreenOn !== 'function') {
+    if (state.report) state.report.keepScreenOn = 'unsupported';
+    return;
+  }
+  if (!enabled && !state.screenRequested) return;
+  state.screenRequested = enabled;
+  brightness.setKeepScreenOn({ keepScreenOn: enabled,
+    success: () => { if (enabled && !state.cancelled && state.report) state.report.keepScreenOn = 'enabled'; },
+    fail: (message, code) => { if (enabled && !state.cancelled && state.report) state.report.keepScreenOn = { error: String(message), code }; }
+  });
+}
+
+function delay(state, ms) {
+  return new Promise((resolve, reject) => {
+    if (state.cancelled) { reject(new Error('测试已停止')); return; }
+    const id = setTimeout(() => { state.waits.delete(id); resolve(); }, ms);
+    state.waits.set(id, reject);
+  });
+}
+
+async function sample(state, testCase) {
+  const value = {};
+  const start = now();
+  testCase.step(value);
+  value.syncEnd = now();
+  value.syncMs = value.syncEnd - start;
+  // Engine flush is queued before this continuation. Measure its JS work,
+  // then a timer turn. A timer is never labeled as a DOM or frame boundary.
+  await Promise.resolve();
+  if (state.cancelled) throw new Error('测试已停止');
+  const jsEnded = now();
+  value.jsTurnMs = jsEnded - start;
+  await delay(state, 0);
+  const ended = now();
+  value.eventLoopMs = ended - start;
+  value.waitMs = ended - jsEnded;
+  await delay(state, 0);
+  value.timer0Ms = now() - ended;
+  const paced = now();
+  await delay(state, 100);
+  value.pacedOverrunMs = Math.max(0, now() - paced - 100);
+  testCase.finishSample();
+  delete value.syncEnd; delete value.viewEnd;
+  return value;
+}
+
+export default {
+  private: {
+    running: false, manual: false, lean: false, square: false, uiNodes: [],
+    fixed: false, fixedReady: false, objectStyles: false,
+    slot0: {}, slot1: {}, slot2: {}, slot3: {}, slot4: {}, slot5: {},
+    slot6: {}, slot7: {}, slot8: {}, slot9: {}, slot10: {}, slot11: {},
+    slot12: {}, slot13: {}, slot14: {}, slot15: {}, slot16: {}, slot17: {},
+    slot18: {}, slot19: {}, slot20: {}, slot21: {}, slot22: {}, slot23: {},
+    stage: '', status: '测试不依赖 nextTick。结果分页显示，拍照即可。',
+    hasResults: false, resultVisible: false, resultIndex: 0,
+    resultTitle: '', resultHint: '', resultOverview: '', resultCards: []
+  },
+  onInit() {
+    states.set(this, { cancelled: false, waits: new Map(), testCase: null, report: null, model: {}, manualIndex: 0, busy: false });
+    const state = states.get(this);
+    device.getInfo({ success: info => { if (states.has(this)) Object.assign(state.model, info); }, fail: (message, code) => { if (states.has(this)) Object.assign(state.model, { error: String(message), code }); } });
+  },
+  onDestroy() { this.cancel(); states.delete(this); },
+  onHide() {
+    if (!this.running) return;
+    this.cancel(); this.running = false; this.manual = false;
+    this.status = '测试因离开页面而停止；请重跑。';
+  },
+  onBackPress() {
+    if (this.resultVisible) { this.closeResults(); return true; }
+    if (!this.running) return false;
+    if (this.manual && !states.get(this).busy) this.endManual();
+    else { this.cancel(); this.running = false; this.manual = false; this.status = '测试已停止；可重跑。'; }
+    return true;
+  },
+  cancel() {
+    const state = states.get(this);
+    if (!state) return;
+    state.cancelled = true;
+    keepScreen(state, false);
+    if (state.testCase) state.testCase.dispose();
+    state.waits.forEach((reject, id) => { clearTimeout(id); reject(new Error('测试已停止')); });
+    state.waits.clear();
+  },
+  freshState() {
+    const old = states.get(this);
+    this.cancel();
+    const state = { cancelled: false, waits: new Map(), testCase: null, model: old ? old.model : {}, manualIndex: 0, busy: false };
+    state.report = { format: 'UI_PERF_V5', suite: 'auto', boundary: 'event-loop/timer0', clock: 'Date.now/ms', device: state.model, warmup: WARMUP_COUNT, samplesPerRound: SAMPLE_COUNT, rounds: 2,
+      notes: 'jsTurn为回调与引擎微任务JS，eventLoop为之后timer(0)回调；均不是DOM或屏幕呈现时间。自动测试无振动。', scheduling: {}, cases: [], failures: [] };
+    states.set(this, state);
+    this.hasResults = false; this.resultVisible = false;
+    keepScreen(state, true);
+    return state;
+  },
+  prepareScene(mode) {
+    this.fixedReady = false;
+    this.uiNodes = [];
+    for (let i = 0; i < 24; i++) this['slot' + i] = {};
+    this.fixed = !!mode.fixed; this.lean = !!mode.lean; this.square = !!mode.square;
+    this.objectStyles = !!mode.objectStyles;
+  },
+  async start() {
+    if (this.running) return;
+    const state = this.freshState();
+    this.running = true; this.manual = false;
+    try {
+      this.stage = '调度校准';
+      const promises = []; const timers = [];
+      await delay(state, 0); await delay(state, 350);
+      for (let i = 0; i < 8; i++) {
+        let start = now(); await Promise.resolve(); promises.push(now() - start);
+        start = now(); await delay(state, 0); timers.push(now() - start);
+      }
+      state.report.scheduling = { promise: statistics(promises), timer0: statistics(timers) };
+      // Forward then reverse order reduces systematic warming/order bias.
+      for (let round = 0; round < 2; round++) {
+        const modes = round === 0 ? CASES : CASES.slice().reverse();
+        for (const mode of modes) {
+          if (state.testCase) state.testCase.dispose();
+          this.prepareScene(mode);
+          this.stage = (round + 1) + '/2 ' + mode.label;
+          state.testCase = createCase(this, mode, now);
+          await delay(state, 0); await delay(state, 350);
+          for (let i = 0; i < WARMUP_COUNT; i++) await sample(state, state.testCase);
+          const samples = [];
+          for (let i = 0; i < SAMPLE_COUNT; i++) samples.push(await sample(state, state.testCase));
+          state.report.cases.push({ id: mode.id, label: mode.label, round: round + 1, summary: summarize(samples), samples });
+        }
+      }
+      this.finish(state);
+    } catch (error) {
+      if (state.cancelled || states.get(this) !== state) return;
+      state.report.failures.push(String(error.message || error));
+      this.finish(state);
+    }
+  },
+  finish(state) {
+    if (state.cancelled || states.get(this) !== state) return;
+    if (state.testCase) state.testCase.dispose();
+    keepScreen(state, false);
+    this.running = false; this.manual = false;
+    const result = buildReportPages(state.report);
+    state.pages = result.pages;
+    result.rows.forEach(row => console.log('UI_PERF_V5 ' + JSON.stringify({ suite: state.report.suite, id: row.id, summary: row.summary })));
+    this.hasResults = true;
+    this.status = state.report.failures.length ? '部分测试失败：' + state.report.failures.join('；') : '测试完成。点查看结果，逐页拍照即可。';
+    console.log('UI_PERF_V5 ' + JSON.stringify({ suite: state.report.suite, device: state.report.device, scheduling: state.report.scheduling, boundary: state.report.boundary, failures: state.report.failures }));
+    this.showResults();
+  },
+  showResults() {
+    const state = states.get(this);
+    if (!state || !state.pages || !state.pages.length || this.running) return;
+    this.resultIndex = 0; this.resultVisible = true;
+    this.refreshResultPage();
+  },
+  refreshResultPage() {
+    const state = states.get(this);
+    if (!state || !state.pages || !state.pages.length) return;
+    const page = state.pages[this.resultIndex];
+    this.resultTitle = page.title;
+    this.resultHint = (this.resultIndex + 1) + ' / ' + state.pages.length + ' 页 · 拍照即可';
+    this.resultOverview = page.overview || '';
+    this.resultCards = page.cards || [];
+  },
+  previousResult() { this.changeResultPage(-1); },
+  nextResult() { this.changeResultPage(1); },
+  changeResultPage(direction) {
+    const state = states.get(this);
+    if (!state || !state.pages || !state.pages.length) return;
+    this.resultIndex = (this.resultIndex + direction + state.pages.length) % state.pages.length;
+    this.refreshResultPage();
+  },
+  closeResults() { this.resultVisible = false; },
+  startManual() {
+    if (this.running) return;
+    const state = this.freshState();
+    state.report.suite = 'manual'; state.report.rounds = 0; state.report.notes += ' 手动模式额外包含操作覆盖层，不能与自动测试绝对时间直接比较。';
+    this.running = true; this.manual = true;
+    this.setupManual(state);
+  },
+  setupManual(state) {
+    if (state.testCase) state.testCase.dispose();
+    const modes = ['string-game', 'object-game'].map(id => CASES.find(mode => mode.id === id));
+    const mode = modes[state.manualIndex % modes.length];
+    state.mode = mode;
+    this.prepareScene(mode);
+    this.stage = mode.label + '，请慢慢点';
+    state.testCase = createCase(this, mode, now);
+  },
+  async manualTap() {
+    const state = states.get(this);
+    if (!this.manual || !state || state.cancelled || state.busy) return;
+    state.busy = true;
+    try {
+      const value = await sample(state, state.testCase);
+      if (!state.cancelled) state.report.cases.push({ id: state.mode.id, label: state.mode.label, round: 0, summary: summarize([value]), samples: [value] });
+    } catch (error) {
+      if (!state.cancelled) { state.report.failures.push(String(error.message || error)); this.finish(state); }
+    } finally { state.busy = false; }
+  },
+  nextManual() {
+    const state = states.get(this);
+    if (!state || state.busy) return;
+    state.manualIndex++; this.setupManual(state);
+  },
+  endManual() {
+    const state = states.get(this);
+    if (!state || state.busy) return;
+    this.finish(state);
+  }
+};
+</script>
+
+<style>
+.page { width:336px; height:480px; background-color:#000000; }
+.menu { width:336px; height:480px; flex-direction:column; }
+.menu-inner { width:336px; padding:18px 12px; flex-direction:column; flex-shrink:0; }
+.title { width:312px; color:#ffffff; font-size:27px; line-height:36px; font-weight:bold; flex-shrink:0; }
+.description { width:312px; color:#aaaaaa; font-size:18px; line-height:25px; margin-top:10px; flex-shrink:0; }
+.action { width:312px; height:60px; background-color:#1769d2; border-radius:24px; justify-content:center; align-items:center; margin-top:12px; flex-shrink:0; }
+.secondary { background-color:#34373d; }
+.action-text { color:#ffffff; font-size:22px; line-height:30px; text-align:center; }
+.result-screen { position:absolute; left:0px; top:0px; width:336px; height:480px; background-color:#000000; }
+.result-title { position:absolute; left:12px; top:14px; width:312px; height:36px; color:#ffffff; font-size:26px; line-height:36px; font-weight:bold; lines:1; }
+.result-hint { position:absolute; left:12px; top:50px; width:312px; height:24px; color:#aaaaaa; font-size:18px; line-height:24px; lines:1; }
+.result-body { position:absolute; left:12px; top:80px; width:312px; height:312px; flex-direction:column; }
+.result-overview { width:312px; height:312px; color:#ffffff; font-size:18px; line-height:26px; lines:12; flex-shrink:0; }
+.result-card { width:312px; height:144px; margin-bottom:12px; flex-direction:column; flex-shrink:0; }
+.result-card-title { width:312px; height:30px; color:#9cdcfe; font-size:20px; line-height:30px; font-weight:bold; lines:1; text-overflow:ellipsis; flex-shrink:0; }
+.result-card-metrics { width:312px; height:104px; color:#ffffff; font-size:18px; line-height:26px; lines:4; flex-shrink:0; }
+.result-pager { position:absolute; left:12px; top:408px; width:312px; height:60px; flex-direction:row; justify-content:space-between; }
+.pager-action { width:100px; height:60px; background-color:#1769d2; border-radius:20px; justify-content:center; align-items:center; }
+.pager-text { color:#ffffff; font-size:20px; line-height:28px; text-align:center; }
+.content { width:336px; height:480px; flex-direction:column; }
+.content-inner { width:336px; height:480px; flex-shrink:0; }
+.surface { width:336px; height:480px; }
+.node-wrap { position:absolute; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; }
+.ui-text { width:100%; flex-shrink:0; text-overflow:ellipsis; }
+.ui-button { width:100%; height:100%; padding:0px 8px; justify-content:center; align-items:center; }
+.control-card { width:100%; height:100%; padding:12px 16px; flex-direction:row; align-items:center; }
+.control-copy { flex-direction:column; }
+.control-label { width:100%; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.control-detail { width:100%; font-size:20px; line-height:26px; lines:2; text-overflow:ellipsis; }
+.ui-switch { width:68px; margin-left:8px; }
+.value-card { width:100%; height:100%; padding:12px 16px; flex-direction:column; justify-content:center; }
+.value-header { width:100%; flex-direction:row; align-items:center; }
+.value-label { flex:1; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.value-text { font-size:21px; line-height:28px; font-weight:bold; margin-left:6px; }
+.ui-slider { width:100%; margin-top:8px; padding-left:0px; padding-right:0px; }
+.ui-progress { width:100%; margin-top:12px; stroke-width:12px; }
+.stage { position:absolute; left:6px; top:464px; width:324px; height:16px; color:#aaaaaa; font-size:14px; line-height:16px; lines:1; }
+.manual-overlay { position:absolute; left:6px; top:402px; width:324px; height:60px; flex-direction:row; }
+.manual-action { width:108px; height:60px; background-color:#1769d2; justify-content:center; align-items:center; }
+</style>

@@ -43,3 +43,8 @@ rustup target add wasm32-wasip2
 ```
 
 脚本生成 `JSLab-Sync.abp`，其中包含 manifest、图标和 WASM Component。
+
+## JSLab 统一运行器
+
+全部 `.js` 共用同一运行契约，`.ui.js` 保留为普通文件名。此插件原本按 `.js` 校验/传输，不需要更改 WIT 或 RPC 协议版本。
+cloudProxy 原样转发请求 body 与服务器 JSON，包含 runtimeContract；AI 契约验证由快应用与云插件负责，文件/字体链路不受影响。

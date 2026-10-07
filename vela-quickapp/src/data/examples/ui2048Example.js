@@ -1,5 +1,22 @@
 export default `
 const SIZE = 4;
+// Classic 2048 tiles, with a dark empty cell for the watch's black background.
+const TILE_BACKGROUNDS = {
+  0: '#3d3630',
+  2: '#eee4da',
+  4: '#ede0c8',
+  8: '#f2b179',
+  16: '#f59563',
+  32: '#f67c5f',
+  64: '#f65e3b',
+  128: '#edcf72',
+  256: '#edcc61',
+  512: '#edc850',
+  1024: '#edc53f',
+  2048: '#edc22e'
+};
+const BUTTON_BACKGROUND = '#8f7a66';
+const LIGHT_TEXT = '#f9f6f2';
 
 function emptyBoard() {
   return [
@@ -70,15 +87,15 @@ function canMove(board) {
   return false;
 }
 
-function tileTone(value) {
-  if (value === 0) return 'neutral';
-  if (value <= 4) return 'primary';
-  if (value <= 16) return 'success';
-  if (value <= 128) return 'warning';
-  return 'danger';
+function tileColor(value) {
+  if (value <= 4) return '#776e65';
+  // Dark digits stay readable on the bright gold tiles.
+  if (value >= 128 && value <= 2048) return '#51473d';
+  return LIGHT_TEXT;
 }
 
 const game = ui.signal(newGame());
+console.log('2048 已开始；系统返回查看日志，轻点日志恢复游戏');
 
 function move(direction) {
   const current = game.get();
@@ -107,6 +124,7 @@ function move(direction) {
   }
 
   const nextBoard = addTile(board);
+  console.log('2048', direction, '分数', current.score + gained);
   game.set({
     board: nextBoard,
     score: current.score + gained,
@@ -115,8 +133,38 @@ function move(direction) {
 }
 
 function reset() {
+  console.log('2048 新局');
   game.set(newGame());
 }
+
+// Coordinates are relative to this 324 x 156 control area.
+// The four arrows form a cross; utility actions occupy the bottom corners.
+const controls = ui.stack([
+  ui.button('↑', () => move('up'), {
+    id: 'up', x: 122, y: 0, width: 80, height: 50, lines: 1,
+    background: BUTTON_BACKGROUND, color: LIGHT_TEXT
+  }),
+  ui.button('←', () => move('left'), {
+    id: 'left', x: 36, y: 53, width: 80, height: 50, lines: 1,
+    background: BUTTON_BACKGROUND, color: LIGHT_TEXT
+  }),
+  ui.button('→', () => move('right'), {
+    id: 'right', x: 208, y: 53, width: 80, height: 50, lines: 1,
+    background: BUTTON_BACKGROUND, color: LIGHT_TEXT
+  }),
+  ui.button('↓', () => move('down'), {
+    id: 'down', x: 122, y: 106, width: 80, height: 50, lines: 1,
+    background: BUTTON_BACKGROUND, color: LIGHT_TEXT
+  }),
+  ui.button('新局', reset, {
+    id: 'reset', x: 0, y: 106, width: 100, height: 50, lines: 1,
+    background: '#a47745', color: LIGHT_TEXT
+  }),
+  ui.button('退出', () => script.exit(), {
+    id: 'exit', x: 224, y: 106, width: 100, height: 50, lines: 1,
+    background: '#4d443b', color: LIGHT_TEXT
+  })
+], { id: 'controls', height: 156 });
 
 ui.showHeader(false);
 ui.render(() => {
@@ -124,15 +172,17 @@ ui.render(() => {
   const cells = state.board.map((value, index) => ({
     id: 'tile-' + index,
     text: value === 0 ? '' : String(value),
-    tone: tileTone(value),
+    background: TILE_BACKGROUNDS[value] || '#3c3a32',
+    color: tileColor(value),
     size: value >= 1024 ? 18 : value >= 128 ? 21 : 25
   }));
 
-  return [
+  return ui.column([
     ui.text('2048　分数 ' + state.score, {
       id: 'score',
       size: 27,
-      color: '#ffffff'
+      lines: 1,
+      color: LIGHT_TEXT
     }),
     ui.grid(cells, {
       id: 'board',
@@ -142,18 +192,11 @@ ui.render(() => {
     ui.text(state.message || '合并相同数字，得到 2048', {
       id: 'message',
       size: 18,
-      color: state.message === '游戏结束' ? '#f48771' : '#9ca3af',
+      lineHeight: 22,
+      lines: 1,
+      color: state.message === '游戏结束' ? '#f67c5f' : '#b9ada1',
       align: 'center'
     }),
-    ui.buttonRow([
-      ui.button('新局', reset, { id: 'reset', tone: 'danger' }),
-      ui.button('↑', () => move('up'), { id: 'up' }),
-      ui.button('退出', () => script.exit(), { id: 'exit', tone: 'neutral' })
-    ], { id: 'page-controls' }),
-    ui.buttonRow([
-      ui.button('←', () => move('left'), { id: 'left' }),
-      ui.button('↓', () => move('down'), { id: 'down' }),
-      ui.button('→', () => move('right'), { id: 'right' })
-    ], { id: 'move-controls' })
-  ];
+    controls
+  ], { id: 'game', gap: 4 });
 });`;

@@ -2,24 +2,15 @@
 <template>
   <div class="page" style="flex-direction: column;">
 
-    <!-- 文件名、模式、模板按创建流程排列。 -->
+    <!-- 文件名、模板按创建流程排列。 -->
     <div class="field-group">
-      <text class="label">文件名</text>
-      <div class="input-box" @click="changeFocus">
+      <text class="label">文件名（自动补 .js）</text>
+      <div class="input-box" @click="toggleKeyboard">
         <text if="{{fileName}}" class="input-text">{{fileName}}_</text>
         <text else class="input-placeholder">输入文件名_</text>
       </div>
     </div>
 
-    <div class="field-group">
-      <text class="label">模式</text>
-      <picker class="picker"
-              type="text"
-              selected="{{executionModeIndex}}"
-              range="{{executionModeOptions}}"
-              @change="onExecutionModeChange">
-      </picker>
-    </div>
 
     <div class="field-group">
       <text class="label">模板</text>
@@ -33,6 +24,7 @@
 
     <!-- 第三方输入法组件 -->
     <input-method
+      if="{{!hideInputMethod}}"
       hide="{{hideInputMethod}}"
       initial-language="en"
       maxlength="5"
@@ -44,69 +36,70 @@
 
     <img static src="/common/images/hd.png" class="header-img" />
     <text class="time-text">{{nowTime}}</text>
-    <text class="title-text">新建JS</text>
+    <text class="title-text">新建脚本</text>
     <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="goBack" />
     <img if="{{hideInputMethod}}" src="/common/images/conform.png" class="btn {{busy ? 'disabled-icon' : ''}}" style="left: 258px;top: 6px;" @click="confirmAdd" />
-    <img if="{{!hideInputMethod}}" static src="/common/images/down.png" class="btn" style="left: 258px;top: 6px;" @click="changeFocus" />
+    <img if="{{!hideInputMethod}}" static src="/common/images/down.png" class="btn" style="left: 258px;top: 6px;" @click="toggleKeyboard" />
 
   </div>
 </template>
 
 <script>
 import jsManager from '../../../utils/files/jsManager.js';
-import { back as navigateBack, push } from '../../../utils/core/routeManager.js';
+import { back as navigateBack, replace } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
-import { getTemplatesForMode } from '../../../data/scriptTemplates.js';
-import { getConfiguredEditorRoute } from '../../../utils/editor/editorVersion.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+import { getTemplates } from '../../../data/scriptTemplates.js';
+import { getConfiguredEditorRoute } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
 
 export default {
   private: {
     nowTime: "00:00",
-    timer: null,
     busy: false,
     pageActive: true,
-    
+
     // 输入法相关
     hideInputMethod: true,
     vibrateMode: "short",
-    
+
     // 文件相关
     fileName: "",
     selectedTemplateIndex: 0,
-    templateOptions: [],
-    executionModeIndex: 0,
-    executionModeOptions: ['Console (.js)', 'UI (.ui.js)']
+    templateOptions: []
   },
-  
+
   updateTime() {
     this.nowTime = getCurrentClock();
   },
-  
+
   onInit() {
     this.refreshTemplateOptions();
     this.updateTime();
-    this.timer = setInterval(() => {
-      this.updateTime();
-    }, 60000);
   },
-  
+
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
   onDestroy(){
+    stopPageClock(this);
       this.pageActive = false;
-      clearInterval(this.timer);
   },
-  
+
   goBack(){
     vibrate('short');
+    this.handleBack();
+  },
+  onBackPress() { this.handleBack(); return true; },
+  handleBack() {
+    if (!this.hideInputMethod) { this.hideInputMethod = true; return; }
     navigateBack();
   },
-  
-  changeFocus() {
+
+  toggleKeyboard() {
     vibrate('short');
     this.hideInputMethod = !this.hideInputMethod;
   },
-  
+
   onInputMethodDelete() {
     if (this.fileName.length > 0) {
       this.fileName = this.fileName.slice(0, -1);
@@ -114,22 +107,19 @@ export default {
   },
   onInputMethodComplete(evt) {
     if (evt && evt.detail && evt.detail.content) {
-        this.fileName += evt.detail.content;
+      const nextName = this.fileName + evt.detail.content;
+      if (nextName.length > 128) { showToast('文件名过长'); return; }
+      this.fileName = nextName;
     }
   },
   onTemplateChange(e) {
     this.selectedTemplateIndex = e.newSelected;
   },
-  onExecutionModeChange(e) {
-    this.executionModeIndex = e.newSelected;
-    this.selectedTemplateIndex = 0;
-    this.refreshTemplateOptions();
-  },
   refreshTemplateOptions() {
-    this.templateOptions = getTemplatesForMode(this.executionModeIndex).map(template => template.label);
+    this.templateOptions = getTemplates().map(template => template.label);
   },
   getTemplateContent() {
-    const templates = getTemplatesForMode(this.executionModeIndex);
+    const templates = getTemplates();
     const selected = templates[this.selectedTemplateIndex] || templates[0];
     return selected ? selected.content : '';
   },
@@ -141,20 +131,7 @@ export default {
       return;
     }
     let fileName = this.fileName.trim();
-    const wantsUiMode = this.executionModeIndex === 1;
-    if (wantsUiMode) {
-      if (/\.ui\.js$/i.test(fileName)) {
-        // Keep an explicit UI script name unchanged.
-      } else if (/\.js$/i.test(fileName)) {
-        fileName = fileName.slice(0, -3) + '.ui.js';
-      } else {
-        fileName += '.ui.js';
-      }
-    } else if (/\.ui\.js$/i.test(fileName)) {
-      fileName = fileName.slice(0, -6) + '.js';
-    } else if (!/\.js$/i.test(fileName)) {
-      fileName += '.js';
-    }
+    if (!/\.js$/i.test(fileName)) fileName += '.js';
     const templateContent = this.getTemplateContent();
     this.busy = true;
     jsManager.list()
@@ -167,8 +144,11 @@ export default {
       .then(() => {
         if (!this.pageActive) return;
         showToast(`文件 ${fileName} 创建成功`);
-        this.$app.$def.openEditor(fileName, templateContent);
-        return getConfiguredEditorRoute().then(route => push(route));
+        return getConfiguredEditorRoute().catch(() => 'editor').then(route => {
+          if (!this.pageActive) return;
+          this.$app.$def.openEditor(fileName, templateContent);
+          replace(route);
+        });
       })
       .catch(error => {
         if (!this.pageActive) return;
@@ -186,7 +166,7 @@ export default {
   background-color: #000000;
   flex-direction: column;
   align-items: center;
-  padding-top: 108px;
+  padding-top: 84px;
   overflow: hidden;
 }
 
@@ -196,7 +176,7 @@ export default {
   left: 0px;
   top: 0px;
   width: 336px;
-  height: 102px;
+  height: 84px;
 }
 
 .btn {

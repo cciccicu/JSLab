@@ -10,7 +10,9 @@ async function loadFileMetadata() {
 }
 
 async function run() {
-  const metadata = await loadFileMetadata();
+  const encodingSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'files', 'textEncoding.js'), 'utf8');
+  const encoding = await import('data:text/javascript;base64,' + Buffer.from(encodingSource).toString('base64'));
+  const metadata = { ...await loadFileMetadata(), ...encoding };
   const files = [
     { name: 'older.js', lastModifiedTime: 100 },
     { name: 'newer.js', lastModifiedTime: 300 },
@@ -39,6 +41,14 @@ async function run() {
   assert.strictEqual(chunks.join(''), content);
   assert.strictEqual(offset, 11);
   assert.throws(() => metadata.sliceUtf8Chunk(content, 3, 4), /UTF-8/);
+  assert.throws(() => metadata.sliceUtf8Chunk('中', 0, 1), /不足/);
+  assert.throws(() => metadata.sliceUtf8Chunk('a', 0, 0.5), /至少/);
+  assert.throws(() => metadata.sliceUtf8Chunk('a', -1, 4), /非负整数/);
+  assert.equal(metadata.utf8ByteLength(0), 1);
+  assert.equal(encoding.decodeBase64('AAE='), '\x00\x01');
+  for (const invalid of ['AQ==AAAA', 'A===', 'AB==', 'AAB=', '!!!!']) {
+    assert.throws(() => encoding.decodeBase64(invalid), /编码无效/);
+  }
 
   const boundaryContent = 'a'.repeat(4095) + '中😀';
   const firstChunk = metadata.sliceUtf8Chunk(boundaryContent, 0, 4096);

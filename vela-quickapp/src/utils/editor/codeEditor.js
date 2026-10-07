@@ -103,6 +103,7 @@ export function moveCursorVertically(before, after, direction) {
 
 export default {
   getLineHeight,
+  getCharacterWidth,
   getTextWidth,
   getCursorPosition,
   moveCursorToPoint,

@@ -1,5 +1,6 @@
 import file from '@system.file';
-import { sortFilesNewestFirst, utf8ByteLength } from './fileMetadata.js';
+import { sortFilesNewestFirst } from './fileMetadata.js';
+import { utf8ByteLength } from './textEncoding.js';
 
 const SCRIPT_DIRECTORY_URI = 'internal://files/js/';
 const changeListeners = [];
@@ -150,12 +151,23 @@ function writeScript(name, content, options) {
   let safeContent;
   try {
     assertWritable(name, options && options.token);
-    validateNewScriptName(name);
     safeContent = validateScriptContent(content);
   } catch (error) {
     return Promise.reject(error);
   }
   return ensureScriptDirectory()
+    .then(() => {
+      // Only legacy oversized names need an extra native lookup. Existing files
+      // remain writable; creating a new oversized name still fails.
+      if (utf8ByteLength(name) <= 128) return;
+      return new Promise((resolve, reject) => file.access({
+        uri: getScriptUri(name),
+        success: resolve,
+        fail: () => {
+          try { validateNewScriptName(name); } catch (error) { reject(error); }
+        }
+      }));
+    })
     .then(() => new Promise((resolve, reject) => {
       file.writeText({
         uri: getScriptUri(name),

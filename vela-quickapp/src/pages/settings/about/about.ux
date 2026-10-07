@@ -40,38 +40,37 @@
 
     <img static src="/common/images/hd.png" class="topbar-bg" />
     <text class="time-text">{{nowTime}}</text>
-    <text if="{{bigTitle.length <= 5}}" class="title-text">{{bigTitle}}</text>
-    <marquee if="{{bigTitle.length > 5}}" class="title-marquee" scrollamount="4" loop="-1">{{bigTitle}}</marquee>
+    <text class="title-text">关于</text>
     <img static src="/common/images/back.png" class="back-button" @click="goBack" />
 	</div>
 </template>
-  
+
 <script>
-  import app from '@system.app' 
+  import app from '@system.app'
   import { back as navigateBack } from '../../../utils/core/routeManager.js';
   import { vibrate } from '../../../utils/core/uiFeedback.js';
-  import { getCurrentClock } from '../../../utils/core/time.js';
+  import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 
-  
+
   export default {
 	private: {
     nowTime:'00:00',
-	  bigTitle:'关于',
     appName:'JSLab',
-    appVer:'0.0.0',
-    timer:null
+    appVer:'0.0.0'
 	},
 	onInit() {
     this.updateTime();
-		this.timer = setInterval(() => this.updateTime(), 60000);
-    this.appName=app.getInfo().name;
-    this.appVer=app.getInfo().versionName;
+    const info = app.getInfo();
+    this.appName = info.name;
+    this.appVer = info.versionName;
 	},
   onShow(){
+    startPageClock(this);
 	  this.updateTime();
   },
+  onHide() { stopPageClock(this); },
   onDestroy(){
-	  if (this.timer) clearInterval(this.timer);
+    stopPageClock(this);
   },
 	goBack(){
 		vibrate('short');
@@ -80,10 +79,10 @@
   updateTime() {
     this.nowTime = getCurrentClock();
   }
-  
+
   }
 </script>
-  
+
 <style>
   .page {
 	  width: 336px;
@@ -91,7 +90,7 @@
 	  background-color: #000000;
 	  overflow: hidden;
   }
-  .scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 102px 6px 84px; }
+  .scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 84px 6px 24px; }
   .app-card {
     width: 324px;
     height: 128px;
@@ -148,9 +147,8 @@
   .license-card { width: 324px; min-height: 120px; padding: 16px 20px; margin: 2px 0px 16px; border-radius: 36px; background-color: #262626; flex-direction: column; flex-shrink: 0; align-items: center; justify-content: center; }
   .license-text { width: 284px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.65); text-align: center; }
   .joke-text { width: 284px; margin-top: 7px; font-size: 28px; line-height: 36px; font-weight: bold; color: #ff5b5b; text-align: center; }
-  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 336px; height: 84px; }
   .back-button { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
   .time-text { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
   .title-text { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }
-  .title-marquee { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 30px; font-weight: bold; color: #ffffff; text-align: center; }
 </style>

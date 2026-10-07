@@ -1,0 +1,186 @@
+<template>
+  <div class="page">
+    <list if="{{stage === 'choose' && !loading && activated && files.length > 0}}" bounces="true" class="file-list">
+      <list-item for="{{(index, file) in files}}" tid="name" type="local-script" class="file-item" @click="selectScript(index)">
+        <text class="file-name">{{file.name}}</text>
+        <text class="file-hint">选择此本地脚本</text>
+      </list-item>
+    </list>
+    <div if="{{stage === 'choose' && statusText}}" class="status-card">
+      <text class="status-text">{{statusText}}</text>
+    </div>
+    <scroll if="{{stage === 'details'}}" class="details" scroll-y="true">
+      <div class="source-card">
+        <text class="field-label">本地脚本</text>
+        <text class="field-value">{{selectedName}}</text>
+      </div>
+      <div class="field-card" @click="editField('marketName')">
+        <text class="field-label">市场名称 · 必填</text>
+        <text class="field-value">{{marketName || '点击填写名称'}}</text>
+      </div>
+      <div class="field-card field-tall" @click="editField('description')">
+        <text class="field-label">用途说明 · 必填</text>
+        <text class="field-value field-description">{{description || '点击填写用途和使用方法'}}</text>
+      </div>
+      <div class="field-card" @click="editField('tags')">
+        <text class="field-label">标签 · 可选</text>
+        <text class="field-value">{{tags || '用逗号分隔，最多 12 个'}}</text>
+      </div>
+      <div class="note-card">
+        <text class="note-text">提交时读取本地脚本的当前源码。审核通过后，市场用户才能看到。</text>
+      </div>
+      <div if="{{submissionText}}" class="note-card">
+        <text class="note-text">{{submissionText}}</text>
+      </div>
+    </scroll>
+    <img static src="/common/images/hd.png" class="header" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="heading">发布市场</text>
+    <img static src="/common/images/back.png" class="btn back" @click="goBack" />
+    <img if="{{stage === 'details'}}" src="/common/images/conform.png" class="btn confirm {{busy ? 'disabled-icon' : ''}}" @click="submit" />
+  </div>
+</template>
+
+<script>
+import { back } from '../../../../utils/core/routeManager.js';
+import cloudService from '../../../../utils/cloud/cloudService.js';
+import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
+
+export default {
+  private: {
+    stage: 'choose', files: [], loading: false, initialized: false,
+    activated: false, busy: false, statusText: '正在读取本地脚本...',
+    selectedName: '', marketName: '', description: '', tags: '', submissionText: '',
+    nowTime: '00:00', pageActive: true
+  },
+  onInit() { this.nowTime = getCurrentClock(); },
+  onShow() {
+    startPageClock(this);
+    this.$app.$def.deliverDialog(this);
+    if (!this.initialized) { this.initialized = true; this.load(); }
+  },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this);
+    this.pageActive = false;
+    this.$app.$def.cancelOwnedDialog(this);
+  },
+  load() {
+    this.loading = true;
+    this.statusText = '正在读取本地脚本...';
+    Promise.all([cloudService.listLocalScripts(), cloudService.getState()]).then(values => {
+      if (!this.pageActive) return null;
+      this.files = values[0];
+      if (!values[1].paired) {
+        this.statusText = '请先在云账户页配对设备';
+        return null;
+      }
+      return cloudService.getEntitlements().then(entitlement => {
+        if (!this.pageActive) return;
+        this.activated = entitlement.cloudEnabled;
+        this.statusText = !entitlement.cloudEnabled ? '请先在网页端激活云空间' :
+          this.files.length ? '' : '本地脚本库为空';
+      });
+    }).catch(error => {
+      if (this.pageActive) this.statusText = cloudService.errorMessage(error, '准备市场发布');
+    }).then(() => { if (this.pageActive) this.loading = false; });
+  },
+  selectScript(index) {
+    if (this.loading || this.busy || !this.activated || !this.files[index]) return;
+    if (this.files[index].size > 48 * 1024) { showToast('脚本超过市场的 48 KiB 上限'); return; }
+    vibrate('short');
+    this.selectedName = this.files[index].name;
+    this.marketName = this.selectedName.replace(/\.js$/i, '').slice(0, 124);
+    this.description = '';
+    this.tags = '';
+    this.submissionText = '';
+    this.stage = 'details';
+  },
+  editField(field) {
+    if (this.busy || this.stage !== 'details') return;
+    const settings = {
+      marketName: { title: '市场名称', message: '填写公开显示的名称', maxLength: 124, required: true },
+      description: { title: '用途说明', message: '说明用途和使用方法', maxLength: 1000, required: true },
+      tags: { title: '标签', message: '用逗号分隔，最多 12 个，每个 40 字', maxLength: 500, required: false }
+    }[field];
+    if (!settings) return;
+    vibrate('short');
+    this.$app.$def.openDialog('text', Object.assign({}, settings, { value: this[field], language: 'cn' }), this).then(result => {
+      if (this.pageActive && result.action === 'confirm') {
+        this[field] = result.value;
+        this.submissionText = '';
+      }
+    }).catch(error => { if (this.pageActive) showToast(error.message || '无法打开输入页'); });
+  },
+  submit() {
+    if (this.busy || this.stage !== 'details') return;
+    const name = this.marketName.trim();
+    const description = this.description.trim();
+    const tags = this.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+    if (!name) { showToast('请填写市场名称'); return; }
+    if (!description) { showToast('请填写用途说明'); return; }
+    if (tags.length > 12 || tags.some(tag => tag.length > 40)) {
+      showToast('最多 12 个标签，每个不超过 40 字'); return;
+    }
+    this.busy = true;
+    this.$app.$def.openDialog('confirm', {
+      title: '提交审核？',
+      message: '将 ' + this.selectedName + ' 的当前源码提交为“' + name + '”。审核通过后才会公开。',
+      confirmText: '提交', cancelText: '返回'
+    }, this).then(result => {
+      if (!this.pageActive) return null;
+      if (result.action !== 'confirm') { this.busy = false; return null; }
+      return cloudService.submitMarketScript(this.selectedName, { name, description, tags: tags.join(', ') });
+    }).then(result => {
+      if (!this.pageActive || !result) return;
+      this.busy = false;
+      if (result.status === 'rejected') {
+        this.submissionText = '审核未通过：' + (result.review && result.review.reason || '请修改后重试');
+        return;
+      }
+      this.$app.$def.marketRefreshNeeded = true;
+      showToast(result.status === 'published' ? '已发布到 JS 市场' : '已提交市场审核');
+      back();
+    }).catch(error => {
+      if (!this.pageActive) return;
+      this.busy = false;
+      this.submissionText = cloudService.errorMessage(error, '提交市场脚本');
+      showToast(this.submissionText);
+    });
+  },
+  goBack() {
+    if (this.busy) { showToast('正在提交，请稍候'); return; }
+    vibrate('short');
+    if (this.stage === 'details') { this.stage = 'choose'; return; }
+    back();
+  },
+  onBackPress() { this.goBack(); return true; }
+};
+</script>
+
+<style>
+.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
+.file-list { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; }
+.file-item { width:324px; height:96px; padding:12px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; }
+.file-name { width:284px; color:#ffffff; font-size:28px; line-height:38px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.file-hint { width:284px; color:#999999; font-size:19px; line-height:28px; }
+.details { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
+.source-card,.field-card,.note-card { width:324px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
+.source-card,.field-card { height:112px; }
+.field-tall { height:142px; }
+.field-label { width:284px; color:#999999; font-size:19px; line-height:28px; flex-shrink:0; }
+.field-value { width:284px; color:#ffffff; font-size:27px; line-height:36px; font-weight:bold; lines:1; text-overflow:ellipsis; flex-shrink:0; }
+.field-description { font-size:23px; line-height:31px; lines:2; }
+.note-card { padding:18px 20px; }
+.note-text { width:284px; color:#b8b8b8; font-size:20px; line-height:28px; flex-shrink:0; }
+.status-card { position:absolute; left:6px; top:84px; width:324px; padding:20px; border-radius:36px; background-color:#262626; }
+.status-text { width:284px; color:#ffffff; font-size:23px; line-height:32px; }
+.header { position:absolute; left:0px; top:0px; width:336px; height:84px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; color:#999999; font-size:24px; font-weight:bold; text-align:center; }
+.heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; color:#ffffff; font-size:32px; font-weight:bold; text-align:center; }
+.btn { position:absolute; top:6px; width:72px; height:72px; }
+.back { left:6px; }
+.confirm { left:258px; }
+.disabled-icon { background-color:#303030; border-radius:36px; }
+</style>

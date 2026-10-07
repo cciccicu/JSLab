@@ -1,0 +1,21 @@
+[
+  "height: {{layoutHeight}}px;",
+  "top: {{contentTopPadding}}px;",
+  "left: {{node.x}}px; top: {{node.y}}px; width: {{node.width}}px; height: {{node.height}}px; background-color: {{node.background}}; border-radius: {{node.radius}}px;",
+  "color: {{node.color}}; font-size: {{node.size}}px; line-height: {{node.lineHeight}}px; font-weight: {{node.bold}}; text-align: {{node.align}}; lines: {{node.lines}};",
+  "color: {{node.color}}; font-size: {{node.size}}px; line-height: {{node.lineHeight}}px; lines: {{node.lines}}; font-weight: bold; text-align: center;",
+  "width: {{node.copyWidth}}px;",
+  "color: {{node.color}};",
+  "color: {{node.detailColor}};",
+  "track-color: {{node.accent}}; thumb-color: {{node.thumbColor}};",
+  "color: {{node.color}};",
+  "color: {{node.accent}};",
+  "color: {{node.trackColor}}; selected-color: {{node.accent}}; block-color: {{node.thumbColor}};",
+  "color: {{node.color}};",
+  "color: {{node.accent}};",
+  "color: {{node.accent}}; layer-color: {{node.trackColor}};",
+  "width: {{node.qrSize}}px; height: {{node.qrSize}}px; color: {{node.color}}; background-color: {{node.background}};",
+  "top: {{errorTop}}px;",
+  "top: {{scrollTrackTop}}px; height: {{scrollTrackHeight}}px;",
+  "top: {{scrollThumbTop}}px; height: {{scrollThumbHeight}}px;"
+]

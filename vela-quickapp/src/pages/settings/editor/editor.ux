@@ -8,7 +8,7 @@
         </div>
         <img src="/common/images/enter.png" class="enter-icon" />
       </div>
-      <div class="item {{fontSizeAvailable ? '' : 'disabled-item'}}" @click="setFontsize">
+      <div class="item {{fontSizeAvailable ? '' : 'disabled-item'}}" @click="setFontSize">
         <div class="item-content">
           <text class="itemtext {{fontSizeAvailable ? '' : 'disabled-text'}}">字号</text>
           <text class="itemtext2 {{fontSizeAvailable ? '' : 'disabled-text'}}">{{fontSizeDescription}}</text>
@@ -32,9 +32,9 @@
     </scroll>
 
     <img static src="/common/images/hd.png" class="topbar" />
-    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">编辑器设置</text>
+    <img static src="/common/images/back.png" class="back-button" @click="goBack" />
   </div>
 </template>
 
@@ -42,100 +42,117 @@
 import configManager from '../../../utils/core/configManager.js';
 import { back, push } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
-import { getCurrentClock } from '../../../utils/core/time.js';
-import { DEFAULT_EDITOR_VERSION, normalizeEditorVersion } from '../../../utils/editor/editorVersion.js';
-import { DEFAULT_FONT_SIZE, MAX_FONT_SIZE, MIN_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/fontSize.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+import { DEFAULT_EDITOR_VERSION, DEFAULT_FONT_SIZE, MAX_FONT_SIZE, MIN_FONT_SIZE, normalizeFontSize, EDITOR_VERSIONS, getEditorVersionInfo } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
-
-const EDITOR_VERSION_OPTIONS = [
-  { id: 'v0', label: 'v0 · 1.1.2' },
-  { id: 'v1', label: 'v1 · 1.2.3' },
-  { id: 'v2', label: 'v2 · 当前版本' }
-];
-
-function getEditorVersionOption(id) {
-  for (let index = 0; index < EDITOR_VERSION_OPTIONS.length; index += 1) {
-    if (EDITOR_VERSION_OPTIONS[index].id === id) return EDITOR_VERSION_OPTIONS[index];
-  }
-  return EDITOR_VERSION_OPTIONS[2];
-}
-
-function getEditorVersionLabel(version) {
-  return getEditorVersionOption(version).label;
-}
-
-function supportsFontSize(version) { return version === 'v1' || version === 'v2'; }
-function supportsV2Only(version) { return version === 'v2'; }
-
+const defaultEditorInfo = getEditorVersionInfo(DEFAULT_EDITOR_VERSION);
 export default {
-  private: { nowTime: '00:00', timer: null, currentFontSize: DEFAULT_FONT_SIZE, editorVersion: DEFAULT_EDITOR_VERSION, editorVersionLabel: getEditorVersionLabel(DEFAULT_EDITOR_VERSION), fontSizeAvailable: true, highlightAvailable: true, fontsAvailable: true, fontSizeDescription: '当前：16px', highlightDescription: '开关、阈值与配色', fontsDescription: '当前字体与更换教程', settingsLoading: false, settingsWritePending: false, pageActive: true },
+  private: {
+    nowTime: '00:00',
+    currentFontSize: DEFAULT_FONT_SIZE,
+    editorVersion: DEFAULT_EDITOR_VERSION,
+    editorVersionLabel: defaultEditorInfo.label,
+    fontSizeAvailable: defaultEditorInfo.supportsFontSize,
+    highlightAvailable: defaultEditorInfo.supportsHighlight,
+    fontsAvailable: defaultEditorInfo.supportsCustomFont,
+    fontSizeDescription: '当前：16px',
+    highlightDescription: '开关、阈值与配色',
+    fontsDescription: '当前字体与更换教程',
+    settingsLoading: false,
+    settingsWritePending: false,
+    pageActive: true
+  },
   onInit() {
     this.updateTime();
-    this.timer = setInterval(() => this.updateTime(), 60000);
     this.loadSettings();
   },
-  onShow() { this.loadSettings(); },
-  onDestroy() {
-    this.pageActive = false;
-    if (this.timer) clearInterval(this.timer);
+  onShow() {
+    startPageClock(this);
+    if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
+    this.loadSettings();
   },
-  updateTime() { this.nowTime = getCurrentClock(); },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this);
+    this.$app.$def.cancelOwnedDialog(this);
+    this.pageActive = false;
+  },
+  updateTime() {
+    this.nowTime = getCurrentClock();
+  },
   loadSettings() {
-    if (this.settingsLoading) return;
+    if (this.settingsLoading || this.settingsWritePending) return;
     this.settingsLoading = true;
-    Promise.all([
-      configManager.get('editor.font.size', DEFAULT_FONT_SIZE),
-      configManager.get('editor.version', DEFAULT_EDITOR_VERSION)
-    ]).then((values) => {
+    Promise.all([configManager.get('editor.font.size', DEFAULT_FONT_SIZE), configManager.get('editor.version', DEFAULT_EDITOR_VERSION)]).then(values => {
       this.settingsLoading = false;
+      if (!this.pageActive) return;
       this.currentFontSize = normalizeFontSize(values[0], DEFAULT_FONT_SIZE);
-      this.applyEditorVersion(normalizeEditorVersion(values[1]));
-    }).catch((error) => {
+      this.applyEditorVersion(values[1]);
+    }).catch(error => {
       this.settingsLoading = false;
+      if (!this.pageActive) return;
       showToast(formatError(error, '读取编辑器字号与版本设置'));
     });
   },
   selectEditorVersion() {
+    if (this.settingsLoading || this.settingsWritePending) return;
     vibrate('short');
     this.$app.$def.openDialog('select', {
       title: '编辑器版本',
       message: '新设置会在下次打开编辑器时生效',
-      options: EDITOR_VERSION_OPTIONS.map(option => option.label),
-      initialValue: this.editorVersionLabel,
-      callbacks: { onSelect: label => this.saveEditorVersion(label) }
+      items: EDITOR_VERSIONS.map(info => ({label:info.label,value:info.id})),
+      value: this.editorVersion
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        this.saveEditorVersion(result.value);
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
   },
-  saveEditorVersion(label) {
-    let option = EDITOR_VERSION_OPTIONS[2];
-    for (let index = 0; index < EDITOR_VERSION_OPTIONS.length; index += 1) {
-      if (EDITOR_VERSION_OPTIONS[index].label === label) {
-        option = EDITOR_VERSION_OPTIONS[index];
-        break;
-      }
-    }
+  saveEditorVersion(id) {
+    if (this.settingsWritePending) return;
+    const option = getEditorVersionInfo(id);
+    this.settingsWritePending = true;
     configManager.set('editor.version', option.id).then(() => {
+      if (!this.pageActive) return;
       this.applyEditorVersion(option.id);
       showToast('编辑器将在下次打开时切换');
-    }).catch((error) => showToast(formatError(error, '保存编辑器版本 ' + option.label)));
+    }).catch(error => { if (this.pageActive) showToast(formatError(error, '保存编辑器版本 ' + option.label)); })
+      .then(() => { if (this.pageActive) this.settingsWritePending = false; });
   },
   applyEditorVersion(version) {
-    this.editorVersion = normalizeEditorVersion(version);
-    this.editorVersionLabel = getEditorVersionLabel(this.editorVersion);
-    this.fontSizeAvailable = supportsFontSize(this.editorVersion);
-    this.highlightAvailable = supportsV2Only(this.editorVersion);
-    this.fontsAvailable = supportsV2Only(this.editorVersion);
+    const option = getEditorVersionInfo(version);
+    this.editorVersion = option.id;
+    this.editorVersionLabel = option.label;
+    this.fontSizeAvailable = option.supportsFontSize;
+    this.highlightAvailable = option.supportsHighlight;
+    this.fontsAvailable = option.supportsCustomFont;
     this.fontSizeDescription = this.fontSizeAvailable ? '当前：' + this.currentFontSize + 'px' : 'v0 不支持';
     this.highlightDescription = this.highlightAvailable ? '开关、阈值与配色' : '仅 v2 支持';
     this.fontsDescription = this.fontsAvailable ? '当前字体与更换教程' : '仅 v2 支持';
   },
-  setFontsize() {
-    if (!this.fontSizeAvailable) { showToast('v0 编辑器不支持字号设置'); return; }
+  setFontSize() {
+    if (this.settingsLoading || this.settingsWritePending) return;
+    if (!this.fontSizeAvailable) {
+      showToast('v0 编辑器不支持字号设置');
+      return;
+    }
     vibrate('short');
     this.$app.$def.openDialog('number', {
       title: '设置字号',
       message: '请输入编辑器字号（' + MIN_FONT_SIZE + '-' + MAX_FONT_SIZE + '）',
-      initialValue: this.currentFontSize,
-      callbacks: { onConfirm: value => this.saveFontSize(value) }
+      value: this.currentFontSize,
+      min: MIN_FONT_SIZE, max: MAX_FONT_SIZE,
+      decimals: 0,
+      required: true
+    }, this).then(result => {
+      if (result.action === "confirm") {
+        const value = result.value;
+        this.saveFontSize(value);
+      }
+    }).catch(error => {
+      showToast(error.message || "无法打开对话框");
     });
   },
   saveFontSize(value) {
@@ -145,17 +162,29 @@ export default {
     this.currentFontSize = size;
     this.fontSizeDescription = '当前：' + size + 'px';
     this.settingsWritePending = true;
-    configManager.set('editor.font.size', size)
-      .then(() => { if (this.pageActive) showToast('字号已设为 ' + size + 'px'); })
-      .catch((error) => { if (!this.pageActive) return; this.currentFontSize = previous; this.fontSizeDescription = '当前：' + previous + 'px'; showToast(formatError(error, '保存编辑器字号 ' + size + 'px')); })
-      .then(() => { if (this.pageActive) this.settingsWritePending = false; });
+    configManager.set('editor.font.size', size).then(() => {
+      if (this.pageActive) showToast('字号已设为 ' + size + 'px');
+    }).catch(error => {
+      if (!this.pageActive) return;
+      this.currentFontSize = previous;
+      this.fontSizeDescription = '当前：' + previous + 'px';
+      showToast(formatError(error, '保存编辑器字号 ' + size + 'px'));
+    }).then(() => {
+      if (this.pageActive) this.settingsWritePending = false;
+    });
   },
   openHighlightSettings() {
-    if (!this.highlightAvailable) { showToast('当前编辑器不支持语法高亮'); return; }
+    if (!this.highlightAvailable) {
+      showToast('当前编辑器不支持语法高亮');
+      return;
+    }
     this.routerTo('settingsHighlight');
   },
   openFontSettings() {
-    if (!this.fontsAvailable) { showToast('当前编辑器不支持字体设置'); return; }
+    if (!this.fontsAvailable) {
+      showToast('当前编辑器不支持字体设置');
+      return;
+    }
     this.routerTo('settingsFonts');
   },
   routerTo(route) {
@@ -171,7 +200,7 @@ export default {
 
 <style>
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
-.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:86px 6px 84px; flex-direction:column; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
 .item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-shrink:0; align-items:center; justify-content:space-between; }
 .disabled-item { background-color:#303030; }
 .item-content { width:244px; height:84px; flex-shrink:0; flex-direction:column; justify-content:space-between; }
@@ -179,7 +208,7 @@ export default {
 .itemtext2 { width:244px; font-size:24px; line-height:32px; font-weight:bold; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:1; }
 .disabled-text { color:#8c8c8c; }
 .enter-icon { width:40px; height:40px; flex-shrink:0; }
-.topbar { position:absolute; left:0px; top:0px; width:336px; height:102px; }
+.topbar { position:absolute; left:0px; top:0px; width:336px; height:84px; }
 .back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }

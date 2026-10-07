@@ -31,22 +31,23 @@
       </div>
     </scroll>
     <img static src="/common/images/hd.png" class="topbar" />
-    <img static src="/common/images/back.png" class="btn" @click="goBack" />
     <text class="time">{{nowTime}}</text>
     <text class="title">字体</text>
+    <img static src="/common/images/back.png" class="btn" @click="goBack" />
   </div>
 </template>
 
 <script>
-import fontManager, { DEFAULT_FONT_PROFILE } from '../../../../utils/editor/fontManager.js';
+import { DEFAULT_FONT_PROFILE, readActiveFontProfile } from '../../../../utils/editor/fontProfile.js';
+import fontManager from '../../../../utils/editor/fontManager.js';
 import { back } from '../../../../utils/core/routeManager.js';
-import { getCurrentClock } from '../../../../utils/core/time.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { formatError } from '../../../../utils/core/userError.js';
 
 export default {
   private: {
-    nowTime: '00:00', timer: null, installationPollTimer: null, helperPollTimer: null,
+    nowTime: '00:00', installationPollTimer: null, helperPollTimer: null,
     fontName: DEFAULT_FONT_PROFILE.name,
     sourceName: DEFAULT_FONT_PROFILE.sourceName,
     fontFormat: DEFAULT_FONT_PROFILE.format.toUpperCase(),
@@ -63,18 +64,25 @@ export default {
   },
   onInit() {
     this.nowTime = getCurrentClock();
-    this.timer = setInterval(() => { this.nowTime = getCurrentClock(); }, 60000);
   },
   onShow() {
+    startPageClock(this);
     this.pageActive = true;
     this.loadFontData();
     this.loadInstallationState();
     this.checkHelperHeartbeat();
     if (!this.helperPollTimer) this.helperPollTimer = setInterval(() => this.checkHelperHeartbeat(), 5000);
   },
-  onDestroy() {
+  onHide() {
+    stopPageClock(this);
     this.pageActive = false;
-    if (this.timer) clearInterval(this.timer);
+    if (this.helperPollTimer) clearInterval(this.helperPollTimer);
+    this.helperPollTimer = null;
+    this.stopInstallationPolling();
+  },
+  onDestroy() {
+    stopPageClock(this);
+    this.pageActive = false;
     if (this.helperPollTimer) clearInterval(this.helperPollTimer);
     this.helperPollTimer = null;
     this.stopInstallationPolling();
@@ -100,7 +108,7 @@ export default {
     this.installationPollTimer = null;
   },
   loadFontData() {
-    fontManager.getProfile().then((profile) => {
+    readActiveFontProfile().then((profile) => {
       if (!this.pageActive) return;
       this.fontName = profile.name;
       this.sourceName = profile.sourceName;
@@ -184,21 +192,21 @@ export default {
 <style>
 .page { width: 336px; height: 480px; background-color: #000000; overflow: hidden; }
 .content { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; }
-.content-inner { width: 336px; flex-direction: column; flex-shrink: 0; padding: 102px 6px 84px; }
+.content-inner { width: 336px; flex-direction: column; flex-shrink: 0; padding: 84px 6px 24px; }
 .section-title { width: 324px; margin-top: 12px; flex-shrink: 0; font-size: 22px; line-height: 30px; font-weight: bold; color: rgba(255,255,255,0.65); }
 .helper-status { width: 284px; margin: 6px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; font-weight: bold; }
 .card { width: 324px; margin-top: 8px; padding: 16px 20px; flex-direction: column; flex-shrink: 0; background-color: #262626; border-radius: 36px; }
 .font-name { width: 284px; flex-shrink: 0; font-size: 28px; line-height: 36px; color: #ffffff; lines: 1; text-overflow: ellipsis; }
 .step-title { width: 284px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #9ecbff; }
 .detail { width: 284px; margin-top: 6px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
-.install-button { width: 324px; height: 72px; margin-top: 8px; padding: 0px 20px; flex-shrink: 0; align-items: center; justify-content: space-between; background-color: #2f75c7; border-radius: 36px; }
+.install-button { width: 324px; height: 72px; margin-top: 8px; padding: 0px 20px; flex-shrink: 0; align-items: center; justify-content: space-between; background-color: #0D6EFF; border-radius: 36px; }
 .disabled-item { background-color: #303030; }
 .install-button-title { width: 190px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #ffffff; text-overflow: ellipsis; lines: 1; }
 .install-button-state { width: 90px; flex-shrink: 0; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.78); text-align: right; text-overflow: ellipsis; lines: 1; }
 .disabled-text { color: #8c8c8c; }
 .install-status { width: 284px; margin: 8px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
 .last-card { margin-bottom: 16px; }
-.topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 102px; }
+.topbar { position: absolute; left: 0px; top: 0px; width: 336px; height: 84px; }
 .btn { position: absolute; left: 6px; top: 6px; width: 72px; height: 72px; }
 .time { position: absolute; left: 78px; top: 7px; width: 180px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
 .title { position: absolute; left: 78px; top: 35px; width: 180px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }

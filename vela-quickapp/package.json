@@ -1,6 +1,6 @@
 {
   "name": "JSLab",
-  "version": "1.9.0",
+  "version": "1.9.3",
   "description": "",
   "engines": {
     "node": ">=8.10"
@@ -20,8 +20,15 @@
     "test:cloud": "node tests/cloudService.test.cjs",
     "test:structure": "node tests/projectStructure.test.cjs",
     "test:device": "node tests/deviceInfo.test.cjs",
-    "test:ui": "node --test tests/uiRuntime.test.cjs",
-    "bench:ui": "node tests/benchUi.cjs"
+    "test:small": "node tests/smallModules.test.cjs",
+    "test:ui": "node --test tests/uiRuntime.test.cjs tests/uiOptimization.test.cjs tests/uiStyleBindings.test.cjs tests/uiReview.test.cjs tests/scriptData.test.cjs",
+    "bench:ui": "node tests/benchUi.cjs",
+    "bench:ui:optimized": "node diagnostics/ui-performance-app/scripts/sync-optimized.cjs && node tests/benchUiOptimization.cjs",
+    "bench:ui:final": "node --jitless tests/benchUiFinal.cjs",
+    "sync:contract": "node scripts/sync-runtime-contract.cjs",
+    "check:contract": "node scripts/check-runtime-contract.cjs",
+    "prebuild": "npm run sync:contract",
+    "prerelease": "npm run sync:contract"
   },
   "devDependencies": {
     "@aiot-toolkit/jsc": "^1.0.7",

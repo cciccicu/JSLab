@@ -249,7 +249,6 @@
         editForm.reset();
         editForm.dataset.marketId = result.script.id;
         editForm.querySelector('[name="marketName"]').value = result.script.name || '';
-        editForm.querySelector('[name="marketType"]').value = result.script.type || '';
         editForm.querySelector('[name="marketDescription"]').value = result.script.description || '';
         editForm.querySelector('[name="marketTags"]').value = Array.isArray(result.script.tags) ? result.script.tags.join(', ') : String(result.script.tags || '').replace(/[\[\]"]+/g, '');
         editForm.querySelector('[name="source"]').value = result.script.source || '';
@@ -295,7 +294,6 @@
           publishForm.reset();
           publishForm.dataset.marketId = '';
           publishForm.querySelector('[name="source"]').value = result.source || '';
-          publishForm.querySelector('[name="marketType"]').value = result.script.type || '';
           window.bootstrap.Modal.getOrCreateInstance(publishElement).show();
         }).catch(function (error) { showToast(error && error.message ? error.message : '读取待发布的云空间文件：浏览器没有返回错误详情。', true); });
         requestedPanelOpened = true;

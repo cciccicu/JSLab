@@ -1,0 +1,17 @@
+{
+  "name": "jslab-ui-performance",
+  "version": "1.0.2",
+  "private": true,
+  "scripts": {
+    "prebuild": "node scripts/sync-optimized.cjs && node scripts/sync-fixed-template.cjs",
+    "prerelease": "node scripts/sync-optimized.cjs && node scripts/sync-fixed-template.cjs",
+    "pretest": "node scripts/sync-optimized.cjs && node scripts/sync-fixed-template.cjs",
+    "build": "aiot build --enable-jsc",
+    "release": "aiot release --enable-jsc",
+    "test": "node --test tests/benchmark.test.cjs"
+  },
+  "devDependencies": {
+    "aiot-toolkit": "^2.0.5",
+    "@aiot-toolkit/jsc": "^1.0.7"
+  }
+}

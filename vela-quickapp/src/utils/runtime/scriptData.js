@@ -52,7 +52,7 @@ function load() {
 }
 
 function persist(next) {
-  const write = () => new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     file.writeText({
       uri: DATA_URI,
       text: JSON.stringify(next),
@@ -60,7 +60,16 @@ function persist(next) {
       fail(data, code) { reject(new Error('scriptData write failed: ' + code)); }
     });
   });
-  writeQueue = writeQueue.catch(() => {}).then(write);
+}
+
+// Queue the read/modify step as well as the write. Even one script can issue
+// several saves before the first file callback completes.
+function mutate(update) {
+  writeQueue = writeQueue.catch(() => {}).then(() => load()).then((root) => {
+    const next = clone(root);
+    update(next);
+    return persist(next);
+  });
   return writeQueue;
 }
 
@@ -86,33 +95,32 @@ export function createScriptStorage(scriptName) {
   }
   function get(area, key, fallback) {
     return load().then((root) => {
-      const value = getNamespace(root, false)[area][String(key)];
+      const values = getNamespace(root, false)[area];
+      const name = String(key);
+      const value = Object.prototype.hasOwnProperty.call(values, name) ? values[name] : undefined;
       return clone(value === undefined ? fallback : value);
     });
   }
   function set(area, key, value) {
     if (sizeOf(value) > MAX_VALUE_BYTES) return Promise.reject(new Error('scriptData value is too large'));
-    return load().then((root) => {
-      const next = clone(root);
+    return mutate((next) => {
       const item = getNamespace(next, true);
-      item[area][String(key)] = clone(value);
-      if (sizeOf(item[area]) > MAX_NAMESPACE_BYTES) return Promise.reject(new Error('scriptData namespace is too large'));
-      return persist(next);
+      const name = String(key);
+      const saved = clone(value);
+      if (name === '__proto__') Object.defineProperty(item[area], name, { value: saved, enumerable: true, writable: true, configurable: true });
+      else item[area][name] = saved;
+      if (sizeOf(item[area]) > MAX_NAMESPACE_BYTES) throw new Error('scriptData namespace is too large');
     });
   }
   function remove(area, key) {
-    return load().then((root) => {
-      const next = clone(root);
+    return mutate((next) => {
       delete getNamespace(next, false)[area][String(key)];
-      return persist(next);
     });
   }
   function clear(area) {
-    return load().then((root) => {
-      const next = clone(root);
+    return mutate((next) => {
       next[namespace] = next[namespace] || { data: {}, config: {} };
       next[namespace][area] = {};
-      return persist(next);
     });
   }
   function all(area) {

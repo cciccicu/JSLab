@@ -419,8 +419,8 @@ export default {
   border-radius: 30px; border: 3px solid rgba(255,255,255,0.06);
   background-color: #262626; justify-content: center; align-items: center;
 }
-.shift-key-on { background-color: #0d84ff; }
-.shift-key-locked { background-color: #0d84ff; border-color: #ffffff; }
+.shift-key-on { background-color: #0d6eff; }
+.shift-key-locked { background-color: #0d6eff; border-color: #ffffff; }
 .shift-glyph { width: 48px; height: 42px; }
 .shift-lock-dot {
   position: absolute; left: 27px; bottom: 5px; width: 6px; height: 6px;
@@ -464,10 +464,10 @@ export default {
   color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
 }
 .state-button-compact { font-size: 20px; }
-.state-button-active { background-color: #0d84ff; border-color: rgba(255,255,255,0.24); }
+.state-button-active { background-color: #0d6eff; border-color: rgba(255,255,255,0.24); }
 .mode-button-cn {
   width: 60px; height: 60px; margin-right: 0px; border-radius: 30px;
-  border: 3px solid rgba(255,255,255,0.24); background-color: #0d84ff;
+  border: 3px solid rgba(255,255,255,0.24); background-color: #0d6eff;
   color: #ffffff; font-size: 28px; font-weight: bold; text-align: center;
 }
 .symbol-mode-cn { font-size: 20px; }
@@ -482,7 +482,7 @@ export default {
   color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
 }
 .menu-button { margin-right: 6px; }
-.menu-button-active { background-color: #0d84ff; border-color: rgba(255,255,255,0.24); }
+.menu-button-active { background-color: #0d6eff; border-color: rgba(255,255,255,0.24); }
 .menu-symbol-cn { font-size: 20px; }
 .candidate-overlay { position: absolute; left: 0px; top: 0px; width: 336px; height: 252px; background-color: #000000; justify-content: center; flex-direction: column; align-items: center; }
 .candidate-list { width: 324px; height: 170px; padding: 0px 10px; border: 3px solid rgba(255,255,255,0.06); border-radius: 30px; background-color: #262626; }

@@ -1,12 +1,12 @@
 // Desktop JS comparison only; not a device frame-rate/memory benchmark.
-// Baseline defaults to the committed v1 runner; override with a git revision.
+// Historical v1 baseline is pinned; override with a pre-unification git revision.
 const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 const { loadUi, host, root } = require('./helpers/loadUi.cjs');
 const path = require('node:path');
 
 function legacy() {
-  const revision = process.argv[2] || 'HEAD';
+  const revision = process.argv[2] || '51d6764fe26931fa914064d781d3de5c3fb90a84';
   const source = execFileSync('git', ['show', revision + ':vela-quickapp/src/pages/workspace/run-ui/run-ui.ux'], { cwd: root, encoding: 'utf8' });
   const script = source.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/^import .*;\r?\n/gm, '').replace('export default', 'return');
   const stats = { renders: 0, paints: 0, measures: 0, submitted: 0 };

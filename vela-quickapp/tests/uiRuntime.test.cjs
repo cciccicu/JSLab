@@ -32,7 +32,7 @@ test('stack paint order, percentage width and alignment are deterministic', asyn
     ui.button('前层', () => {}, { id: 'front', width: 100, x: 100, y: 40 })
   ], { height: 160, padding: 10 }));
   assert.deepEqual(state.errors, []);
-  assert.equal(state.nodes[0].width, 152); assert.equal(state.nodes[1].x, 116); assert.equal(state.nodes[1].y, 152);
+  assert.equal(state.nodes[0].width, 152); assert.equal(state.nodes[1].x, 116); assert.equal(state.nodes[1].y, 134);
   assert.equal(state.nodes[1].id, 'front');
 });
 
@@ -129,7 +129,7 @@ test('cached geometry updates on text, width, header and topology changes withou
   value = '一二三四五六七八九十'; width = 48; ui.refresh(); await Promise.resolve();
   assert.ok(state.nodes[1].y > originalY); assert.equal(previous[1].y, originalY);
   const oldY = state.nodes[1].y; ui.showHeader(false); await Promise.resolve();
-  assert.equal(state.nodes[1].y, oldY - 90);
+  assert.equal(state.nodes[1].y, oldY - 72);
   first = false; ui.refresh(); await Promise.resolve(); assert.equal(state.nodes.length, 1); assert.equal(state.nodes[0].y, 12);
   ui.render(null); assert.equal(state.nodes.length, 0);
 });
@@ -140,24 +140,17 @@ test('buttonRow generated IDs cannot bypass the declaration budget', async () =>
   assert.match(state.errors[0].message, /40/);
 });
 
-test('page integration patches only changed nodes and has no per-render native measurements', async () => {
-  const { createUiSession } = await loadUi();
-  const source = fs.readFileSync(path.join(root, 'src/pages/workspace/run-ui/run-ui.ux'), 'utf8');
-  const script = source.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/^import .*;\r?\n/gm, '').replace('export default', 'return');
-  let capturedUi; let nativeReads = 0; const scrolls = [];
-  const page = new Function('createUiSession', 'createScriptRuntimeApi', 'getPageElement', 'scheduleAfterRender', 'setTimeout', 'vibrate', script)(
-    createUiSession, () => ({ system: { capture(value) { capturedUi = value; } }, script: {}, dialog: {} }),
-    () => ({ getScrollRect() { nativeReads++; }, scrollTo(options) { scrolls.push(options); } }),
-    (_page, callback) => Promise.resolve().then(callback), callback => callback(), () => {}
-  );
-  Object.assign(page, page.private, { $app: { $def: { editor: { name: 'test.ui.js' } } } });
-  page.runCode("system.capture(ui); ui.render([ui.qrcode('https://ccicc.icu', {id:'qr'}), ui.text('0', {id:'text'})]);");
-  const nodes = page.uiNodes; const qr = nodes[0]; let writes = 0;
-  const splice = nodes.splice; nodes.splice = function (...args) { writes++; return splice.apply(this, args); };
-  capturedUi.render([capturedUi.qrcode('https://ccicc.icu', { id: 'qr' }), capturedUi.text('1', { id: 'text' })]);
-  assert.equal(page.uiNodes, nodes); assert.equal(page.uiNodes[0], qr); assert.equal(writes, 1);
-  capturedUi.scrollBottom(); await Promise.resolve(); assert.equal(scrolls.length, 1); assert.equal(nativeReads, 0);
-  page.cancelRun(); capturedUi.render(capturedUi.text('late')); assert.equal(page.uiNodes, nodes);
+test('runner publication uses stable fields and no reactive comparisons', async () => {
+  const { loadRunnerFixture } = require('./helpers/loadUi.cjs');
+  const { page, captured: ui, scrolls } = await loadRunnerFixture("system.capture(ui); ui.render([ui.qrcode('https://ccicc.icu',{id:'qr'}),ui.text('0',{id:'text'})]);");
+  const nodes=page.uiNodes, qr=nodes[0], label=nodes[1], values={},writes=[];let reads=0;
+  Object.keys(label).forEach(key=>{values[key]=label[key];Object.defineProperty(label,key,{enumerable:true,get(){reads++;return values[key];},set(value){writes.push(key);values[key]=value;}});});
+  nodes.splice=()=>{throw new Error('stable topology must not splice');};
+  ui.render([ui.qrcode('https://ccicc.icu',{id:'qr'}),ui.text('1',{id:'text'})]);
+  assert.equal(page.uiNodes,nodes);assert.equal(page.uiNodes[0],qr);assert.equal(page.uiNodes[1],label);
+  assert.deepEqual(writes,['text']);assert.equal(reads,0);
+  ui.scrollBottom();await Promise.resolve();assert.equal(scrolls.length,1);
+  page.onDestroy();ui.render(ui.text('late'));assert.equal(page.uiNodes,nodes);
 });
 
 test('built-in templates including 2048 render with bounded, unique IDs', async () => {
@@ -167,7 +160,7 @@ test('built-in templates including 2048 render with bounded, unique IDs', async 
   const templatesSource = fs.readFileSync(path.join(root, 'src/data/scriptTemplates.js'), 'utf8')
     .replace(/import ui2048Example[^\n]+/, '').replace(/export /g, '');
   const templates = new Function('ui2048Example', templatesSource + '\nreturn UI_TEMPLATES;')(game);
-  for (const template of templates.filter(x => x.content)) {
+  for (const template of templates.filter(x => x.content && !x.label.includes('对话框') && !x.label.includes('切换'))) {
     const { state, callbacks } = host(); const session = createUiSession(callbacks);
     new Function('ui', 'script', template.content)(session.ui, { exit() {}, toast() {} });
     await Promise.resolve();

@@ -82,7 +82,7 @@ function checkMarketUiStates() {
   assert(source.indexOf('if (!state.paired)') < source.indexOf('this.loading = true;'), 'Local pairing checks must finish before showing network loading');
   assert(source.includes("if (nextQuery === this.query) return;"), 'Unchanged local searches must not trigger a network loading state');
 
-  const chromeOrder = ['class="header"', 'class="time-text"', 'class="heading"', 'class="back"', 'class="refresh'];
+  const chromeOrder = ['class="header"', 'class="time-text"', 'class="heading"', 'class="back"', 'class="upload'];
   let previousIndex = -1;
   chromeOrder.forEach((token) => {
     const index = template.indexOf(token);
