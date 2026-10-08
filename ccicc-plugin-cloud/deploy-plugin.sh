@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 INSTALL_DIR="${1:-/opt/ccicc.icu}"
-ARCHIVE="${2:-/tmp/jslab-cloud-0.5.1.zip}"
+ARCHIVE="${2:-/tmp/jslab-cloud-0.5.2.zip}"
 APP_NAME="${PM2_APP_NAME:-ccicc-icu}"
 PLUGIN_ID="jslab-cloud"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"

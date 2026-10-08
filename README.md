@@ -28,7 +28,7 @@ JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编�
 | --- | --- |
 | 手环编程 | 创建、编辑、运行、保存、重命名和删除 `.js` 文件（已有 `.ui.js` 名字保留） |
 | 统一运行器 | 所有脚本注入 console/ui/dialog/script/system；UI 返回日志，轻点日志恢复；右上完整重载 |
-| 编辑体验 | V2 编辑器支持字体、字号、语法高亮和高亮阈值；大文件或高亮关闭时自动采用低节点文本渲染 |
+| 编辑体验 | 当前编辑器支持字号、语法高亮和高亮阈值；大文件或高亮关闭时自动采用低节点文本渲染 |
 | 电脑协作 | AstroBox 插件支持脚本和字体的浏览、新建、编辑、上传、下载、重命名与删除，并提供分块传输和断线恢复 |
 | 云端工作区 | 云空间按网盘模型保存当前文件；仅在用户主动操作时上传或下载，不执行自动同步 |
 | JS 市场 | 浏览详情、查看作者、下载源码、保存到云空间；从云空间发布时自动填充代码，其余市场信息仍由用户填写 |
@@ -91,14 +91,14 @@ cd ..\astrobox-plugin-sync
 .\build.ps1
 ```
 
-输出为 `JSLab-Sync.abp`。Rust 工具链需要安装 `wasm32-wasip2` target。
+输出为 `dist/JSLab-Sync-<版本>.abp`。Rust 工具链需要安装 `wasm32-wasip2` target。
 
 ### 打包云端插件
 
 ```powershell
 cd ..\ccicc-plugin-cloud\jslab-cloud
 npm test
-npm run pack -- .\ .\dist\jslab-cloud-0.5.1.zip
+npm run pack -- .\ ..\dist\jslab-cloud-0.5.2.zip
 ```
 
 云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。

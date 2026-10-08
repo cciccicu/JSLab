@@ -91,7 +91,7 @@ JS 市场浏览和下载公开，无需登录或激活；发布、编辑和管�
 
 ## 统一运行契约与迁移
 
-应用为 1.9.4，插件为 0.5.2，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
+应用为 1.9.5，插件为 0.5.2，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
 额度响应公布契约，客户端收费请求前检查；服务端在预留余额/模型调用前拒绝不匹配请求；结果携带契约，客户端检查后才写入编辑器。fetch 与 cloudProxy 使用同一结构。
 云文件/市场/待审副本不再保存 type/pending_type，网页不要求 marketType。install 与 boot 共用幂等持久化初始化；升级只执行 boot 也会补建缺失辅助表、更新配置元数据并迁移（已有配置值保留）。boot 中事务执行可重复 SQLite DROP COLUMN（SQLite≥3.35），保留记录/索引/自增/源码/hash/checksum/时间，不自动改名或重新计算源数据。
 审核记录新增可空 content_hash，关联被审核的名称、说明、标签和源码哈希；旧记录保留，无法确认所属内容的旧结论不在当前审核中展示。异步审核返回后再次核对快照，避免把旧结论应用到新提交或已撤回内容。

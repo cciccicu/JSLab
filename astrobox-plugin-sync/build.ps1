@@ -29,6 +29,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (Test-Path -LiteralPath $dist) {
+    if ((Get-Item -LiteralPath $dist -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+        throw "Refusing to clean a linked dist path: $dist"
+    }
     Remove-Item -LiteralPath $dist -Recurse -Force
 }
 New-Item -ItemType Directory -Path $dist | Out-Null
@@ -36,8 +39,10 @@ Copy-Item -Force $target (Join-Path $dist 'jslab_sync.wasm')
 Copy-Item -Force (Join-Path $pluginRoot 'manifest.json') (Join-Path $dist 'manifest.json')
 Copy-Item -Force $icon (Join-Path $dist 'icon.png')
 
-$archive = Join-Path $pluginRoot 'JSLab-Sync.abp'
-$archiveZip = Join-Path $pluginRoot 'JSLab-Sync.zip'
+$manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'manifest.json') -Encoding UTF8 -Raw | ConvertFrom-Json
+$archiveName = "JSLab-Sync-$($manifest.version)"
+$archive = Join-Path $dist "$archiveName.abp"
+$archiveZip = Join-Path $dist "$archiveName.zip"
 $packageFiles = @(
     (Join-Path $dist 'manifest.json'),
     (Join-Path $dist 'icon.png'),
