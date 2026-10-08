@@ -6,6 +6,7 @@ const { DatabaseSync } = require('node:sqlite');
 const plugin = require('../jslab-cloud/index.js');
 const { buildAiSystemPrompt, normalizeAiEnvironment } = require('../jslab-cloud/lib/ai-prompts.js');
 const { withErrorMessage } = require('../jslab-cloud/lib/error-messages.js');
+const { identity: RUNTIME_CONTRACT } = require('../jslab-cloud/lib/runtime-contract.json');
 const browserScript = fs.readFileSync(path.join(__dirname, '..', 'jslab-cloud', 'assets', 'jslab-cloud.js'), 'utf8');
 
 test('every API error receives a concrete public message', () => {
@@ -134,6 +135,50 @@ async function pairDevice(fixture) {
   return exchange.body.token;
 }
 
+test('valid device AI request reaches provider configuration check', async () => {
+  const fixture = context();
+  try {
+    plugin.boot(fixture.ctx);
+    enableCloud(fixture);
+    const token = await pairDevice(fixture);
+    const result = await invoke(fixture.frontend.registry.get('POST /api/cloud/device/ai/generate'), {
+      body: { runtimeContract: RUNTIME_CONTRACT, mode: 'create', name: 'example.js', prompt: 'Create a short example' },
+      params: {}, query: {}, headers: { authorization: `Bearer ${token}` }
+    });
+    assert.equal(result.statusCode, 503);
+    assert.equal(result.body.error, 'ai_not_configured');
+  } finally { fixture.raw.close(); }
+});
+
+test('configured device AI request generates source and settles credit', async () => {
+  const fixture = context();
+  const previousFetch = globalThis.fetch;
+  try {
+    plugin.boot(fixture.ctx);
+    enableCloud(fixture);
+    fixture.values.aiApiUrl = 'https://provider.example/v1/chat/completions';
+    fixture.values.aiApiKey = 'test-key';
+    globalThis.fetch = async () => ({
+      ok: true,
+      async json() {
+        return { choices: [{ message: { content: 'console.log("ok")' } }], usage: { prompt_tokens: 10, completion_tokens: 5 } };
+      }
+    });
+    const token = await pairDevice(fixture);
+    const result = await invoke(fixture.frontend.registry.get('POST /api/cloud/device/ai/generate'), {
+      body: { runtimeContract: RUNTIME_CONTRACT, mode: 'create', name: 'example.js', prompt: 'Create a short example' },
+      params: {}, query: {}, headers: { authorization: `Bearer ${token}` }
+    });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.code, 'console.log("ok")');
+    assert.equal(result.body.usage.chargedCents, 1);
+    assert.equal(fixture.raw.prepare('SELECT status FROM cloud_ai_reservations').get().status, 'settled');
+  } finally {
+    globalThis.fetch = previousFetch;
+    fixture.raw.close();
+  }
+});
+
 async function submitMarket(fixture, created, overrides = {}) {
   const cloud = await invoke(fixture.frontend.registry.get('GET /api/cloud/scripts/:id'), { user: fixture.user, params: { id: String(created.body.id) }, query: {}, headers: {} });
   return invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), { user: fixture.user, body: { marketName: cloud.body.script.name, marketDescription: 'description', marketTags: '', source: cloud.body.source, ...overrides }, params: {}, query: {}, headers: {} });
@@ -230,34 +275,120 @@ test('market submission reuses only cloud source and keeps separately entered me
   assert.equal(market.source, 'console.log(7)');
 });
 
-test('market submission route rejects incomplete input and accepts a complete independent form', async () => {
-  const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture); plugin.boot(fixture.ctx);
+test('market submission requires login but not activation and validates independent input', async () => {
+  const fixture = context(); plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
   const route = fixture.frontend.registry.get('POST /api/cloud/market/submit');
+  const anonymous = await invoke(route, { body: {}, params: {}, query: {}, headers: {} });
+  assert.equal(anonymous.statusCode, 401);
   const incomplete = await invoke(route, { user: fixture.user, body: { marketName: '', source: '' }, params: {}, query: {}, headers: { accept: 'application/json' } });
   assert.equal(incomplete.statusCode, 400);
   const complete = await invoke(route, { user: fixture.user, body: { marketName: 'usable.js', marketDescription: 'usable', marketTags: 'test', source: 'console.log(1)', ajax: '1' }, params: {}, query: {}, headers: { accept: 'application/json' } });
   assert.equal(complete.statusCode, 200);
+  assert.equal(complete.body.status, 'pending');
   assert.equal(complete.body.message, '市场脚本已提交审核。');
+  const edit = await invoke(route, { user: fixture.user, body: { marketId: complete.body.marketId, marketName: 'updated.js', marketDescription: 'updated', source: 'console.log(2)' }, params: {}, query: {}, headers: { accept: 'application/json' } });
+  assert.equal(edit.statusCode, 200);
+  assert.equal(edit.body.marketId, complete.body.marketId);
+  const browserForm = await invoke(route, {
+    user: fixture.user, body: { marketName: 'form.js', marketDescription: 'form', source: 'console.log(3)', _csrf: 'present' },
+    params: {}, query: {}, headers: {}
+  });
+  assert.equal(browserForm.redirected, '/jslab-cloud/workspace?panel=publications');
+  assert.equal(fixture.raw.prepare('SELECT COUNT(*) AS count FROM cloud_user_entitlements').get().count, 0);
 });
 
-test('paired device can submit a local script to market without a browser session', async () => {
+test('paired unactivated device can submit to market while cloud space still requires activation', async () => {
   const fixture = context(); plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
   const route = fixture.frontend.registry.get('POST /api/cloud/device/market/submit');
-  const body = { marketName: '手环工具', marketDescription: '在手环上运行的工具', marketTags: '工具, 手环', source: 'console.log("watch")' };
+  const body = { marketName: '手环工具', marketDescription: '在手环上运行的工具', marketTags: '工具, 手环', source: 'console.log("watch")', _csrf: 'untrusted' };
   const anonymous = await invoke(route, { body, params: {}, query: {}, headers: {} });
   assert.equal(anonymous.statusCode, 401);
   const token = await pairDevice(fixture);
   const req = { body, params: {}, query: {}, headers: { authorization: 'Bearer ' + token } };
-  const inactive = await invoke(route, req);
-  assert.equal(inactive.statusCode, 403);
-  enableCloud(fixture);
   const submitted = await invoke(route, req);
   assert.equal(submitted.statusCode, 200);
+  assert.equal(submitted.redirected, '');
   assert.equal(submitted.body.status, 'pending');
   const saved = fixture.raw.prepare('SELECT owner_user_id,name,description,tags,source FROM cloud_market_scripts WHERE id=?').get(submitted.body.marketId);
   assert.deepEqual({ name:saved.name, description:saved.description, tags:JSON.parse(saved.tags), source:saved.source },
     { name:'手环工具', description:'在手环上运行的工具', tags:['工具','手环'], source:'console.log("watch")' });
   assert.equal(saved.owner_user_id, fixture.user.id);
+  const cloud = await invoke(fixture.frontend.registry.get('GET /api/cloud/device/scripts'), {
+    params: {}, query: {}, headers: { authorization: 'Bearer ' + token }
+  });
+  assert.equal(cloud.statusCode, 403);
+  assert.equal(cloud.body.error, 'activation_required');
+  const browserOnly = await invoke(fixture.frontend.registry.get('GET /api/cloud/scripts'), {
+    params: {}, query: {}, headers: { authorization: 'Bearer ' + token }
+  });
+  assert.equal(browserOnly.statusCode, 401);
+  assert.equal(fixture.frontend.registry.has('PUT /api/cloud/scripts/:id'), false);
+  assert.equal(fixture.raw.prepare('SELECT COUNT(*) AS count FROM cloud_user_entitlements').get().count, 0);
+});
+
+test('device file API uses bearer identity for its complete file lifecycle', async () => {
+  const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture); plugin.boot(fixture.ctx);
+  const token = await pairDevice(fixture);
+  const headers = { authorization: 'Bearer ' + token };
+  const route = (method, path) => fixture.frontend.registry.get(method + ' ' + path);
+  const created = await invoke(route('POST', '/api/cloud/device/scripts'), {
+    body: { name: 'watch.js', source: 'console.log(1)', _csrf: 'untrusted' }, params: {}, query: {}, headers
+  });
+  assert.equal(created.statusCode, 200);
+  assert.equal(created.redirected, '');
+  const id = String(created.body.id);
+  const listed = await invoke(route('GET', '/api/cloud/device/scripts'), { params: {}, query: {}, headers });
+  assert.deepEqual(listed.body.scripts.map(script => script.name), ['watch.js']);
+  const read = await invoke(route('GET', '/api/cloud/device/scripts/:id'), { params: { id }, query: {}, headers });
+  assert.equal(read.body.source, 'console.log(1)');
+  const updated = await invoke(route('PUT', '/api/cloud/device/scripts/:id'), {
+    body: { name: 'watch.js', source: 'console.log(2)' }, params: { id }, query: {}, headers
+  });
+  assert.equal(updated.statusCode, 200);
+  const changed = await invoke(route('GET', '/api/cloud/device/scripts/:id'), { params: { id }, query: {}, headers });
+  assert.equal(changed.body.source, 'console.log(2)');
+  const browserOnly = await invoke(route('GET', '/api/cloud/scripts/:id'), { params: { id }, query: {}, headers });
+  assert.equal(browserOnly.statusCode, 401);
+  const deviceOnly = await invoke(route('GET', '/api/cloud/device/scripts/:id'), {
+    user: fixture.user, params: { id }, query: {}, headers: {}
+  });
+  assert.equal(deviceOnly.statusCode, 401);
+  const deleted = await invoke(route('DELETE', '/api/cloud/device/scripts/:id'), {
+    body: {}, params: { id }, query: {}, headers
+  });
+  assert.equal(deleted.body.deleted, true);
+});
+
+test('market browsing and downloading are public but saving to cloud space requires activation', async () => {
+  const fixture = context(); plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
+  const submitted = await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), {
+    user: fixture.user, body: { marketName: 'public.js', marketDescription: 'public', source: 'console.log(1)' },
+    params: {}, query: {}, headers: { accept: 'application/json' }
+  });
+  assert.equal(submitted.statusCode, 200);
+  const id = String(submitted.body.marketId);
+  await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), {
+    user: fixture.user, body: { status: 'published' }, params: { id }, query: {}, headers: {}
+  });
+  const listed = await invoke(fixture.frontend.registry.get('GET /api/cloud/market'), { query: {}, params: {}, headers: {} });
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.body.scripts[0].id, submitted.body.marketId);
+  const source = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), { params: { id }, query: {}, headers: {} });
+  assert.equal(source.statusCode, 200);
+  assert.equal(source.body.script.source, 'console.log(1)');
+  const deviceMarket = await invoke(fixture.frontend.registry.get('GET /api/cloud/device/market'), { query: {}, params: {}, headers: {} });
+  assert.deepEqual(deviceMarket.body.scripts, listed.body.scripts);
+  const deviceSource = await invoke(fixture.frontend.registry.get('GET /api/cloud/device/market/:id/source'), { params: { id }, query: {}, headers: {} });
+  assert.deepEqual(deviceSource.body.script, source.body.script);
+  const download = await invoke(fixture.frontend.registry.get('GET /workspace/market/:id/download'), { params: { id }, query: {}, headers: {} });
+  assert.equal(download.statusCode, 200);
+  assert.equal(download.body, 'console.log(1)');
+  const save = await invoke(fixture.frontend.registry.get('POST /workspace/market/:id/save'), {
+    user: fixture.user, body: {}, params: { id }, query: {}, headers: { accept: 'application/json' }
+  });
+  assert.equal(save.statusCode, 403);
+  assert.equal(save.body.error, 'activation_required');
+  assert.equal(fixture.raw.prepare('SELECT COUNT(*) AS count FROM cloud_scripts').get().count, 0);
 });
 
 test('single LLM mode makes the final moderation decision', async () => {

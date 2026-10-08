@@ -24,7 +24,7 @@ JS 市场、账户激活、充值和服务端 AI 代码生成。manifest ID 为 
 
 ```powershell
 npm test
-npm run pack -- .\ .\dist\jslab-cloud-0.5.1.zip
+npm run pack -- .\ ..\dist\jslab-cloud-0.5.2.zip
 ```
 
 当前快应用开发地址为 `http://192.168.3.17:3000/jslab-cloud`。二维码地址由插件
@@ -73,18 +73,30 @@ http://jslab-api.ccicc.icu {
 网页工作区位于 `/jslab-cloud/workspace`，使用 ccicc.icu 的 SSR 布局、Bootstrap
 组件、插件作用域 CSS 和渐进式 JavaScript。市场发布内容是独立快照，删除云空间
 文件不会删除已发布市场条目。
+JS 市场浏览和下载公开，无需登录或激活；发布、编辑和管理自己的市场条目只要求登录或设备配对，
+不查询云空间激活状态。只有“保存到我的云空间”涉及云空间权限，仍需激活。
 手环通过设备 Bearer 令牌调用 `/api/cloud/device/market/submit`，与网页发布共用审核和数据校验；
 网页发布继续使用登录会话与 CSRF。覆盖插件并由 PM2 重启时在 `boot` 注册设备路由，
-不依赖再次执行 `install`。插件版本维持 0.5.1。
+不依赖再次执行 `install`。插件版本为 0.5.2。
+
+手环的文件、市场、配对和 AI 接口集中在 `/api/cloud/device/`；文件读写必须使用设备令牌。
+网页账户和文件接口使用 `/api/cloud/` 下不带 `device` 的路径，以登录会话及 CSRF 保护写操作。
+市场列表与已发布源码可公开读取，两端各有独立路径；发布共用同一审核逻辑，
+手环需设备配对，网页需登录，两者都不要求激活云空间。
+
+服务端 `index.js` 只执行持久化准备及模块装配。`lib/device-api.js` 与 `lib/browser-api.js`
+分别注册手环和网页接口；`cloud-files.js`、`market-service.js`、`ai-service.js`、
+`activation-service.js` 保存各自业务逻辑。网页页面按工作区、市场、设备分在对应的
+`browser-*-pages.js` 中，`browser-view.js` 提供共同的布局和表单片段。
 
 ## 统一运行契约与迁移
 
-应用仍为1.9.3，插件仍为0.5.1，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
+应用为 1.9.4，插件为 0.5.2，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
 额度响应公布契约，客户端收费请求前检查；服务端在预留余额/模型调用前拒绝不匹配请求；结果携带契约，客户端检查后才写入编辑器。fetch 与 cloudProxy 使用同一结构。
 云文件/市场/待审副本不再保存 type/pending_type，网页不要求 marketType。install 与 boot 共用幂等持久化初始化；升级只执行 boot 也会补建缺失辅助表、更新配置元数据并迁移（已有配置值保留）。boot 中事务执行可重复 SQLite DROP COLUMN（SQLite≥3.35），保留记录/索引/自增/源码/hash/checksum/时间，不自动改名或重新计算源数据。
 审核记录新增可空 content_hash，关联被审核的名称、说明、标签和源码哈希；旧记录保留，无法确认所属内容的旧结论不在当前审核中展示。异步审核返回后再次核对快照，避免把旧结论应用到新提交或已撤回内容。
 覆盖部署通过 PM2 重启整个进程，旧请求不会继续回调，不维护热更新请求管理器。进程中断留下的预留额度由下次 boot 恢复，不重复退款。
 市场名称可作为显示标题；明确下载或保存到云空间时统一生成合法 `.js` 文件名，源码响应提供 filename，保留已有市场记录。新增/改名文件统一限制为128个UTF-8字节，已有长文件名保持可读，原名更新保留。网页和管理页静态资源地址使用启动时计算的内容哈希，支持同版本重复覆盖更新。
-上线前备份真实数据库；本次仅产出安装包，没有执行在线升级。旧双模式客户端与旧服务需要同步更新，不支持旧 AI 提示词回退。
+上线前备份真实数据库；覆盖后重启 PM2 并核对插件版本、接口和数据迁移。旧双模式客户端与旧服务需要同步更新，不支持旧 AI 提示词回退。
 运行方法、文字长度限制和 UI 性能建议来自根目录 runtime-contract.json，构建期同步 lib/runtime-contract.json。更新时在快应用目录执行 npm run sync:contract。
 选择对话框最多 100 项，使用原生列表连续滚动；提示词不再描述每页 20 项或分页按钮。
