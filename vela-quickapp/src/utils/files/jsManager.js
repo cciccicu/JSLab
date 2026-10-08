@@ -1,7 +1,7 @@
 import file from '@system.file';
 import { sortFilesNewestFirst } from './fileMetadata.js';
 import { utf8ByteLength } from './textEncoding.js';
-import { removeScriptStorage, renameScriptStorage } from '../runtime/scriptData.js';
+import { removeScriptStorage, renameScriptStorage } from './scriptData.js';
 
 const SCRIPT_DIRECTORY_URI = 'internal://files/js/';
 const changeListeners = [];

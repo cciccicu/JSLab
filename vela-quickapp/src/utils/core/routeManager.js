@@ -4,8 +4,6 @@ import router from '@system.router';
 const ROUTES = {
   index: '/',
   editor: '/workspace/editor',
-  editorV0: '/workspace/editor/v0',
-  editorV1: '/workspace/editor/v1',
   aiGenerate: '/workspace/ai-generate',
   run: '/workspace/run',
   newFile: '/workspace/new',

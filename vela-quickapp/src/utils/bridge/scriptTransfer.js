@@ -1,5 +1,5 @@
-import jsManager from './jsManager.js';
-import { sliceUtf8Chunk, utf8ByteLength } from './textEncoding.js';
+import jsManager from '../files/jsManager.js';
+import { sliceUtf8Chunk, utf8ByteLength } from '../files/textEncoding.js';
 
 const READ_CHUNK_BYTES = 4096;
 const MAX_WRITE_SESSIONS = 2;

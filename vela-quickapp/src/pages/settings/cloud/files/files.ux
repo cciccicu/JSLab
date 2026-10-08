@@ -2,7 +2,7 @@
   <div class="page">
     <img if="{{stateReady && !loading && !loadError && paired && activated && cloudScripts.length === 0}}" src="/common/images/empty.png" class="empty-img" />
     <text if="{{stateReady && !loading && !loadError && paired && activated && cloudScripts.length === 0}}" class="empty-text">云空间为空</text>
-    <text if="{{loading}}" class="state-text">正在读取云空间...</text>
+    <text if="{{loading || checkingState || !stateReady}}" class="state-text">正在读取云空间...</text>
     <text elif="{{loadError}}" class="state-text" @click="loadFiles">{{loadErrorText}}</text>
     <text elif="{{stateReady && !paired}}" class="state-text">请先配对设备</text>
     <text elif="{{stateReady && paired && !activated}}" class="state-text">请先在网页激活云空间</text>
@@ -24,11 +24,18 @@
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/download.png" class="btn action-left {{busy ? 'disabled-icon' : ''}}" @click="downloadSelected" />
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/save.png" class="btn action-center {{busy ? 'disabled-icon' : ''}}" @click="saveAsSelected" />
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" class="btn action-right {{busy ? 'disabled-icon' : ''}}" @click="removeSelected" />
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import cloudService from '../../../../utils/cloud/cloudService.js';
+import { errorMessage } from '../../../../utils/cloud/cloudError.js';
+import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../../utils/core/networkFeedback.js';
 import { back } from '../../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
@@ -41,6 +48,8 @@ export default {
     stateReady: false,
     initialized: false,
     busy: false,
+    networkStatus: '',
+    networkStage: '',
     loadError: false,
     loadErrorText: '云空间文件尚未读取，点击重新读取',
     cloudScripts: [],
@@ -53,14 +62,16 @@ export default {
   },
   onShow() {
     startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     if (this.initialized) return;
     this.initialized = true;
     this.loadFiles();
   },
-  onHide() { stopPageClock(this); },
+  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {
     stopPageClock(this);
+    stopNetworkFeedback(this);
     this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
   },
@@ -79,15 +90,18 @@ export default {
     this.checkingState = true;
     this.stateReady = false;
     this.loadError = false;
-    cloudService.getState().then(state => {
+    startNetworkFeedback(this, '正在检查云账户');
+    this.$app.$def.getCloudClients().deviceAccount.getState().then(state => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
       if (!state.paired) return null;
       this.loading = true;
-      return cloudService.getEntitlements().then(entitlement => {
+      updateNetworkFeedback(this, '正在验证云空间');
+      return this.$app.$def.getCloudClients().deviceAccount.getEntitlements().then(entitlement => {
         if (!this.pageActive) return null;
         this.activated = entitlement.cloudEnabled;
-        return this.activated ? cloudService.listCloudScripts() : null;
+        if (this.activated) updateNetworkFeedback(this, '正在读取云文件列表');
+        return this.activated ? this.$app.$def.getCloudClients().cloudFilesClient.listCloudScripts() : null;
       });
     }).then(scripts => {
       if (!this.pageActive) return;
@@ -103,14 +117,15 @@ export default {
     }).catch(error => {
       if (!this.pageActive) return;
       this.loadError = true;
-      this.loadErrorText = cloudService.errorMessage(error, '读取云空间文件列表') + '，点击重新读取';
+      this.loadErrorText = errorMessage(error, '读取云空间文件列表') + '，点击重新读取';
       this.selectedFileIndex = -1;
-      showToast(cloudService.errorMessage(error, '读取云空间文件列表'));
+      showToast(errorMessage(error, '读取云空间文件列表'));
     }).then(() => {
       if (!this.pageActive) return;
       this.loading = false;
       this.checkingState = false;
       this.stateReady = true;
+      stopNetworkFeedback(this);
     });
   },
   selectFile(index) {
@@ -126,15 +141,18 @@ export default {
     const script = this.selectedFile();
     if (!script || this.busy) return;
     this.busy = true;
-    cloudService.downloadScript(script.id, script.name, false).then(() => {
+    startNetworkFeedback(this, '正在下载云文件');
+    this.$app.$def.getCloudClients().cloudFilesClient.downloadScript(script.id, script.name, false).then(() => {
       if (!this.pageActive) return;
+      stopNetworkFeedback(this);
       this.busy = false;
       showToast('已下载 ' + script.name);
     }).catch(error => {
       if (!this.pageActive) return;
+      stopNetworkFeedback(this);
       this.busy = false;
       if (error.message !== 'file_exists') {
-        showToast(cloudService.errorMessage(error, '下载云空间文件 ' + script.name));
+        showToast(errorMessage(error, '下载云空间文件 ' + script.name));
         return;
       }
       this.$app.$def.openDialog('confirm', {
@@ -152,13 +170,14 @@ export default {
   downloadOverwrite(script) {
     if (this.busy) return;
     this.busy = true;
-    cloudService.downloadScript(script.id, script.name, true).then(() => {
+    startNetworkFeedback(this, '正在覆盖本地文件');
+    this.$app.$def.getCloudClients().cloudFilesClient.downloadScript(script.id, script.name, true).then(() => {
       if (!this.pageActive) return;
       showToast('已覆盖本地文件');
     }).catch(error => {
-      if (this.pageActive) showToast(cloudService.errorMessage(error, '覆盖本地文件 ' + script.name));
+      if (this.pageActive) showToast(errorMessage(error, '覆盖本地文件 ' + script.name));
     }).then(() => {
-      if (this.pageActive) this.busy = false;
+      if (this.pageActive) { this.busy = false; stopNetworkFeedback(this); }
     });
   },
   saveAsSelected() {
@@ -184,14 +203,15 @@ export default {
     if (!target) return;
     if (!/\.js$/i.test(target)) target += '.js';
     this.busy = true;
-    cloudService.downloadScript(script.id, target, false).then(() => {
+    startNetworkFeedback(this, '正在另存云文件');
+    this.$app.$def.getCloudClients().cloudFilesClient.downloadScript(script.id, target, false).then(() => {
       if (!this.pageActive) return;
       showToast('已另存为 ' + target);
     }).catch(error => {
       if (!this.pageActive) return;
-      showToast(error.message === 'file_exists' ? '另存云空间文件：本地已有同名文件 ' + target : cloudService.errorMessage(error, '另存云空间文件为 ' + target));
+      showToast(error.message === 'file_exists' ? '另存云空间文件：本地已有同名文件 ' + target : errorMessage(error, '另存云空间文件为 ' + target));
     }).then(() => {
-      if (this.pageActive) this.busy = false;
+      if (this.pageActive) { this.busy = false; stopNetworkFeedback(this); }
     });
   },
   removeSelected() {
@@ -211,26 +231,31 @@ export default {
   removeCloud(script) {
     if (this.busy) return;
     this.busy = true;
-    cloudService.deleteCloudScript(script.id).then(() => {
+    startNetworkFeedback(this, '正在删除云文件');
+    this.$app.$def.getCloudClients().cloudFilesClient.deleteCloudScript(script.id).then(() => {
       if (!this.pageActive) return;
       this.selectedFileIndex = -1;
       this.busy = false;
+      stopNetworkFeedback(this);
       showToast('已从云空间删除');
       this.loadFiles();
     }).catch(error => {
       if (!this.pageActive) return;
       this.busy = false;
-      showToast(cloudService.errorMessage(error, '删除云空间文件 ' + script.name));
+      stopNetworkFeedback(this);
+      showToast(errorMessage(error, '删除云空间文件 ' + script.name));
     });
   },
   goBack() {
     vibrate('short');
     back();
-  }
+  },
+  loadingTap() { return false; }
 };
 </script>
 
 <style>
+@import "../../../../common/styles/network-loading.css";
 .page { width:336px; height:480px; background-color:#000000; color:#ffffff; text-align:center; overflow:hidden; }
 .list { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 86px; }
 .item { width:100%; height:138px; padding:12px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; justify-content:space-between; }

@@ -29,19 +29,25 @@
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 174px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="editSelected"/>
     <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="handleDeleteClick"/>
 
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script>
 import app from '@system.app';
-import jsManager from '../../utils/files/jsManager.js';
 import { push } from '../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../utils/core/time.js';
 import { formatFileSize, formatModifiedDate } from '../../utils/files/fileMetadata.js';
 import { utf8ByteLength } from '../../utils/files/textEncoding.js';
-import { getConfiguredEditorRoute } from '../../utils/editor/editorPreferences.js';
-import cloudService from '../../utils/cloud/cloudService.js';
+import { errorMessage } from '../../utils/cloud/cloudError.js';
+import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../utils/core/networkFeedback.js';
 import { formatError } from '../../utils/core/userError.js';
 export default {
   private: {
@@ -50,6 +56,8 @@ export default {
     nowTime: "00:00",
     fileChangeUnsubscribe: null,
     cloudBusy: false,
+    networkStatus: '',
+    networkStage: '',
     fileActionBusy: false,
     pageActive: true,
     pageVisible: false,
@@ -62,18 +70,20 @@ export default {
     vibrate('short');
     app.terminate();
   },
+  loadingTap() { return false; },
   updateTime() {
     this.nowTime = getCurrentClock();
   },
   onInit() {
     this.updateTime();
-    this.fileChangeUnsubscribe = jsManager.subscribe(() => {
+    this.fileChangeUnsubscribe = this.$app.$def.getScriptManager().subscribe(() => {
       if (this.pageVisible) this.loadFileList(true);
     });
   },
-  onHide() { stopPageClock(this); this.pageVisible = false; },
+  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); this.pageVisible = false; },
   onDestroy() {
     stopPageClock(this);
+    stopNetworkFeedback(this);
     this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
     if (this.fileChangeUnsubscribe) {
@@ -83,6 +93,7 @@ export default {
   },
   onShow() {
     startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
     this.pageVisible = true;
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     this.loadFileList();
@@ -92,7 +103,7 @@ export default {
     this.fileListRequestId = requestId;
     const selectedName = preserveSelection && this.fileList[this.selectedFileIndex] ? this.fileList[this.selectedFileIndex].name : '';
     this.fileListError = false;
-    jsManager.list().then(fileList => {
+    this.$app.$def.getScriptManager().list().then(fileList => {
       if (!this.pageActive || requestId !== this.fileListRequestId) return;
       this.fileList = fileList.map(fileInfo => Object.assign({}, fileInfo, {
         sizeText: formatFileSize(fileInfo.size),
@@ -134,18 +145,15 @@ export default {
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
     this.fileActionBusy = true;
-    jsManager.read(fileName).then(content => {
+    this.$app.$def.getScriptManager().read(fileName).then(content => {
       if (!this.pageActive || !this.pageVisible) return;
       if (action === 'run') { this.$app.$def.openRunner(fileName, content); return; }
       if (utf8ByteLength(content) > 48 * 1024) {
         showToast('脚本超过 48 KiB，无法在手环编辑器中打开');
         return;
       }
-      return getConfiguredEditorRoute().catch(() => 'editor').then(route => {
-        if (!this.pageActive || !this.pageVisible) return;
-        this.$app.$def.openEditor(fileName, content);
-        push(route);
-      });
+      this.$app.$def.openEditor(fileName, content);
+      push('editor');
     }).catch(error => {
       if (!this.pageActive || !this.pageVisible) return;
       console.error(`读取文件 ${fileName} 失败:`, error.message);
@@ -157,16 +165,19 @@ export default {
     vibrate('short');
     const file = this.fileList[this.selectedFileIndex];
     this.cloudBusy = true;
-    cloudService.getState().then(state => {
+    startNetworkFeedback(this, '正在检查云空间');
+    this.$app.$def.getCloudClients().deviceAccount.getState().then(state => {
       if (!state.paired) throw new Error('not_paired');
-      return cloudService.getEntitlements();
+      return this.$app.$def.getCloudClients().deviceAccount.getEntitlements();
     }).then(entitlement => {
       if (!entitlement.cloudEnabled) throw new Error('activation_required');
-      return cloudService.listCloudScripts();
+      updateNetworkFeedback(this, '正在读取云文件列表');
+      return this.$app.$def.getCloudClients().cloudFilesClient.listCloudScripts();
     }).then(scripts => {
       if (!this.pageActive) return;
       const existing = scripts.find(script => script.name === file.name);
       this.cloudBusy = false;
+      stopNetworkFeedback(this);
       if (existing) {
         this.$app.$def.openDialog('confirm', {
           title: '云空间已有同名文件',
@@ -184,18 +195,20 @@ export default {
     }).catch(error => {
       if (!this.pageActive) return;
       this.cloudBusy = false;
-      showToast(cloudService.errorMessage(error, '检查上传目标云空间'));
+      stopNetworkFeedback(this);
+      showToast(errorMessage(error, '检查上传目标云空间'));
     });
   },
   performUpload(fileName) {
     if (this.cloudBusy) return;
     this.cloudBusy = true;
-    cloudService.uploadScript(fileName).then(() => {
+    startNetworkFeedback(this, '正在上传脚本');
+    this.$app.$def.getCloudClients().cloudFilesClient.uploadScript(fileName).then(() => {
       if (this.pageActive) showToast('已上传 ' + fileName);
     }).catch(error => {
-      if (this.pageActive) showToast(cloudService.errorMessage(error, '上传脚本 ' + fileName));
+      if (this.pageActive) showToast(errorMessage(error, '上传脚本 ' + fileName));
     }).then(() => {
-      if (this.pageActive) this.cloudBusy = false;
+      if (this.pageActive) { this.cloudBusy = false; stopNetworkFeedback(this); }
     });
   },
   handleDeleteClick() {
@@ -218,7 +231,7 @@ export default {
     });
   },
   removeFile(fileName) {
-    jsManager.remove(fileName).then(() => {
+    this.$app.$def.getScriptManager().remove(fileName).then(() => {
       if (this.pageActive) showToast(`文件 ${fileName} 已删除`, 500);
     }).catch(error => {
       if (!this.pageActive) return;
@@ -230,6 +243,7 @@ export default {
 </script>
 
 <style>
+@import "../../common/styles/network-loading.css";
 .page {
   width: 336px;
   height: 480px;

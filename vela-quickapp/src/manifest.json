@@ -1,8 +1,8 @@
 {
   "package": "icu.ccicc.jslab",
   "name": "JSLab",
-  "versionName": "1.9.3",
-  "versionCode": 193,
+  "versionName": "1.9.5",
+  "versionCode": 195,
   "minPlatformVersion": 1000,
   "icon": "/common/logo.png",
   "deviceTypeList": [
@@ -95,14 +95,6 @@
       "pages/workspace/editor": {
         "component": "editor",
         "path": "/workspace/editor"
-      },
-      "pages/workspace/editor/v0": {
-        "component": "v0",
-        "path": "/workspace/editor/v0"
-      },
-      "pages/workspace/editor/v1": {
-        "component": "v1",
-        "path": "/workspace/editor/v1"
       },
       "pages/workspace/ai-generate": {
         "component": "ai-generate",

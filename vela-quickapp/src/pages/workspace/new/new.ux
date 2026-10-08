@@ -45,12 +45,10 @@
 </template>
 
 <script>
-import jsManager from '../../../utils/files/jsManager.js';
 import { back as navigateBack, replace } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 import { getTemplates } from '../../../data/scriptTemplates.js';
-import { getConfiguredEditorRoute } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
 
 export default {
@@ -134,21 +132,18 @@ export default {
     if (!/\.js$/i.test(fileName)) fileName += '.js';
     const templateContent = this.getTemplateContent();
     this.busy = true;
-    jsManager.list()
+    this.$app.$def.getScriptManager().list()
       .then((files) => {
         if (files.some(fileInfo => fileInfo.name === fileName)) {
           throw new Error('文件已存在，不会覆盖');
         }
-        return jsManager.write(fileName, templateContent);
+        return this.$app.$def.getScriptManager().write(fileName, templateContent);
       })
       .then(() => {
         if (!this.pageActive) return;
         showToast(`文件 ${fileName} 创建成功`);
-        return getConfiguredEditorRoute().catch(() => 'editor').then(route => {
-          if (!this.pageActive) return;
-          this.$app.$def.openEditor(fileName, templateContent);
-          replace(route);
-        });
+        this.$app.$def.openEditor(fileName, templateContent);
+        replace('editor');
       })
       .catch(error => {
         if (!this.pageActive) return;

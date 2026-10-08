@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const source = fs.readFileSync(path.join(__dirname, '../src/utils/runtime/scriptData.js'), 'utf8')
+const source = fs.readFileSync(path.join(__dirname, '../src/utils/files/scriptData.js'), 'utf8')
   .replace(/^import file[^\n]*\n/, '').replace(/export function /g, 'function ')
   .replace('export default { createScriptStorage, removeScriptStorage, renameScriptStorage };', 'return { createScriptStorage, removeScriptStorage, renameScriptStorage };');
 

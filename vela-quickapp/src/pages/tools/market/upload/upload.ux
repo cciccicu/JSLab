@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <list if="{{stage === 'choose' && !loading && activated && files.length > 0}}" bounces="true" class="file-list">
+    <list if="{{stage === 'choose' && !loading && files.length > 0}}" bounces="true" class="file-list">
       <list-item for="{{(index, file) in files}}" tid="name" type="local-script" class="file-item" @click="selectScript(index)">
         <text class="file-name">{{file.name}}</text>
         <text class="file-hint">选择此本地脚本</text>
@@ -38,56 +38,60 @@
     <text class="heading">发布市场</text>
     <img static src="/common/images/back.png" class="btn back" @click="goBack" />
     <img if="{{stage === 'details'}}" src="/common/images/conform.png" class="btn confirm {{busy ? 'disabled-icon' : ''}}" @click="submit" />
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { back } from '../../../../utils/core/routeManager.js';
-import cloudService from '../../../../utils/cloud/cloudService.js';
+import { errorMessage } from '../../../../utils/cloud/cloudError.js';
+import { startNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../../utils/core/networkFeedback.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
+import { formatError } from '../../../../utils/core/userError.js';
 
 export default {
   private: {
     stage: 'choose', files: [], loading: false, initialized: false,
-    activated: false, busy: false, statusText: '正在读取本地脚本...',
+    busy: false, statusText: '正在读取本地脚本...',
+    networkStatus: '',
+    networkStage: '',
     selectedName: '', marketName: '', description: '', tags: '', submissionText: '',
     nowTime: '00:00', pageActive: true
   },
   onInit() { this.nowTime = getCurrentClock(); },
   onShow() {
     startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
     if (!this.initialized) { this.initialized = true; this.load(); }
   },
-  onHide() { stopPageClock(this); },
+  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {
     stopPageClock(this);
+    stopNetworkFeedback(this);
     this.pageActive = false;
     this.$app.$def.cancelOwnedDialog(this);
   },
   load() {
     this.loading = true;
     this.statusText = '正在读取本地脚本...';
-    Promise.all([cloudService.listLocalScripts(), cloudService.getState()]).then(values => {
-      if (!this.pageActive) return null;
-      this.files = values[0];
-      if (!values[1].paired) {
-        this.statusText = '请先在云账户页配对设备';
-        return null;
-      }
-      return cloudService.getEntitlements().then(entitlement => {
-        if (!this.pageActive) return;
-        this.activated = entitlement.cloudEnabled;
-        this.statusText = !entitlement.cloudEnabled ? '请先在网页端激活云空间' :
-          this.files.length ? '' : '本地脚本库为空';
-      });
+    startNetworkFeedback(this, '正在读取本地脚本');
+    this.$app.$def.getScriptManager().list().then(files => {
+      if (!this.pageActive) return;
+      this.files = files;
+      this.statusText = files.length ? '' : '本地脚本库为空';
     }).catch(error => {
-      if (this.pageActive) this.statusText = cloudService.errorMessage(error, '准备市场发布');
-    }).then(() => { if (this.pageActive) this.loading = false; });
+      if (this.pageActive) this.statusText = formatError(error, '读取本地脚本库');
+    }).then(() => { if (this.pageActive) { this.loading = false; stopNetworkFeedback(this); } });
   },
   selectScript(index) {
-    if (this.loading || this.busy || !this.activated || !this.files[index]) return;
+    if (this.loading || this.busy || !this.files[index]) return;
     if (this.files[index].size > 48 * 1024) { showToast('脚本超过市场的 48 KiB 上限'); return; }
     vibrate('short');
     this.selectedName = this.files[index].name;
@@ -131,9 +135,11 @@ export default {
     }, this).then(result => {
       if (!this.pageActive) return null;
       if (result.action !== 'confirm') { this.busy = false; return null; }
-      return cloudService.submitMarketScript(this.selectedName, { name, description, tags: tags.join(', ') });
+      startNetworkFeedback(this, '正在提交市场审核');
+      return this.$app.$def.getCloudClients().marketClient.submitMarketScript(this.selectedName, { name, description, tags: tags.join(', ') });
     }).then(result => {
       if (!this.pageActive || !result) return;
+      stopNetworkFeedback(this);
       this.busy = false;
       if (result.status === 'rejected') {
         this.submissionText = '审核未通过：' + (result.review && result.review.reason || '请修改后重试');
@@ -144,8 +150,9 @@ export default {
       back();
     }).catch(error => {
       if (!this.pageActive) return;
+      stopNetworkFeedback(this);
       this.busy = false;
-      this.submissionText = cloudService.errorMessage(error, '提交市场脚本');
+      this.submissionText = errorMessage(error, '提交市场脚本');
       showToast(this.submissionText);
     });
   },
@@ -155,11 +162,13 @@ export default {
     if (this.stage === 'details') { this.stage = 'choose'; return; }
     back();
   },
-  onBackPress() { this.goBack(); return true; }
+  onBackPress() { this.goBack(); return true; },
+  loadingTap() { return false; }
 };
 </script>
 
 <style>
+@import "../../../../common/styles/network-loading.css";
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
 .file-list { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; }
 .file-item { width:324px; height:96px; padding:12px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; }

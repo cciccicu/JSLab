@@ -1,33 +1,26 @@
 <template>
   <div class="page">
     <scroll class="scroll" scroll-y="true" bounces="true">
-      <div class="item" @click="selectEditorVersion">
+      <div class="item" @click="setFontSize">
         <div class="item-content">
-          <text class="itemtext">编辑器版本</text>
-          <text class="itemtext2">当前：{{ editorVersionLabel }}</text>
+          <text class="itemtext">字号</text>
+          <text class="itemtext2">{{fontSizeDescription}}</text>
         </div>
         <img src="/common/images/enter.png" class="enter-icon" />
       </div>
-      <div class="item {{fontSizeAvailable ? '' : 'disabled-item'}}" @click="setFontSize">
+      <div class="item" @click="openHighlightSettings">
         <div class="item-content">
-          <text class="itemtext {{fontSizeAvailable ? '' : 'disabled-text'}}">字号</text>
-          <text class="itemtext2 {{fontSizeAvailable ? '' : 'disabled-text'}}">{{fontSizeDescription}}</text>
+          <text class="itemtext">语法高亮</text>
+          <text class="itemtext2">开关、阈值与配色</text>
         </div>
-        <img if="{{fontSizeAvailable}}" src="/common/images/enter.png" class="enter-icon" />
+        <img src="/common/images/enter.png" class="enter-icon" />
       </div>
-      <div class="item {{highlightAvailable ? '' : 'disabled-item'}}" @click="openHighlightSettings">
+      <div class="item" @click="openFontSettings">
         <div class="item-content">
-          <text class="itemtext {{highlightAvailable ? '' : 'disabled-text'}}">语法高亮</text>
-          <text class="itemtext2 {{highlightAvailable ? '' : 'disabled-text'}}">{{highlightDescription}}</text>
+          <text class="itemtext">字体</text>
+          <text class="itemtext2">即将上线</text>
         </div>
-        <img if="{{highlightAvailable}}" src="/common/images/enter.png" class="enter-icon" />
-      </div>
-      <div class="item {{fontsAvailable ? '' : 'disabled-item'}}" @click="openFontSettings">
-        <div class="item-content">
-          <text class="itemtext {{fontsAvailable ? '' : 'disabled-text'}}">字体</text>
-          <text class="itemtext2 {{fontsAvailable ? '' : 'disabled-text'}}">{{fontsDescription}}</text>
-        </div>
-        <img if="{{fontsAvailable}}" src="/common/images/enter.png" class="enter-icon" />
+        <img src="/common/images/enter.png" class="enter-icon" />
       </div>
     </scroll>
 
@@ -39,25 +32,16 @@
 </template>
 
 <script>
-import configManager from '../../../utils/core/configManager.js';
 import { back, push } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
-import { DEFAULT_EDITOR_VERSION, DEFAULT_FONT_SIZE, MAX_FONT_SIZE, MIN_FONT_SIZE, normalizeFontSize, EDITOR_VERSIONS, getEditorVersionInfo } from '../../../utils/editor/editorPreferences.js';
+import { DEFAULT_FONT_SIZE, MAX_FONT_SIZE, MIN_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
-const defaultEditorInfo = getEditorVersionInfo(DEFAULT_EDITOR_VERSION);
 export default {
   private: {
     nowTime: '00:00',
     currentFontSize: DEFAULT_FONT_SIZE,
-    editorVersion: DEFAULT_EDITOR_VERSION,
-    editorVersionLabel: defaultEditorInfo.label,
-    fontSizeAvailable: defaultEditorInfo.supportsFontSize,
-    highlightAvailable: defaultEditorInfo.supportsHighlight,
-    fontsAvailable: defaultEditorInfo.supportsCustomFont,
     fontSizeDescription: '当前：16px',
-    highlightDescription: '开关、阈值与配色',
-    fontsDescription: '当前字体与更换教程',
     settingsLoading: false,
     settingsWritePending: false,
     pageActive: true
@@ -83,61 +67,19 @@ export default {
   loadSettings() {
     if (this.settingsLoading || this.settingsWritePending) return;
     this.settingsLoading = true;
-    Promise.all([configManager.get('editor.font.size', DEFAULT_FONT_SIZE), configManager.get('editor.version', DEFAULT_EDITOR_VERSION)]).then(values => {
+    this.$app.$def.getConfigManager().get('editor.font.size', DEFAULT_FONT_SIZE).then(value => {
       this.settingsLoading = false;
       if (!this.pageActive) return;
-      this.currentFontSize = normalizeFontSize(values[0], DEFAULT_FONT_SIZE);
-      this.applyEditorVersion(values[1]);
+      this.currentFontSize = normalizeFontSize(value, DEFAULT_FONT_SIZE);
+      this.fontSizeDescription = '当前：' + this.currentFontSize + 'px';
     }).catch(error => {
       this.settingsLoading = false;
       if (!this.pageActive) return;
-      showToast(formatError(error, '读取编辑器字号与版本设置'));
+      showToast(formatError(error, '读取编辑器字号设置'));
     });
-  },
-  selectEditorVersion() {
-    if (this.settingsLoading || this.settingsWritePending) return;
-    vibrate('short');
-    this.$app.$def.openDialog('select', {
-      title: '编辑器版本',
-      message: '新设置会在下次打开编辑器时生效',
-      items: EDITOR_VERSIONS.map(info => ({label:info.label,value:info.id})),
-      value: this.editorVersion
-    }, this).then(result => {
-      if (result.action === "confirm") {
-        this.saveEditorVersion(result.value);
-      }
-    }).catch(error => {
-      showToast(error.message || "无法打开对话框");
-    });
-  },
-  saveEditorVersion(id) {
-    if (this.settingsWritePending) return;
-    const option = getEditorVersionInfo(id);
-    this.settingsWritePending = true;
-    configManager.set('editor.version', option.id).then(() => {
-      if (!this.pageActive) return;
-      this.applyEditorVersion(option.id);
-      showToast('编辑器将在下次打开时切换');
-    }).catch(error => { if (this.pageActive) showToast(formatError(error, '保存编辑器版本 ' + option.label)); })
-      .then(() => { if (this.pageActive) this.settingsWritePending = false; });
-  },
-  applyEditorVersion(version) {
-    const option = getEditorVersionInfo(version);
-    this.editorVersion = option.id;
-    this.editorVersionLabel = option.label;
-    this.fontSizeAvailable = option.supportsFontSize;
-    this.highlightAvailable = option.supportsHighlight;
-    this.fontsAvailable = option.supportsCustomFont;
-    this.fontSizeDescription = this.fontSizeAvailable ? '当前：' + this.currentFontSize + 'px' : 'v0 不支持';
-    this.highlightDescription = this.highlightAvailable ? '开关、阈值与配色' : '仅 v2 支持';
-    this.fontsDescription = this.fontsAvailable ? '当前字体与更换教程' : '仅 v2 支持';
   },
   setFontSize() {
     if (this.settingsLoading || this.settingsWritePending) return;
-    if (!this.fontSizeAvailable) {
-      showToast('v0 编辑器不支持字号设置');
-      return;
-    }
     vibrate('short');
     this.$app.$def.openDialog('number', {
       title: '设置字号',
@@ -156,13 +98,13 @@ export default {
     });
   },
   saveFontSize(value) {
-    if (!this.fontSizeAvailable || this.settingsWritePending) return;
+    if (this.settingsWritePending) return;
     const previous = this.currentFontSize;
     const size = normalizeFontSize(value, this.currentFontSize);
     this.currentFontSize = size;
     this.fontSizeDescription = '当前：' + size + 'px';
     this.settingsWritePending = true;
-    configManager.set('editor.font.size', size).then(() => {
+    this.$app.$def.getConfigManager().set('editor.font.size', size).then(() => {
       if (this.pageActive) showToast('字号已设为 ' + size + 'px');
     }).catch(error => {
       if (!this.pageActive) return;
@@ -174,18 +116,11 @@ export default {
     });
   },
   openHighlightSettings() {
-    if (!this.highlightAvailable) {
-      showToast('当前编辑器不支持语法高亮');
-      return;
-    }
     this.routerTo('settingsHighlight');
   },
   openFontSettings() {
-    if (!this.fontsAvailable) {
-      showToast('当前编辑器不支持字体设置');
-      return;
-    }
-    this.routerTo('settingsFonts');
+    vibrate('short');
+    showToast('即将上线');
   },
   routerTo(route) {
     vibrate('short');
@@ -202,11 +137,9 @@ export default {
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
 .scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
 .item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-shrink:0; align-items:center; justify-content:space-between; }
-.disabled-item { background-color:#303030; }
 .item-content { width:244px; height:84px; flex-shrink:0; flex-direction:column; justify-content:space-between; }
 .itemtext { width:244px; font-size:32px; line-height:40px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }
 .itemtext2 { width:244px; font-size:24px; line-height:32px; font-weight:bold; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:1; }
-.disabled-text { color:#8c8c8c; }
 .enter-icon { width:40px; height:40px; flex-shrink:0; }
 .topbar { position:absolute; left:0px; top:0px; width:336px; height:84px; }
 .back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }

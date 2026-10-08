@@ -7,7 +7,7 @@ async function loadJsManager(fileMock) {
   const source = fs.readFileSync(sourcePath, 'utf8')
     .replace("import file from '@system.file';", 'const file = globalThis.__jsManagerFileMock;')
     .replace("import { utf8ByteLength } from './textEncoding.js';", "const utf8ByteLength = value => Buffer.byteLength(value, 'utf8');")
-    .replace("import { removeScriptStorage, renameScriptStorage } from '../runtime/scriptData.js';", 'const { removeScriptStorage, renameScriptStorage } = globalThis.__jsManagerStorageMock;')
+    .replace("import { removeScriptStorage, renameScriptStorage } from './scriptData.js';", 'const { removeScriptStorage, renameScriptStorage } = globalThis.__jsManagerStorageMock;')
     .replace("import { sortFilesNewestFirst } from './fileMetadata.js';", `
       const sortFilesNewestFirst = files => files.slice().sort((left, right) =>
         Number(right.lastModifiedTime || 0) - Number(left.lastModifiedTime || 0));

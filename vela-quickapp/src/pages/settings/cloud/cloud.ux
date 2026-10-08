@@ -37,15 +37,21 @@
     <text class="time-text">{{nowTime}}</text>
     <text class="heading">云账户</text>
     <img static src="/common/images/back.png" class="back" @click="goBack" />
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { back } from '../../../utils/core/routeManager.js';
-import cloudService from '../../../utils/cloud/cloudService.js';
+import { errorMessage } from '../../../utils/cloud/cloudError.js';
+import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../utils/core/networkFeedback.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
-import configManager from '../../../utils/core/configManager.js';
 import { getDeviceName } from '../../../utils/core/deviceInfo.js';
 import { formatError } from '../../../utils/core/userError.js';
 export default {
@@ -55,6 +61,8 @@ export default {
     activationText: '请在网页端激活云空间与 AI',
     busy: false,
     loading: false,
+    networkStatus: '',
+    networkStage: '',
     initialized: false,
     transport: 'fetch',
     transportLabel: 'fetch 直连',
@@ -80,6 +88,7 @@ export default {
   },
   onShow() {
     startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
     this.pageVisible = true;
     if (this.pairingCode) {
       if (Date.now() >= this.pairingExpiresAt) {
@@ -94,12 +103,14 @@ export default {
   },
   onHide() {
     stopPageClock(this);
+    setNetworkFeedbackVisible(this, false);
     this.pageVisible = false;
     if (this.pairingTimer) clearInterval(this.pairingTimer);
     this.pairingTimer = null;
   },
   onDestroy() {
     stopPageClock(this);
+    stopNetworkFeedback(this);
     this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
     this.pageVisible = false;
@@ -117,7 +128,8 @@ export default {
   loadState() {
     if (this.busy || this.loading) return;
     this.loading = true;
-    cloudService.getState().then(state => {
+    startNetworkFeedback(this, '正在读取云账户配置');
+    this.$app.$def.getCloudClients().deviceAccount.getState().then(state => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
       this.loadError = false;
@@ -128,7 +140,8 @@ export default {
         this.activationText = '配对后可在网页端激活';
         return null;
       }
-      return cloudService.getEntitlements().then(entitlement => {
+      updateNetworkFeedback(this, '正在验证云账户');
+      return this.$app.$def.getCloudClients().deviceAccount.getEntitlements().then(entitlement => {
         if (!this.pageActive) return;
         this.activated = entitlement.cloudEnabled;
         this.activationText = entitlement.cloudEnabled ? '已激活，AI 余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
@@ -143,8 +156,8 @@ export default {
         }
         this.activated = false;
         this.loadError = true;
-        this.loadErrorText = cloudService.errorMessage(error, '读取云账户激活状态') + '，点击重新读取';
-        this.activationText = cloudService.errorMessage(error, '验证云账户激活状态');
+        this.loadErrorText = errorMessage(error, '读取云账户激活状态') + '，点击重新读取';
+        this.activationText = errorMessage(error, '验证云账户激活状态');
       });
     }).catch(error => {
       if (!this.pageActive) return;
@@ -157,9 +170,9 @@ export default {
       }
       this.loadError = true;
       this.activated = false;
-      this.loadErrorText = cloudService.errorMessage(error, '读取云账户配置') + '，点击重新读取';
-      this.activationText = cloudService.errorMessage(error, '读取云账户配置');
-    }).then(() => { if (this.pageActive) this.loading = false; });
+      this.loadErrorText = errorMessage(error, '读取云账户配置') + '，点击重新读取';
+      this.activationText = errorMessage(error, '读取云账户配置');
+    }).then(() => { if (this.pageActive) { this.loading = false; stopNetworkFeedback(this); } });
   },
   isAuthenticationExpired(error) {
     return !!error && (error.status === 401 || error.message === 'device_auth_required');
@@ -167,16 +180,20 @@ export default {
   startPairing() {
     if (this.busy || this.loading || this.pairingCode) return;
     this.busy = true;
-    this.loadDeviceName().then(name => cloudService.startPairing(name)).then(result => {
+    startNetworkFeedback(this, '正在读取设备信息');
+    this.loadDeviceName().then(name => {
+      updateNetworkFeedback(this, '正在生成配对二维码');
+      return this.$app.$def.getCloudClients().deviceAccount.startPairing(name);
+    }).then(result => {
       if (!this.pageActive) return;
       this.pairingCode = result.code;
       this.pairingQr = result.qrValue;
       this.pairingExpiresAt = Date.now() + Number(result.expiresIn || 600) * 1000;
       if (this.pageVisible) this.pollPairing();
     }).catch(error => {
-      if (this.pageActive) showToast(cloudService.errorMessage(error, '生成配对二维码'));
+      if (this.pageActive) showToast(errorMessage(error, '生成配对二维码'));
     }).then(() => {
-      if (this.pageActive) this.busy = false;
+      if (this.pageActive) { this.busy = false; stopNetworkFeedback(this); }
     });
   },
   pollPairing() {
@@ -211,13 +228,13 @@ export default {
     if (!this.pageVisible || !this.pairingCode || this.pairingPollBusy) return;
     this.pairingPollBusy = true;
     const code = this.pairingCode;
-    cloudService.pollPairing(code).then(result => {
+    this.$app.$def.getCloudClients().deviceAccount.pollPairing(code).then(result => {
       if (!this.pageActive || !this.pageVisible) return null;
       if (code !== this.pairingCode) return null;
       this.pairingPollError = false;
       if (result.status === 'claimed') {
         this.updatePairingStatus('网页已确认，正在完成配对');
-        return cloudService.exchangePairing(code, this.deviceName).then(() => {
+        return this.$app.$def.getCloudClients().deviceAccount.exchangePairing(code, this.deviceName).then(() => {
           if (!this.pageActive || code !== this.pairingCode) return;
           this.clearPairing();
           showToast('配对成功');
@@ -233,7 +250,7 @@ export default {
       if (!this.pageActive) return;
       if (code === this.pairingCode) {
         this.pairingPollError = true;
-        this.updatePairingStatus(cloudService.errorMessage(error, '查询配对确认状态'));
+        this.updatePairingStatus(errorMessage(error, '查询配对确认状态'));
       }
     }).then(() => {
       if (this.pageActive) this.pairingPollBusy = false;
@@ -255,8 +272,13 @@ export default {
   confirmCancelPairing() {
     const code = this.pairingCode;
     this.clearPairing();
-    if (code) cloudService.cancelPairing(code).catch(error => {
-      if (this.pageActive) showToast(cloudService.errorMessage(error, '通知云服务取消配对码'));
+    if (!code) return;
+    this.busy = true;
+    startNetworkFeedback(this, '正在取消配对码');
+    this.$app.$def.getCloudClients().deviceAccount.cancelPairing(code).catch(error => {
+      if (this.pageActive) showToast(errorMessage(error, '通知云服务取消配对码'));
+    }).then(() => {
+      if (this.pageActive) { this.busy = false; stopNetworkFeedback(this); }
     });
   },
   clearPairing() {
@@ -294,7 +316,7 @@ export default {
     const changeId = this.transportChangeId + 1;
     this.transportChangeId = changeId;
     this.busy = true;
-    configManager.set('cloud.transport', transport).then(() => {
+    this.$app.$def.getConfigManager().set('cloud.transport', transport).then(() => {
       if (!this.pageActive || changeId !== this.transportChangeId) return;
       this.transport = transport;
       this.transportLabel = this.getTransportLabel(transport);
@@ -323,7 +345,8 @@ export default {
   confirmLogout() {
     if (this.busy) return;
     this.busy = true;
-    cloudService.logout().then(result => {
+    startNetworkFeedback(this, '正在退出云账户');
+    this.$app.$def.getCloudClients().deviceAccount.logout().then(result => {
       if (!this.pageActive) return;
       showToast(result && result.alreadyRevoked ? '设备已失效，本地已退出' : '已退出');
       this.paired = false;
@@ -331,9 +354,10 @@ export default {
       this.loadError = false;
       this.activationText = '配对后可在网页端激活';
       this.busy = false;
+      stopNetworkFeedback(this);
       this.loadState();
     }).catch(error => {
-      if (this.pageActive) showToast(cloudService.errorMessage(error, '撤销当前设备并退出'));
+      if (this.pageActive) { stopNetworkFeedback(this); showToast(errorMessage(error, '撤销当前设备并退出')); }
     }).then(() => {
       if (this.pageActive) this.busy = false;
     });
@@ -341,11 +365,13 @@ export default {
   goBack() {
     vibrate('short');
     back();
-  }
+  },
+  loadingTap() { return false; }
 };
 </script>
 
 <style>
+@import "../../../common/styles/network-loading.css";
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
 .scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
 .header { position:absolute; left:0px; top:0px; width:336px; height:84px; }

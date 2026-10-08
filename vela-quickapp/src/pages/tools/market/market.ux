@@ -1,10 +1,6 @@
 <template>
   <div class="page">
     <scroll class="scroll" scroll-y="true">
-      <div class="toolbar">
-        <div class="search" @click="search"><text class="search-text">{{query ? query : '搜索 JS 市场'}}</text></div>
-        <img src="/common/images/rerun.png" class="refresh-action {{loading || checkingState || busy ? 'disabled-icon' : ''}}" @click="load" />
-      </div>
       <div if="{{statusText}}" class="status"><text class="status-text">{{statusText}}</text></div>
       <div for="{{script in visibleScripts}}" tid="id" class="script {{busy ? 'disabled-item' : ''}}" @click="download(script)">
         <text class="name {{busy ? 'disabled-text' : ''}}">{{script.name}}</text>
@@ -15,17 +11,28 @@
         <text class="load-more-text">显示更多（{{shownCount}}/{{scripts.length}}）</text>
       </div>
     </scroll>
+    <div class="toolbar">
+      <div class="search" @click="search"><text class="search-text">{{query || '搜索 JS 市场'}}</text></div>
+      <img src="/common/images/rerun.png" class="refresh-action {{loading || busy ? 'disabled-icon' : ''}}" @click="load" />
+    </div>
     <img static src="/common/images/hd.png" class="header" />
     <text class="time-text">{{nowTime}}</text>
     <text class="heading">JS 市场</text>
     <img static src="/common/images/back.png" class="back" @click="goBack" />
-    <img src="/common/images/upload.png" class="upload {{loading || checkingState || busy ? 'disabled-icon' : ''}}" @click="upload" />
+    <img src="/common/images/upload.png" class="upload {{loading || busy ? 'disabled-icon' : ''}}" @click="upload" />
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { back, push } from '../../../utils/core/routeManager.js';
-import cloudService from '../../../utils/cloud/cloudService.js';
+import { errorMessage } from '../../../utils/cloud/cloudError.js';
+import { startNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../utils/core/networkFeedback.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 const PAGE_SIZE = 10;
@@ -35,11 +42,11 @@ export default {
     visibleScripts: [],
     shownCount: 0,
     loading: false,
-    checkingState: false,
     busy: false,
-    paired: false,
+    networkStatus: '',
+    networkStage: '',
     initialized: false,
-    statusText: '',
+    statusText: '正在加载...',
     query: '',
     nowTime: '00:00',
     pageActive: true
@@ -49,6 +56,7 @@ export default {
   },
   onShow() {
     startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
     if (!this.initialized) { this.initialized = true; this.load(); return; }
     if (this.$app.$def.marketRefreshNeeded) {
@@ -56,9 +64,10 @@ export default {
       this.load();
     }
   },
-  onHide() { stopPageClock(this); },
+  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {
     stopPageClock(this);
+    stopNetworkFeedback(this);
     this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
   },
@@ -71,23 +80,13 @@ export default {
     this.shownCount = 0;
   },
   load() {
-    if (this.loading || this.checkingState || this.busy) return;
-    this.checkingState = true;
-    this.statusText = '';
-    cloudService.getState().then(state => {
-      if (!this.pageActive) return null;
-      this.paired = state.paired;
-      if (!state.paired) {
-        this.clearResults();
-        this.statusText = '请先在云账户页配对设备';
-        return null;
-      }
-      this.loading = true;
-      this.clearResults();
-      this.statusText = '正在加载...';
-      return cloudService.market(this.query);
-    }).then(scripts => {
-      if (!this.pageActive || scripts === null) return;
+    if (this.loading || this.busy) return;
+    this.loading = true;
+    this.clearResults();
+    this.statusText = '正在加载...';
+    startNetworkFeedback(this, '正在读取 JS 市场');
+    this.$app.$def.getCloudClients().marketClient.listMarketScripts(this.query).then(scripts => {
+      if (!this.pageActive) return;
       this.scripts = Array.isArray(scripts) ? scripts : [];
       this.shownCount = Math.min(PAGE_SIZE, this.scripts.length);
       this.visibleScripts = this.scripts.slice(0, this.shownCount);
@@ -96,23 +95,23 @@ export default {
       if (!this.pageActive) return;
       console.error('Failed to load JS market:', error);
       this.clearResults();
-      this.statusText = cloudService.errorMessage(error, '读取 JS 市场') + '，点右上角重试';
+      this.statusText = errorMessage(error, '读取 JS 市场') + '，点刷新按钮重试';
     }).then(() => {
-      if (this.pageActive) { this.loading = false; this.checkingState = false; }
+      if (this.pageActive) { this.loading = false; stopNetworkFeedback(this); }
     });
   },
   loadMore() {
-    if (this.loading || this.checkingState || this.busy) return;
+    if (this.loading || this.busy) return;
     this.shownCount = Math.min(this.shownCount + PAGE_SIZE, this.scripts.length);
     this.visibleScripts = this.scripts.slice(0, this.shownCount);
   },
   upload() {
-    if (this.loading || this.checkingState || this.busy) return;
+    if (this.loading || this.busy) return;
     vibrate('short');
     push('toolsMarketUpload');
   },
   search() {
-    if (this.loading || this.checkingState || this.busy) return;
+    if (this.loading || this.busy) return;
     this.$app.$def.openDialog('text', {
       title: '搜索市场',
       value: this.query
@@ -129,17 +128,20 @@ export default {
     });
   },
   download(script) {
-    if (!script || this.busy || this.loading || this.checkingState) return;
+    if (!script || this.busy || this.loading) return;
     this.busy = true;
-    cloudService.downloadMarketScript(script.id, false).then(saved => {
+    startNetworkFeedback(this, '正在下载市场脚本');
+    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, false).then(saved => {
       if (!this.pageActive) return;
+      stopNetworkFeedback(this);
       showToast('已下载 ' + saved.name);
       this.busy = false;
     }).catch(error => {
       if (!this.pageActive) return;
+      stopNetworkFeedback(this);
       if (error.message !== 'file_exists') {
         this.busy = false;
-        showToast(cloudService.errorMessage(error, '下载市场脚本 ' + script.name));
+        showToast(errorMessage(error, '下载市场脚本 ' + script.name));
         return;
       }
       this.busy = false;
@@ -150,12 +152,13 @@ export default {
         if (result.action === "confirm") {
           if (this.busy) return;
           this.busy = true;
-          cloudService.downloadMarketScript(script.id, true).then(() => {
+          startNetworkFeedback(this, '正在覆盖本地脚本');
+          this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, true).then(() => {
             if (this.pageActive) showToast('已覆盖本地文件');
           }).catch(error => {
-            if (this.pageActive) showToast(cloudService.errorMessage(error, '覆盖本地市场脚本 ' + script.name));
+            if (this.pageActive) showToast(errorMessage(error, '覆盖本地市场脚本 ' + script.name));
           }).then(() => {
-            if (this.pageActive) this.busy = false;
+            if (this.pageActive) { this.busy = false; stopNetworkFeedback(this); }
           });
         }
       }).catch(error => {
@@ -166,19 +169,21 @@ export default {
   goBack() {
     vibrate('short');
     back();
-  }
+  },
+  loadingTap() { return false; }
 };
 </script>
 
 <style>
+@import "../../../common/styles/network-loading.css";
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
-.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
+.scroll { position:absolute; left:0px; top:164px; width:336px; height:316px; padding:0px 6px 24px; flex-direction:column; }
 .header { position:absolute; left:0px; top:0px; width:336px; height:84px; }
 .back,.upload { position:absolute; top:6px; width:72px; height:72px; }
 .back { left:6px; }.upload { left:258px; }
 .time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#fff; text-align:center; }
-.toolbar { width:324px; height:72px; margin-bottom:8px; flex-direction:row; justify-content:space-between; flex-shrink:0; }
+.toolbar { position:absolute; left:6px; top:84px; width:324px; height:72px; flex-direction:row; justify-content:space-between; }
 .search { width:244px; height:72px; padding:0px 16px; border-radius:36px; background-color:#262626; justify-content:center; }
 .search-text { width:212px; color:rgba(255,255,255,0.6); font-size:24px; line-height:34px; text-overflow:ellipsis; lines:1; }
 .refresh-action { width:72px; height:72px; flex-shrink:0; }

@@ -15,21 +15,7 @@ async function load(name, replacements = []) {
 }
 
 async function run() {
-  const preferences = await load('editor/editorPreferences.js', [
-    ["import configManager from '../core/configManager.js';", 'const configManager = { get: async (_key, fallback) => globalThis.__smallEditorVersion ?? fallback };']
-  ]);
-  assert.equal(preferences.getEditorRoute('v0'), 'editorV0');
-  assert.equal(preferences.getEditorRoute('v1'), 'editorV1');
-  assert.equal(preferences.getEditorRoute('v2'), 'editor');
-  assert.equal(preferences.getEditorRoute('constructor'), 'editor');
-  assert.equal(preferences.getEditorVersionInfo('v0').supportsFontSize, false);
-  assert.equal(preferences.getEditorVersionInfo('v1').supportsFontSize, true);
-  assert.equal(preferences.getEditorVersionInfo('v1').supportsCustomFont, false);
-  assert.equal(preferences.getEditorVersionInfo('v2').supportsHighlight, true);
-  globalThis.__smallEditorVersion = 'v1';
-  assert.equal(await preferences.getConfiguredEditorRoute(), 'editorV1');
-  delete globalThis.__smallEditorVersion;
-  assert.equal(await preferences.getConfiguredEditorRoute(), 'editor');
+  const preferences = await load('editor/editorPreferences.js');
   for (const value of [null, undefined, '', '  ', false, [], {}, Infinity, 'Infinity', NaN]) {
     assert.equal(preferences.normalizeFontSize(value), 16);
   }
@@ -38,6 +24,14 @@ async function run() {
   assert.equal(preferences.normalizeFontSize(100), 48);
   assert.equal(preferences.normalizeFontSize('bad', 22), 22);
   assert.equal(preferences.normalizeFontSize('bad', Infinity), 16);
+
+  const codeEditor = await load('editor/codeEditor.js');
+  const fontProfile = { lineHeightRatio: 1.2, lineHeightOffset: 1,
+    asciiWidthRatio: 0.5, wideWidthRatio: 1 };
+  assert.equal(codeEditor.countWideCharacters('a中b'), 1);
+  assert.equal(codeEditor.getCodeWidth(0), 336);
+  assert.equal(codeEditor.getLineHeight({ lineHeightRatio: 0.8, lineHeightOffset: -8 }, 8), 1);
+  assert.equal(codeEditor.getCharacterWidth('中', fontProfile, 16), 16);
 
   const routes = await load('core/routeManager.js', [["import router from '@system.router';", 'const router = {};']]);
   for (const input of ['settingsEditor', '/settings/editor/', '/settings//editor', '\\settings\\editor']) {

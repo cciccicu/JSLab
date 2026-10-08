@@ -1,0 +1,4 @@
+.network-shade { position:absolute; left:0px; top:0px; width:336px; height:480px; background-color:rgba(0,0,0,0.72); justify-content:center; align-items:center; }
+.network-dialog { width:300px; min-height:128px; padding:22px 18px; background-color:#262626; border-radius:36px; flex-direction:column; align-items:center; justify-content:center; }
+.network-dialog-title { width:264px; color:#ffffff; font-size:30px; line-height:40px; font-weight:bold; text-align:center; }
+.network-dialog-detail { width:264px; margin-top:8px; color:rgba(255,255,255,0.68); font-size:20px; line-height:28px; text-align:center; lines:2; }

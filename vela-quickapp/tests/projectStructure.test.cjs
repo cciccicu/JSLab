@@ -36,6 +36,22 @@ function checkUtilsLayout() {
   assert.deepStrictEqual(rootJavaScript, [], 'Shared modules must be placed in a domain directory');
 }
 
+function checkAppOwnedServices() {
+  const isolated = [];
+  const statefulModules = /\/utils\/(?:files\/(?:jsManager|scriptData)|core\/configManager|cloud\/(?:deviceAccount|deviceAi|marketClient|cloudFilesClient))\.js/;
+  walk(path.join(sourceRoot, 'pages'), ['.ux']).forEach((filePath) => {
+    const source = fs.readFileSync(filePath, 'utf8');
+    if (statefulModules.test(source)) isolated.push(path.relative(projectRoot, filePath));
+  });
+  assert.deepStrictEqual(isolated, [], 'Pages must use app-owned stateful services');
+  const transport = fs.readFileSync(path.join(utilsRoot, 'cloud', 'cloudTransport.js'), 'utf8');
+  assert(!/import .*companionBridge\.js/.test(transport), 'Page bundles must not import the app-owned Interconnect connection');
+  walk(path.join(sourceRoot, 'pages'), ['.ux']).forEach((filePath) => {
+    assert(!/import .*\/utils\/cloud\/cloudTransport\.js/.test(fs.readFileSync(filePath, 'utf8')),
+      'Pages must import cloudError rather than the stateful cloud transport: ' + path.relative(projectRoot, filePath));
+  });
+}
+
 function checkBackHandlers() {
   const ambiguous = [];
   walk(path.join(sourceRoot, 'pages'), ['.ux']).forEach((filePath) => {
@@ -106,6 +122,7 @@ function checkLocalFileListUiStates() {
 
 checkRelativeImports();
 checkUtilsLayout();
+checkAppOwnedServices();
 checkBackHandlers();
 checkOpaqueInteractionStates();
 checkMarketUiStates();

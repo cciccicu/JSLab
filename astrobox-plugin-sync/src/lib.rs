@@ -22,6 +22,7 @@ const PACKAGE_NAME: &str = "icu.ccicc.jslab";
 const PROTOCOL_VERSION: u64 = 2;
 const MAX_SCRIPT_BYTES: usize = 48 * 1024;
 const MAX_FONT_BYTES: usize = 2 * 1024 * 1024;
+const FONT_CHANGE_ENABLED: bool = false;
 const FONT_CHUNK_BYTES: usize = 3 * 1024;
 const WRITE_CHUNK_BYTES: usize = 4096;
 const DISCOVERY_RETRY_PREFIX: &str = "jslab-discovery:";
@@ -385,7 +386,7 @@ fn render(element_id: &str) {
     let device_online = view.selected_device.is_some();
     let connected = view.channel_ready;
     let editor_open = view.selected_file.is_some();
-    let fonts_page = view.active_page == ActivePage::Fonts;
+    let fonts_page = FONT_CHANGE_ENABLED && view.active_page == ActivePage::Fonts;
 
     let status_badge = Element::new(
         ElementType::Badge,
@@ -417,7 +418,7 @@ fn render(element_id: &str) {
     let page_action = if fonts_page {
         button("返回文件", "page-files", false, view.busy)
     } else {
-        button("字体上传", "page-fonts", false, view.busy)
+        button("字体更换", "page-fonts", false, view.busy)
     };
     let header_identity = Element::new(ElementType::Div, None)
         .flex()
@@ -2081,6 +2082,12 @@ fn build_font_profile(draft: &FontDraft) -> Result<FontPackageData, String> {
 }
 
 async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
+    if !FONT_CHANGE_ENABLED
+        && matches!(event_id, "page-fonts" | "font-select" | "font-submit")
+    {
+        set_status("即将上线", with_state(|state| state.busy));
+        return Ok(());
+    }
     if event_id == "editor-input" {
         let value = input_value(payload);
         diagnostic(format!(
@@ -2439,7 +2446,7 @@ async fn handle_timer(payload: &str) -> Result<(), String> {
 impl LifecycleGuest for Plugin {
     fn on_load() {
         let _ = state();
-        diagnostic("LIFECYCLE on_load version=1.5.8 api_level=3 protocol=2");
+        diagnostic(format!("LIFECYCLE on_load version={} api_level=3 protocol=2", env!("CARGO_PKG_VERSION")));
     }
 }
 

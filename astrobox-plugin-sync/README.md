@@ -10,14 +10,7 @@
 - 使用请求 ID、分块确认和 15 秒超时处理大文件与断线；
 - 接收手环端文件变化事件并合并刷新请求；
 - 同名上传前要求确认覆盖，新建和重命名默认不覆盖；
-- 上传唯一的 `.ttf` 或 `.otf` 字体，文件上限 2 MiB，支持断点续传；
-- 填写字体名称、行高、ASCII 字宽和宽字符字宽，并生成配套数据文件。
-
-## 字体传输
-
-字体按 3 KiB 分块上传。手环端立即写入 `pending.parts/`，并使用
-`pending.state.json` 保存进度，完成后生成 `pending.json`。JSLab Helper
-表盘会校验并合并字体，将其安装为 `active.ttf` 与 `active.json`。
+- 字体更换入口当前显示“即将上线”。
 
 ## 运行边界
 
@@ -47,4 +40,4 @@ rustup target add wasm32-wasip2
 ## JSLab 统一运行器
 
 全部 `.js` 共用同一运行契约，`.ui.js` 保留为普通文件名。此插件原本按 `.js` 校验/传输，不需要更改 WIT 或 RPC 协议版本。
-cloudProxy 原样转发请求 body 与服务器 JSON，包含 runtimeContract；AI 契约验证由快应用与云插件负责，文件/字体链路不受影响。
+cloudProxy 原样转发请求 body 与服务器 JSON，包含 runtimeContract；AI 契约验证由快应用与云插件负责，文件同步不受影响。

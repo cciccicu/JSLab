@@ -12,7 +12,6 @@ import interconnect from '@system.interconnect';
 import uploadtask from '@system.uploadtask';
 import request from '@system.request';
 import crypto from '@system.crypto';
-import { createScriptStorage } from './scriptData.js';
 import { createScriptDialogApi } from './scriptDialogApi.js';
 import { loadOptionalSystemModule } from '../core/runtimeCompat.js';
 import { showToast } from '../core/uiFeedback.js';
@@ -25,7 +24,7 @@ const audio = loadOptionalSystemModule(app, 'system.audio', ['play', 'pause', 's
 export function createScriptRuntimeApi(appDefinition, options) {
   const name = String(options.name || 'untitled.js');
   const isActive = options.isActive;
-  const storage = createScriptStorage(name);
+  const storage = appDefinition.getScriptStorage(name);
   return {
     script: {
       name,

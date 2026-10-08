@@ -1,9 +1,17 @@
 <script>
 import { push } from './utils/core/routeManager.js';
-import companionBridge from './utils/cloud/companionBridge.js';
-
+import companionBridge from './utils/bridge/companionBridge.js';
+import jsManager from './utils/files/jsManager.js';
+import { createScriptStorage } from './utils/files/scriptData.js';
+import deviceAccount from './utils/cloud/deviceAccount.js';
+import deviceAi from './utils/cloud/deviceAi.js';
+import marketClient from './utils/cloud/marketClient.js';
+import cloudFilesClient from './utils/cloud/cloudFilesClient.js';
+import { setCloudProxyRequest } from './utils/cloud/cloudTransport.js';
 import { openDialog as requestDialog, getDialog, settleDialog, deliverDialog, cancelOwnedDialog, closeOwnedDialog, dialogDestroyed } from './utils/core/dialogState.js';
 import configManager from './utils/core/configManager.js';
+
+const cloudClients = { deviceAccount, deviceAi, marketClient, cloudFilesClient };
 
 export default {
   runnerSource: null,
@@ -22,12 +30,19 @@ export default {
     // The AstroBox sync plugin always uses Interconnect. This lifecycle bridge
     // must not depend on the user's separate cloud HTTP transport preference.
     companionBridge.start();
+    setCloudProxyRequest(companionBridge.requestCloud);
   },
 
   onDestroy() {
     this.runnerSource = null;
+    setCloudProxyRequest(null);
     companionBridge.stop();
   },
+
+  getScriptManager() { return jsManager; },
+  getScriptStorage(name) { return createScriptStorage(name); },
+  getConfigManager() { return configManager; },
+  getCloudClients() { return cloudClients; },
 
   openDialog(type, options, owner) { return requestDialog(type, options, owner); },
   getDialog(type, id) { return getDialog(type, id); },

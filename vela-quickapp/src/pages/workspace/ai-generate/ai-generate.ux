@@ -25,13 +25,20 @@
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">AI 生成</text>
     <img static src="/common/images/back.png" class="back-button" @click="goBack" />
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import app from '@system.app';
 import { RUNTIME_CONTRACT } from '../../../utils/runtime/runtimeContract.js';
-import cloudService from '../../../utils/cloud/cloudService.js';
+import { errorMessage } from '../../../utils/cloud/cloudError.js';
+import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../utils/core/networkFeedback.js';
 import { back } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
@@ -44,6 +51,8 @@ export default {
     loading: false,
     initialized: false,
     busy: false,
+    networkStatus: '',
+    networkStage: '',
     mode: 'create',
     modeLabel: MODE_OPTIONS[0],
     prompt: '',
@@ -57,14 +66,16 @@ export default {
   },
   onShow() {
     startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     if (this.initialized) return;
     this.initialized = true;
     this.loadEntitlement();
   },
-  onHide() { stopPageClock(this); },
+  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {
     stopPageClock(this);
+    stopNetworkFeedback(this);
     this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
   },
@@ -74,11 +85,13 @@ export default {
   loadEntitlement() {
     if (this.loading || this.busy) return;
     this.loading = true;
-    cloudService.getState().then(state => {
+    startNetworkFeedback(this, '正在检查 AI 服务');
+    this.$app.$def.getCloudClients().deviceAccount.getState().then(state => {
       if (!this.pageActive) return null;
       this.paired = state.paired;
       if (!state.paired) throw new Error('device_auth_required');
-      return cloudService.getEntitlements();
+      updateNetworkFeedback(this, '正在验证 AI 激活状态');
+      return this.$app.$def.getCloudClients().deviceAccount.getEntitlements();
     }).then(entitlement => {
       if (!this.pageActive || !entitlement) return;
       this.loading = false;
@@ -86,12 +99,14 @@ export default {
       this.active = entitlement.cloudEnabled && entitlement.aiEnabled;
       this.inactiveActionText = this.active ? '' : '请先在网页端激活';
       this.activationText = this.active ? '已激活，余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
+      stopNetworkFeedback(this);
     }).catch(error => {
       if (!this.pageActive) return;
       this.loading = false;
+      stopNetworkFeedback(this);
       this.active = false;
-      this.inactiveActionText = error && error.message === 'device_auth_required' ? '请先登录并配对设备' : cloudService.errorMessage(error, '检查 AI 服务状态');
-      this.activationText = error && error.message === 'device_auth_required' ? '请先在云账户页配对设备' : cloudService.errorMessage(error, '验证 AI 激活状态');
+      this.inactiveActionText = error && error.message === 'device_auth_required' ? '请先登录并配对设备' : errorMessage(error, '检查 AI 服务状态');
+      this.activationText = error && error.message === 'device_auth_required' ? '请先在云账户页配对设备' : errorMessage(error, '验证 AI 激活状态');
     });
   },
   selectMode() {
@@ -153,9 +168,14 @@ export default {
       return;
     }
     this.busy = true;
+    startNetworkFeedback(this, '正在准备 AI 请求');
     const source = editor.before + editor.after;
-    this.getAiEnvironment().then(environment => cloudService.generateAi(this.mode, this.prompt, source, editor.name, environment)).then(result => {
+    this.getAiEnvironment().then(environment => {
+      updateNetworkFeedback(this, '正在等待 AI 结果');
+      return this.$app.$def.getCloudClients().deviceAi.generateAi(this.mode, this.prompt, source, editor.name, environment);
+    }).then(result => {
       if (!this.pageActive) return;
+      stopNetworkFeedback(this);
       editor.before = result.code;
       editor.after = '';
       this.$app.$def.updateEditorCode(result.code);
@@ -163,7 +183,8 @@ export default {
       back();
     }).catch(error => {
       if (!this.pageActive) return;
-      if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');else if (error && error.message === 'ai_credit_insufficient') showToast('AI 余额不足，请在网页端充值');else showToast(cloudService.errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
+      stopNetworkFeedback(this);
+      if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');else if (error && error.message === 'ai_credit_insufficient') showToast('AI 余额不足，请在网页端充值');else showToast(errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
     }).then(() => {
       if (this.pageActive) this.busy = false;
     });
@@ -175,7 +196,7 @@ export default {
     } catch (error) {
       appInfo = {};
     }
-    return cloudService.getState().then(state => ({
+    return this.$app.$def.getCloudClients().deviceAccount.getState().then(state => ({
       platform: 'Xiaomi Vela JavaScript quick app',
       deviceType: 'watch',
       screenShape: 'rect',
@@ -196,11 +217,13 @@ export default {
   goBack() {
     vibrate('short');
     back();
-  }
+  },
+  loadingTap() { return false; }
 };
 </script>
 
 <style>
+@import "../../../common/styles/network-loading.css";
 .page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
 .scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
 .item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; flex-shrink:0; justify-content:space-between; }

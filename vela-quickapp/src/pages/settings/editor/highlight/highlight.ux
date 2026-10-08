@@ -42,24 +42,13 @@
 </template>
 
 <script>
-import configManager from '../../../../utils/core/configManager.js';
 import { back as navigateBack } from '../../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
 import { formatError } from '../../../../utils/core/userError.js';
 import { DEFAULT_HIGHLIGHT_PALETTE, getHighlightPalettePresets, normalizeHighlightPalette } from '../../../../utils/editor/highlightPalette.js';
-const DEFAULT_CHAR_THRESHOLD = 12 * 1024;
-const DEFAULT_LINE_THRESHOLD = 240;
-const MIN_CHAR_THRESHOLD = 512;
-const MAX_CHAR_THRESHOLD = 100000;
-const MIN_LINE_THRESHOLD = 40;
-const MAX_LINE_THRESHOLD = 2000;
+import { DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, MIN_HIGHLIGHT_CHAR_THRESHOLD, MAX_HIGHLIGHT_CHAR_THRESHOLD, MIN_HIGHLIGHT_LINE_THRESHOLD, MAX_HIGHLIGHT_LINE_THRESHOLD, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../../utils/editor/editorPreferences.js';
 const PALETTE_PRESETS = getHighlightPalettePresets();
-function normalizeThreshold(value, fallback, minimum, maximum) {
-  const parsed = Number(value);
-  if (isNaN(parsed)) return fallback;
-  return Math.min(maximum, Math.max(minimum, Math.round(parsed)));
-}
 function getPaletteLabel(id) {
   for (let index = 0; index < PALETTE_PRESETS.length; index += 1) {
     if (PALETTE_PRESETS[index].id === id) return PALETTE_PRESETS[index].label;
@@ -73,8 +62,8 @@ export default {
     settingsLoading: false,
     pendingWrites: 0,
     highlightEnabled: true,
-    charThreshold: DEFAULT_CHAR_THRESHOLD,
-    lineThreshold: DEFAULT_LINE_THRESHOLD,
+    charThreshold: DEFAULT_HIGHLIGHT_CHAR_THRESHOLD,
+    lineThreshold: DEFAULT_HIGHLIGHT_LINE_THRESHOLD,
     paletteId: DEFAULT_HIGHLIGHT_PALETTE,
     paletteLabel: getPaletteLabel(DEFAULT_HIGHLIGHT_PALETTE),
     highlightChangeId: 0,
@@ -101,12 +90,12 @@ export default {
   loadSettings() {
     if (this.settingsLoading || this.pendingWrites > 0) return;
     this.settingsLoading = true;
-    Promise.all([configManager.get('editor.highlight.enabled', true), configManager.get('editor.highlight.maxChars', DEFAULT_CHAR_THRESHOLD), configManager.get('editor.highlight.maxLines', DEFAULT_LINE_THRESHOLD), configManager.get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
+    Promise.all([this.$app.$def.getConfigManager().get('editor.highlight.enabled', true), this.$app.$def.getConfigManager().get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
       if (!this.pageActive) return;
       this.settingsLoading = false;
       this.highlightEnabled = values[0] !== false;
-      this.charThreshold = normalizeThreshold(values[1], DEFAULT_CHAR_THRESHOLD, MIN_CHAR_THRESHOLD, MAX_CHAR_THRESHOLD);
-      this.lineThreshold = normalizeThreshold(values[2], DEFAULT_LINE_THRESHOLD, MIN_LINE_THRESHOLD, MAX_LINE_THRESHOLD);
+      this.charThreshold = normalizeHighlightCharThreshold(values[1]);
+      this.lineThreshold = normalizeHighlightLineThreshold(values[2]);
       this.paletteId = normalizeHighlightPalette(values[3]);
       this.paletteLabel = getPaletteLabel(this.paletteId);
     }).catch(error => {
@@ -125,7 +114,7 @@ export default {
     this.highlightChangeId = changeId;
     this.highlightEnabled = enabled;
     this.pendingWrites += 1;
-    configManager.set('editor.highlight.enabled', enabled).then(() => {
+    this.$app.$def.getConfigManager().set('editor.highlight.enabled', enabled).then(() => {
       if (!this.pageActive) return;
       this.pendingWrites -= 1;
       if (changeId === this.highlightChangeId) showToast('语法高亮已' + (enabled ? '开启' : '关闭'));
@@ -144,7 +133,7 @@ export default {
       title: '字符阈值',
       message: '输入 512-100000',
       value: this.charThreshold,
-      min: MIN_CHAR_THRESHOLD, max: MAX_CHAR_THRESHOLD,
+      min: MIN_HIGHLIGHT_CHAR_THRESHOLD, max: MAX_HIGHLIGHT_CHAR_THRESHOLD,
       decimals: 0,
       required: true
     }, this).then(result => {
@@ -157,7 +146,7 @@ export default {
     });
   },
   saveCharThreshold(value) {
-    const nextValue = normalizeThreshold(value, this.charThreshold, MIN_CHAR_THRESHOLD, MAX_CHAR_THRESHOLD);
+    const nextValue = normalizeHighlightCharThreshold(value, this.charThreshold);
     this.charThreshold = nextValue;
     this.saveSetting('editor.highlight.maxChars', nextValue, '字符阈值已更新');
   },
@@ -168,7 +157,7 @@ export default {
       title: '行数阈值',
       message: '输入 40-2000',
       value: this.lineThreshold,
-      min: MIN_LINE_THRESHOLD, max: MAX_LINE_THRESHOLD,
+      min: MIN_HIGHLIGHT_LINE_THRESHOLD, max: MAX_HIGHLIGHT_LINE_THRESHOLD,
       decimals: 0,
       required: true
     }, this).then(result => {
@@ -181,7 +170,7 @@ export default {
     });
   },
   saveLineThreshold(value) {
-    const nextValue = normalizeThreshold(value, this.lineThreshold, MIN_LINE_THRESHOLD, MAX_LINE_THRESHOLD);
+    const nextValue = normalizeHighlightLineThreshold(value, this.lineThreshold);
     this.lineThreshold = nextValue;
     this.saveSetting('editor.highlight.maxLines', nextValue, '行数阈值已更新');
   },
@@ -209,7 +198,7 @@ export default {
   },
   saveSetting(key, value, successMessage) {
     this.pendingWrites += 1;
-    configManager.set(key, value).then(() => {
+    this.$app.$def.getConfigManager().set(key, value).then(() => {
       if (!this.pageActive) return;
       this.pendingWrites -= 1;
       showToast(successMessage);

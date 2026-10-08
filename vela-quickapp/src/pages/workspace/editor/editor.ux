@@ -8,18 +8,19 @@
 		scroll-x="true"
 		scroll-y="true"
 		bounces="true"
+		@scroll="onCodeScroll"
 		style="position:absolute;top:0px;left:0px;height:480px;width:100%;flex-direction: column;padding: 0px 6px;"
 	  >
 		<div class="code-top-spacer"></div>
 		<div class="code-document" @click="onCodeClick" style="width: {{codeWidth}}px; height: {{codeHeight}}px;">
 		  <text if="{{initialHighlightPending}}" class="rendering-status">正在渲染</text>
-		  <div elif="{{highlightRendering}}" class="code-lines" style="width: {{codeWidth}}px;">
-			<div for="{{line in codeLines}}" tid="lineKey" class="code-line" style="width: {{codeWidth}}px; height: {{cursorHeight}}px;">
-			  <text class="code code-line-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{cursorHeight}}px;"><span for="{{token in line.tokens}}" tid="tokenKey" style="color: {{token.color}};">{{token.text}}</span></text>
+		  <div elif="{{highlightRendering}}" class="code-lines">
+			<div for="{{line in codeLines}}" tid="lineKey" class="code-line" style="height: {{cursorHeight}}px;">
+			  <text class="code code-line-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; height: {{cursorHeight}}px;"><span for="{{token in line.tokens}}" tid="tokenKey" style="color: {{token.color}};">{{token.text}}</span></text>
 			</div>
 		  </div>
-		  <text elif="{{!highlightRendering}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{codeTextHeight}}px;">{{plainCodeText}}</text>
-		  <div else class="code-lines" style="width: {{codeWidth}}px;"></div>
+		  <text elif="{{!highlightRendering}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; height: {{codeTextHeight}}px;">{{plainCodeText}}</text>
+		  <div else class="code-lines"></div>
 		  <div if="{{showCursor && !initialHighlightPending}}" class="code-cursor" style="left: {{cursorX}}px; top: {{cursorY}}px; width: {{fontSize/6}}px; height: {{cursorHeight}}px;"></div>
 		</div>
 		<div class="code-bottom-spacer" style="height: {{hideInputMethod ? 78 : 255}}px;"></div>
@@ -69,54 +70,26 @@
 </template>
 
 <script>
-import configManager from '../../../utils/core/configManager.js';
 import { DEFAULT_FONT_PROFILE, readActiveFontProfile } from '../../../utils/editor/fontProfile.js';
-import jsManager from '../../../utils/files/jsManager.js';
 import { back as navigateBack, push } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
-import { highlightJavascriptLines } from '../../../utils/editor/javascriptHighlighter.js';
+import { commitHighlightedLines, createHighlightState, highlightCodeDocument } from '../../../utils/editor/javascriptHighlighter.js';
 import { DEFAULT_HIGHLIGHT_PALETTE, normalizeHighlightPalette } from '../../../utils/editor/highlightPalette.js';
-import { getCursorPosition, getCharacterWidth, getLineHeight, moveCursorToPoint, moveCursorVertically } from '../../../utils/editor/codeEditor.js';
-import { DEFAULT_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/editorPreferences.js';
+import { getLineHeight } from '../../../utils/editor/codeEditor.js';
+import { createCodeDocument, deleteCodeBackward, insertCodeText, moveCodeCursor, moveCodeCursorToPoint } from '../../../utils/editor/codeDocument.js';
+import { DEFAULT_FONT_SIZE, DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, normalizeFontSize, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
-import { createScriptStorage } from '../../../utils/runtime/scriptData.js';
 const CODE_VIEWPORT_HEIGHT = 300;
 const INITIAL_HIGHLIGHT_DELAY = 32;
-const DEFAULT_HIGHLIGHT_CHAR_THRESHOLD = 12 * 1024;
-const DEFAULT_HIGHLIGHT_LINE_THRESHOLD = 240;
-const MIN_HIGHLIGHT_CHAR_THRESHOLD = 512;
-const MAX_HIGHLIGHT_CHAR_THRESHOLD = 100000;
-const MIN_HIGHLIGHT_LINE_THRESHOLD = 40;
-const MAX_HIGHLIGHT_LINE_THRESHOLD = 2000;
-const CODE_WIDTH_SAFETY_RATIO = 1.15;
-const CODE_WIDTH_PADDING = 48;
-let activeSource = '';
-function normalizeThreshold(value, fallback, minimum, maximum) {
-  const parsed = Number(value);
-  if (isNaN(parsed)) return fallback;
-  return Math.min(maximum, Math.max(minimum, Math.round(parsed)));
-}
-function measureCodeLayout(source, fontProfile, fontSize, maxChars, maxLines) {
-  const code = String(source || '');
-  let lineCount = 1;
-  let lineWidth = 0;
-  let maxWidth = 0;
-  for (let index = 0; index < code.length; index += 1) {
-    if (code.charCodeAt(index) === 10) {
-      if (lineWidth > maxWidth) maxWidth = lineWidth;
-      lineWidth = 0;
-      lineCount += 1;
-    } else {
-      lineWidth += getCharacterWidth(code[index], fontProfile, fontSize);
-    }
-  }
-  if (lineWidth > maxWidth) maxWidth = lineWidth;
-  return {
-    lineCount,
-    isLarge: code.length > maxChars || lineCount > maxLines,
-    width: Math.max(336, Math.ceil(maxWidth * CODE_WIDTH_SAFETY_RATIO) + CODE_WIDTH_PADDING)
-  };
+const CODE_TOP_SPACER_HEIGHT = 84;
+const KEYBOARD_TOP = 225;
+const CARET_VISIBLE_WIDTH = 280;
+const editorScrollPositions = new WeakMap();
+const editorStates = new WeakMap();
+function editorSource(state) {
+  if (state.source === null) state.source = state.before + state.after;
+  return state.source;
 }
 export default {
   private: {
@@ -165,6 +138,7 @@ export default {
     storageActionInProgress: false
   },
   onInit() {
+    editorScrollPositions.set(this, { left: 0, top: 0 });
     this.activateEditorSession();
     this.loadEditorPreferences();
     this.updateTime();
@@ -181,7 +155,8 @@ export default {
     this.stopCursorBlink();
     if (this.cursorRevealTimer) clearTimeout(this.cursorRevealTimer);
     this.releaseEditorLock();
-    activeSource = '';
+    editorScrollPositions.delete(this);
+    editorStates.delete(this);
     this.codeLines = [];
     this.plainCodeText = '';
   },
@@ -191,7 +166,8 @@ export default {
     this.editorVisible = true;
     const editor = this.$app.$def.editor;
     if (!this.lockToken || editor.name !== this.loadedEditorName) this.activateEditorSession();
-    if (editor.name === this.loadedEditorName && editor.before + editor.after !== activeSource) {
+    const state = editorStates.get(this);
+    if (state && (state.before !== editor.before || state.after !== editor.after)) {
       this.cancelInitialHighlight();
       this.initialHighlightComplete = false;
       this.initialHighlightPending = false;
@@ -217,6 +193,7 @@ export default {
   },
   activateEditorSession() {
     this.releaseEditorLock();
+    editorStates.delete(this);
     const editor = this.$app.$def.editor;
     // 偏好读取完成前只走纯文本路径，不能沿用上一次会话的高亮状态。
     this.syntaxHighlightEnabled = false;
@@ -225,11 +202,10 @@ export default {
     this.initialHighlightComplete = false;
     this.cancelInitialHighlight();
     this.loadedEditorName = editor.name;
-    if (editor.name) this.lockToken = jsManager.lock(editor.name);
+    if (editor.name) this.lockToken = this.$app.$def.getScriptManager().lock(editor.name);
     if (!editor.before && !editor.after && editor.code) editor.before = editor.code;
     editor.code = '';
     this.savedSource = editor.before + editor.after;
-    activeSource = this.savedSource;
     this.codeLines = [];
     this.plainCodeText = '';
     this.codeWidth = 336;
@@ -238,30 +214,31 @@ export default {
   },
   releaseEditorLock() {
     if (this.lockToken && this.loadedEditorName) {
-      jsManager.unlock(this.loadedEditorName, this.lockToken);
+      this.$app.$def.getScriptManager().unlock(this.loadedEditorName, this.lockToken);
     }
     this.lockToken = null;
   },
   loadEditorPreferences() {
     if (this.preferencesLoading) return;
     this.preferencesLoading = true;
-    Promise.all([configManager.get('editor.font.size', DEFAULT_FONT_SIZE), readActiveFontProfile(), configManager.get('editor.highlight.enabled', true), configManager.get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), configManager.get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), configManager.get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
+    Promise.all([this.$app.$def.getConfigManager().get('editor.font.size', DEFAULT_FONT_SIZE), readActiveFontProfile(), this.$app.$def.getConfigManager().get('editor.highlight.enabled', true), this.$app.$def.getConfigManager().get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
       this.preferencesLoading = false;
       if (!this.pageActive) return;
       const nextSize = normalizeFontSize(values[0]);
       const nextProfile = values[1];
       const nextHighlightEnabled = values[2] !== false;
-      const nextCharThreshold = normalizeThreshold(values[3], DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, MIN_HIGHLIGHT_CHAR_THRESHOLD, MAX_HIGHLIGHT_CHAR_THRESHOLD);
-      const nextLineThreshold = normalizeThreshold(values[4], DEFAULT_HIGHLIGHT_LINE_THRESHOLD, MIN_HIGHLIGHT_LINE_THRESHOLD, MAX_HIGHLIGHT_LINE_THRESHOLD);
+      const nextCharThreshold = normalizeHighlightCharThreshold(values[3]);
+      const nextLineThreshold = normalizeHighlightLineThreshold(values[4]);
       const nextPalette = normalizeHighlightPalette(values[5]);
-      const preferencesChanged = nextSize !== this.fontSize || JSON.stringify(nextProfile) !== JSON.stringify(this.fontProfile) || nextHighlightEnabled !== this.syntaxHighlightEnabled || nextCharThreshold !== this.highlightCharThreshold || nextLineThreshold !== this.highlightLineThreshold || nextPalette !== this.highlightPalette;
+      const profileChanged = JSON.stringify(nextProfile) !== JSON.stringify(this.fontProfile);
+      const preferencesChanged = nextSize !== this.fontSize || profileChanged || nextHighlightEnabled !== this.syntaxHighlightEnabled || nextCharThreshold !== this.highlightCharThreshold || nextLineThreshold !== this.highlightLineThreshold || nextPalette !== this.highlightPalette;
       if (!preferencesChanged && (this.initialHighlightComplete || this.initialHighlightPending)) return;
       /*
        * A cached config can resolve before the first frame. Only select the
        * rendering path here; the expensive first highlight runs after onReady.
        */
       this.fontSize = nextSize;
-      this.fontProfile = nextProfile;
+      if (profileChanged) this.fontProfile = nextProfile;
       this.fontFamily = 'JSLabActive';
       this.syntaxHighlightEnabled = nextHighlightEnabled;
       this.highlightCharThreshold = nextCharThreshold;
@@ -277,20 +254,14 @@ export default {
     });
   },
   prepareInitialCodeDisplay() {
-    const editor = this.$app.$def.editor;
-    activeSource = editor.before + editor.after;
-    const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize, this.highlightCharThreshold, this.highlightLineThreshold);
-    if (!this.syntaxHighlightEnabled || metrics.isLarge) {
-      this.initialHighlightComplete = true;
-      this.initialHighlightPending = false;
-      this.updateCodeDisplay();
-      return;
-    }
-    this.initialHighlightPending = true;
-    this.highlightRendering = false;
-    this.codeLines = [];
-    this.plainCodeText = activeSource;
-    this.scheduleInitialHighlight();
+    this.cancelInitialHighlight();
+    const state = this.getEditorState();
+    const document = state.document;
+    state.highlight = null;
+    this.initialHighlightComplete = !this.syntaxHighlightEnabled ||
+      document.sourceLength > this.highlightCharThreshold || document.lines.length > this.highlightLineThreshold;
+    this.initialHighlightPending = !this.initialHighlightComplete;
+    this.updateCodeDisplay();
   },
   scheduleInitialHighlight() {
     if (!this.initialHighlightPending || this.initialHighlightTimer || !this.pageReady || !this.editorVisible) return;
@@ -443,7 +414,7 @@ export default {
       cancelText: '取消'
     }, this).then(result => {
       if (result.action !== 'confirm') return;
-      return createScriptStorage(name)[area].clear().then(() => {
+      return this.$app.$def.getScriptStorage(name)[area].clear().then(() => {
         if (this.pageActive) showToast(label + '已清除');
       });
     }).catch(error => {
@@ -489,17 +460,17 @@ export default {
     }
     const source = editor.before + editor.after;
     this.saveInProgress = true;
-    jsManager.list().then(files => {
+    this.$app.$def.getScriptManager().list().then(files => {
       if (!this.pageActive) return;
       if (files.some(fileInfo => fileInfo.name === nextName)) throw new Error('文件已存在');
-      return jsManager.write(nextName, source);
+      return this.$app.$def.getScriptManager().write(nextName, source);
     }).then(() => {
       if (!this.pageActive) return;
       const oldName = editor.name;
-      jsManager.unlock(oldName, this.lockToken);
+      this.$app.$def.getScriptManager().unlock(oldName, this.lockToken);
       editor.name = nextName;
       this.loadedEditorName = nextName;
-      this.lockToken = jsManager.lock(nextName);
+      this.lockToken = this.$app.$def.getScriptManager().lock(nextName);
       this.savedSource = source;
       showToast('已另存为 ' + nextName);
     }).catch(error => { if (this.pageActive) showToast(formatError(error, '另存脚本为 ' + nextName)); })
@@ -515,149 +486,195 @@ export default {
   },
   onCodeClick(event) {
     const detail = event && event.detail ? event.detail : event || {};
-    this.moveCursorTo(Number(detail.offsetX) || 0, Number(detail.offsetY) || 0);
+    const position = editorScrollPositions.get(this);
+    if (!position) return;
+    // pageX/pageY omit the inner scroll offset on the target device. Convert
+    // viewport coordinates explicitly; offset coordinates are already local.
+    const clientX = Number(detail.clientX);
+    const clientY = Number(detail.clientY);
+    const x = detail.clientX != null && isFinite(clientX) ?
+      clientX + position.left - 6 : Number(detail.offsetX);
+    const y = detail.clientY != null && isFinite(clientY) ?
+      clientY + position.top - CODE_TOP_SPACER_HEIGHT : Number(detail.offsetY);
+    if (!isFinite(x) || !isFinite(y)) return;
+    this.moveCursorTo(x, y);
     vibrate('short');
   },
-  refreshCodeLayout() {
-    this.cursorHeight = getLineHeight(this.fontProfile, this.fontSize);
-    const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize, this.highlightCharThreshold, this.highlightLineThreshold);
-    this.codeTextHeight = Math.max(this.cursorHeight, metrics.lineCount * this.cursorHeight);
-    this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * this.cursorHeight);
-    this.codeWidth = metrics.width;
-    this.calculateCursorPosition();
-  },
   moveCursorTo(x, y) {
-    const editor = this.$app.$def.editor;
-    const cursor = moveCursorToPoint(editor.before + editor.after, x, y, this.fontProfile, this.fontSize);
-    editor.before = cursor.before;
-    editor.after = cursor.after;
-    this.refreshCursorPosition();
+    const state = this.getEditorState();
+    moveCodeCursorToPoint(state.document, x, y);
+    this.commitCursorPosition(state);
   },
-  refreshCursorPosition() {
-    const position = getCursorPosition(this.$app.$def.editor.before, this.fontProfile, this.fontSize);
-    this.applyCursorPosition(position);
-  },
-  updateCodeDisplay() {
+  getEditorState() {
     const editor = this.$app.$def.editor;
-    activeSource = editor.before + editor.after;
-    editor.code = '';
-    const metrics = measureCodeLayout(activeSource, this.fontProfile, this.fontSize, this.highlightCharThreshold, this.highlightLineThreshold);
+    let state = editorStates.get(this);
+    if (!state || state.before !== editor.before || state.after !== editor.after ||
+      state.fontProfile !== this.fontProfile || state.fontSize !== this.fontSize) {
+      const source = editor.before + editor.after;
+      state = { before: editor.before, after: editor.after, source, fontProfile: this.fontProfile,
+        fontSize: this.fontSize, highlight: null,
+        document: createCodeDocument(source, this.fontProfile, this.fontSize, editor.before.length) };
+      editorStates.set(this, state);
+    }
+    if (editor.code) editor.code = '';
+    return state;
+  },
+  commitCursorPosition(state) {
+    const editor = this.$app.$def.editor;
+    const offset = state.document.cursor.offset;
+    const distance = offset - editor.before.length;
+    if (distance < 0) {
+      editor.after = editor.before.slice(offset) + editor.after;
+      editor.before = editor.before.slice(0, offset);
+    } else if (distance > 0) {
+      editor.before += editor.after.slice(0, distance);
+      editor.after = editor.after.slice(distance);
+    }
+    state.before = editor.before;
+    state.after = editor.after;
+    this.applyCursorPosition(state.document.cursor);
+    this.scheduleCursorReveal();
+  },
+  updateCodeDisplay(change) {
+    const state = this.getEditorState();
+    const document = state.document;
+    const isLarge = document.sourceLength > this.highlightCharThreshold || document.lines.length > this.highlightLineThreshold;
     const wasLarge = this.largeFileMode;
-    this.largeFileMode = metrics.isLarge;
-    const position = getCursorPosition(editor.before, this.fontProfile, this.fontSize);
-    this.cursorHeight = position.height;
-    this.codeTextHeight = Math.max(position.height, metrics.lineCount * position.height);
-    this.codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, metrics.lineCount * position.height);
-    this.codeWidth = metrics.width;
-    if (!this.initialHighlightComplete && !metrics.isLarge && this.syntaxHighlightEnabled) {
+    if (wasLarge !== isLarge) this.largeFileMode = isLarge;
+    const position = document.cursor;
+    const textHeight = document.lines.length * position.height;
+    const codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, textHeight);
+    if (this.cursorHeight !== position.height) this.cursorHeight = position.height;
+    if (this.codeTextHeight !== textHeight) this.codeTextHeight = textHeight;
+    if (this.codeHeight !== codeHeight) this.codeHeight = codeHeight;
+    if (this.codeWidth !== document.width) this.codeWidth = document.width;
+    this.applyCursorPosition(position);
+    if (!wasLarge && isLarge) this.stopCursorBlink();
+    else if (wasLarge && !isLarge) this.startCursorBlink();
+    if ((isLarge || !this.syntaxHighlightEnabled) && this.initialHighlightPending) {
+      this.cancelInitialHighlight();
+      this.initialHighlightPending = false;
+      this.initialHighlightComplete = true;
+    }
+    if (!this.initialHighlightComplete && !isLarge && this.syntaxHighlightEnabled) {
       this.initialHighlightPending = true;
       this.highlightRendering = false;
-      this.codeLines = [];
-      this.plainCodeText = activeSource;
-      this.applyCursorPosition(position);
+      if (this.codeLines.length) this.codeLines = [];
+      if (this.plainCodeText) this.plainCodeText = '';
       this.cancelInitialHighlight();
       this.scheduleInitialHighlight();
       return;
     }
-    this.highlightRendering = !metrics.isLarge && this.syntaxHighlightEnabled;
-    if (this.highlightRendering) {
+    let highlighted = false;
+    if (!isLarge && this.syntaxHighlightEnabled) {
       try {
-        this.codeLines = highlightJavascriptLines(activeSource, 'code-line', this.highlightPalette, this.highlightCharThreshold);
-        this.plainCodeText = '';
+        if (!state.highlight || state.highlight.paletteId !== this.highlightPalette ||
+          state.highlight.maxTokens !== this.highlightCharThreshold) {
+          state.highlight = createHighlightState(this.highlightPalette, this.highlightCharThreshold);
+        }
+        const update = highlightCodeDocument(state.highlight, document, change);
+        if (update) {
+          const lines = commitHighlightedLines(this.codeLines, update);
+          if (lines !== this.codeLines) this.codeLines = lines;
+          highlighted = true;
+        }
       } catch (error) {
         // Incomplete scripts are normal while editing; highlighting must not crash the page.
         console.error('Syntax highlighting failed, falling back to plain text:', error);
-        this.highlightRendering = false;
-        this.initialHighlightComplete = true;
-        this.initialHighlightPending = false;
-        this.codeLines = [];
-        this.plainCodeText = activeSource;
+        state.highlight = null;
       }
     } else {
-      this.codeLines = [];
-      this.plainCodeText = activeSource;
+      state.highlight = null;
     }
-    this.applyCursorPosition(position);
-    if (!wasLarge && this.largeFileMode) {
-      this.stopCursorBlink();
-      this.showCursor = true;
-    } else if (wasLarge && !this.largeFileMode) {
-      this.startCursorBlink();
+    if (this.highlightRendering !== highlighted) this.highlightRendering = highlighted;
+    if (highlighted) {
+      if (this.plainCodeText) this.plainCodeText = '';
+    } else {
+      if (this.codeLines.length) this.codeLines = [];
+      const source = editorSource(state);
+      if (this.plainCodeText !== source) this.plainCodeText = source;
     }
   },
   insert(str) {
-    this.$app.$def.editor.before += str;
-    this.updateCodeDisplay();
+    const value = String(str || '');
+    if (!value) return;
+    const editor = this.$app.$def.editor;
+    const state = this.getEditorState();
+    const change = insertCodeText(state.document, value);
+    editor.before += value;
+    state.before = editor.before;
+    state.source = null;
+    this.updateCodeDisplay(change);
     this.scheduleCursorReveal();
   },
   remove() {
     const editor = this.$app.$def.editor;
     if (editor.before.length > 0) {
+      const state = this.getEditorState();
+      const change = deleteCodeBackward(state.document);
       editor.before = editor.before.slice(0, -1);
-      this.updateCodeDisplay();
+      state.before = editor.before;
+      state.source = null;
+      this.updateCodeDisplay(change);
       this.scheduleCursorReveal();
     }
+  },
+  onCodeScroll(event) {
+    const detail = event && event.detail ? event.detail : event || {};
+    const position = editorScrollPositions.get(this);
+    if (!position) return;
+    const left = Number(detail.scrollX);
+    const top = Number(detail.scrollY);
+    if (isFinite(left)) position.left = Math.max(0, left);
+    if (isFinite(top)) position.top = Math.max(0, top);
+  },
+  getCursorRevealTarget() {
+    const position = editorScrollPositions.get(this);
+    if (!position) return null;
+    const visibleHeight = KEYBOARD_TOP - CODE_TOP_SPACER_HEIGHT;
+    let left = null;
+    let top = null;
+    if (this.cursorX < position.left + 8) left = Math.max(0, this.cursorX - 16);
+    else if (this.cursorX > position.left + CARET_VISIBLE_WIDTH) left = Math.max(0, this.cursorX - CARET_VISIBLE_WIDTH);
+    if (this.cursorY < position.top + 8) top = Math.max(0, this.cursorY - 20);
+    else if (this.cursorY + this.cursorHeight > position.top + visibleHeight - 8) top = Math.max(0, this.cursorY - 70);
+    if (left === position.left) left = null;
+    if (top === position.top) top = null;
+    if (left === null && top === null) return null;
+    const target = { behavior: 'instant' };
+    if (left !== null) target.left = left;
+    if (top !== null) target.top = top;
+    return target;
   },
   scheduleCursorReveal() {
     if (this.hideInputMethod || !this.pageActive || !this.editorVisible) return;
     if (this.cursorRevealTimer) clearTimeout(this.cursorRevealTimer);
+    this.cursorRevealTimer = null;
+    if (!this.getCursorRevealTarget()) return;
     this.cursorRevealTimer = setTimeout(() => {
       this.cursorRevealTimer = null;
       if (this.hideInputMethod || !this.pageActive || !this.editorVisible) return;
       const scroll = this.$element('code-scroll');
       if (!scroll || typeof scroll.scrollTo !== 'function') return;
-      // The keyboard starts at y=225. Keep the caret in the visible strip below the header.
-      scroll.scrollTo({
-        left: Math.max(0, this.cursorX - 280),
-        top: Math.max(0, this.cursorY - 70),
-        behavior: 'instant'
-      });
+      const target = this.getCursorRevealTarget();
+      if (!target) return;
+      const position = editorScrollPositions.get(this);
+      if (!position) return;
+      if (target.left !== undefined) position.left = target.left;
+      if (target.top !== undefined) position.top = target.top;
+      scroll.scrollTo(target);
     }, 0);
   },
   move(direction) {
     vibrate('short');
-    const editor = this.$app.$def.editor;
-    switch (direction) {
-      case "left":
-        if (editor.before.length > 0) {
-          const charToMove = editor.before.slice(-1);
-          editor.before = editor.before.slice(0, -1);
-          editor.after = charToMove + editor.after;
-          this.refreshCursorPosition();
-        }
-        break;
-      case "right":
-        if (editor.after.length > 0) {
-          const charToMove = editor.after.charAt(0);
-          editor.after = editor.after.slice(1);
-          editor.before += charToMove;
-          this.refreshCursorPosition();
-        }
-        break;
-      case "up":
-        this.moveVertical(-1);
-        break;
-      case "down":
-        this.moveVertical(1);
-        break;
-    }
-  },
-  moveVertical(direction) {
-    const editor = this.$app.$def.editor;
-    const cursor = moveCursorVertically(editor.before, editor.after, direction);
-    if (!cursor) return;
-    editor.before = cursor.before;
-    editor.after = cursor.after;
-    this.refreshCursorPosition();
-  },
-  calculateCursorPosition() {
-    const position = getCursorPosition(this.$app.$def.editor.before, this.fontProfile, this.fontSize);
-    this.applyCursorPosition(position);
+    const state = this.getEditorState();
+    if (moveCodeCursor(state.document, direction)) this.commitCursorPosition(state);
   },
   applyCursorPosition(position) {
-    this.cursorX = position.x;
-    this.cursorY = position.y;
-    this.cursorHeight = position.height;
+    if (this.cursorX !== position.x) this.cursorX = position.x;
+    if (this.cursorY !== position.y) this.cursorY = position.y;
+    if (this.cursorHeight !== position.height) this.cursorHeight = position.height;
+    if (!this.showCursor) this.showCursor = true;
   },
   save() {
     vibrate('short');
@@ -668,7 +685,7 @@ export default {
     const editor = this.$app.$def.editor;
     const code = editor.before + editor.after;
     this.saveInProgress = true;
-    jsManager.write(editor.name, code, {
+    this.$app.$def.getScriptManager().write(editor.name, code, {
       token: this.lockToken
     }).then(() => {
       if (!this.pageActive) return;
@@ -715,21 +732,25 @@ export default {
   	}
 
 	.code-plain-text {
+		width: 100%;
 		flex-shrink: 0;
 		text-overflow: clip;
 	}
 
 	.code-lines {
+		width: 100%;
 		flex-direction: column;
 		flex-shrink: 0;
 	}
 
 	.code-line {
+		width: 100%;
 		flex-shrink: 0;
 		overflow: hidden;
 	}
 
 	.code-line-text {
+		width: 100%;
 		flex-shrink: 0;
 		text-overflow: clip;
 		lines: 1;

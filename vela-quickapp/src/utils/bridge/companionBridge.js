@@ -2,7 +2,7 @@ import interconnect from '@system.interconnect';
 import brightness from '@system.brightness';
 import jsManager from '../files/jsManager.js';
 import fontManager from '../editor/fontManager.js';
-import { clearScriptTransfers, handleScriptTransfer } from '../files/scriptTransfer.js';
+import { clearScriptTransfers, handleScriptTransfer } from './scriptTransfer.js';
 
 const PROTOCOL_VERSION = 2;
 const WRITE_SESSION_TTL_MS = 2 * 60 * 1000;

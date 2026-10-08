@@ -1,6 +1,6 @@
 {
   "name": "JSLab",
-  "version": "1.9.3",
+  "version": "1.9.5",
   "description": "",
   "engines": {
     "node": ">=8.10"
@@ -13,11 +13,12 @@
     "lint": "eslint --format codeframe --ext .ux,.js src/",
     "test:dialogs": "node tests/dialogState.test.cjs",
     "test:highlighter": "node tests/javascriptHighlighter.test.cjs",
+    "test:editor": "node tests/editorDocument.test.cjs",
     "test:metadata": "node tests/fileMetadata.test.cjs",
     "test:files": "node tests/jsManager.test.cjs",
     "test:config": "node tests/configManager.test.cjs",
     "test:integrity": "node tests/transferIntegrity.test.cjs",
-    "test:cloud": "node tests/cloudService.test.cjs",
+    "test:cloud": "node tests/cloudClients.test.cjs",
     "test:structure": "node tests/projectStructure.test.cjs",
     "test:device": "node tests/deviceInfo.test.cjs",
     "test:small": "node tests/smallModules.test.cjs",
