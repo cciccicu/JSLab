@@ -62,7 +62,7 @@ import { scheduleNextTick } from '../../../utils/core/runtimeCompat.js';
 import { HELP_ROOT, findHelpNode, getDirectoryItems } from '../../../data/helpDocs.js';
 
 const ROOT_TITLE = '帮助';
-const ROOT_DESCRIPTION = '从创建与运行、JSLab API 到系统能力与云端功能。';
+const ROOT_DESCRIPTION = '先了解如何创建和运行脚本，再按需要查找界面、设备与云端功能。';
 
 export default {
   private: {
@@ -73,10 +73,10 @@ export default {
     directoryItems: HELP_ROOT,
     activeDocument: null,
     pageTitle: ROOT_TITLE,
-    directoryKicker: 'JSLab 文档',
+    directoryKicker: '使用帮助',
     directoryHeading: ROOT_TITLE,
     directoryDescription: ROOT_DESCRIPTION,
-    articleKicker: 'JSLab 文档',
+    articleKicker: '使用帮助',
     canGoUp: false
   },
 
@@ -122,7 +122,7 @@ export default {
     this.activeDocument = node;
     this.viewMode = 'article';
     this.pageTitle = node.title;
-    this.articleKicker = this.currentDirectoryId ? (findHelpNode(this.currentDirectoryId) || {}).title || 'JSLab 文档' : 'JSLab 文档';
+    this.articleKicker = this.currentDirectoryId ? (findHelpNode(this.currentDirectoryId) || {}).title || '使用帮助' : '使用帮助';
     this.resetScroll();
   },
 
@@ -138,7 +138,7 @@ export default {
     this.viewMode = 'directory';
     this.activeDocument = null;
     this.pageTitle = node ? node.title : ROOT_TITLE;
-    this.directoryKicker = id ? '文档分类' : 'JSLab 文档';
+    this.directoryKicker = id ? '帮助目录' : '使用帮助';
     this.directoryHeading = node ? node.title : ROOT_TITLE;
     this.directoryDescription = node ? node.summary : ROOT_DESCRIPTION;
     this.canGoUp = this.directoryTrail.length > 0;

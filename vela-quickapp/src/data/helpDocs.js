@@ -11,130 +11,132 @@ function directory(id, title, summary, items) {
 }
 
 const START = [
-  document('guide-start','新建、保存与运行','统一 JavaScript 运行器','新建时选择名字和用途模板，默认 .js。创建后进入编辑器，关闭编辑器回到首页。所有编辑器的运行都使用当前编辑内容，不自动保存；保存请点保存按钮。Console 与 UI 是同一次执行的两个视图；旧 .ui.js 名字不改动。右上重载复用本次源码快照。',[
-    method('start-editor','编辑器操作','返回先关闭菜单、收起键盘或光标控制，再询问未保存修改。v2 右上角菜单提供 AI 生成、另存为和编辑器设置。'),
-    method('start-console','日志','计算和日志，无需 UI。',"console.log('Hello, JSLab!')"),
-    method('start-ui','界面与日志','所有脚本都可用 UI，同时可以输出日志。',"console.log('启动'); ui.render([ui.heading('Hello')])")
+  document('guide-start', '新建、保存与运行', '从创建脚本到查看结果', '在首页选择“新建脚本”，输入文件名并选择模板。文件名没有 .js 后缀时会自动补上；创建完成后会打开编辑器。', [
+    method('start-editor', '编辑代码', '点击代码区域开始编辑。右上角菜单有 AI 生成、另存为、编辑器设置、帮助，以及当前脚本的清除数据和清除配置。返回时，如果有未保存的修改，可以选择保存、放弃或继续编辑。'),
+    method('start-run', '运行当前代码', '收起键盘后，点击编辑器底部的运行按钮。运行会使用当前编辑的内容，但不会自动保存；要保留修改，请点击保存按钮。'),
+    method('start-console', '输出日志', '用 console.log 查看计算结果或排查问题。只需要日志的脚本无需创建界面。', "console.log('Hello, JSLab!')"),
+    method('start-ui', '显示界面', '任何脚本都可以调用 ui.render 显示界面，也可以同时输出日志。', "console.log('已启动')\nui.render([ui.heading('Hello')])")
   ]),
-  document('guide-runtime','运行时对象','console / ui / dialog / script / system','五个对象同时注入；不要 import、require 或使用裸 Vela 模块。页面初始化一次，UI/Console 切换和对话框恢复不重跑。',[
-    method('runtime-views','ui.show / ui.hide','成功 render 后轻点 Console 内容也能恢复 UI；UI 返回到 Console，Console 返回离开。','ui.hide(); ui.show();'),
-    method('runtime-reload','script.reload / script.exit','reload 原生替换页面重建本次运行；exit 直接退出。没有运行菜单、停止或页面内重跑。','script.reload()')
-  ],'顶层 await 无效，await 放在 async 函数中；return main() 可让宿主观察其拒绝。页替换不等于重启共享 JS context。')
+  document('guide-runtime', '查看界面与日志', '切换视图、返回和重新运行', '界面和日志属于同一次运行。切换视图或从对话框返回时，脚本不会从头执行。', [
+    method('runtime-views', '切换界面与日志', '在界面按返回会看到日志；如果脚本已经显示过界面，点击日志区域可回到界面。在日志页按返回会离开运行页。脚本也可调用 ui.show() 或 ui.hide()。'),
+    method('runtime-reload', '重新运行或退出', '点击右上角的重载按钮，或调用 script.reload()，可以重新运行这次打开时的代码。script.exit() 会离开运行页。', 'script.reload()')
+  ])
 ];
 const SCRIPT_API = [
-  document('api-script-core','script','文件信息、能力、重载、退出和提示','脚本控制对象。',[
-    method('script-info','script.name','实际文件名也是持久化命名空间。',"console.log(script.name)"),
-    method('script-capability','script.canUse(capability)','查询原生可选能力。',"script.canUse('@system.sensor.subscribeAccelerometer')"),
-    method('script-locale','script.locale()','语言及地区。','console.log(script.locale())'),
-    method('script-reload','script.reload()','与右上按钮共用完整页面重建，不重新读取磁盘。','script.reload()'),
-    method('script-exit','script.exit()','直接退出；自己的原生订阅/媒体任务仍应结束。','script.exit()'),
-    method('script-toast','script.toast(message,duration)','1500–10000ms 提示。',"script.toast('已保存')")
-  ]),
-  document('api-console','console','有界日志','log/info/warn/error/clear；最多64条、合计6144字符、每条1024字符。隐藏 Console 只记录缓冲，错误前日志保留，不自动写文件。',[
-    method('console-output','log/info/warn/error','多参数、浅层对象预览；error 只是日志级别。',"console.log('结果',42)"),
-    method('console-clear','console.clear()','清空本次日志。','console.clear()')
-  ]),
-  document('api-script-data','script.data 与 script.config','按文件名隔离','API 相同，都返回 Promise；单值16KiB，每区64KiB。',[
-    method('script-store-get','get(key,fallback)','读取或使用默认值。',"script.data.get('count',0).then(console.log)"),
-    method('script-store-set','set(key,value)','保存可序列化数据。',"script.config.set('unit','metric')"),
-    method('script-store-manage','delete/clear/all','删除键、清空或读取全部。',"script.data.delete('count')")
-  ]),
-  document('api-dialog','dialog','五种单项对话框','全部返回 Promise<{action,value}>；正常取消 action=cancel,value=null。先检查 action，空串、0、false 是有效业务值。同一时间一个，没有嵌套队列。',[
-    method('dialog-alert','dialog.alert','信息提示，确认值 null。',"dialog.alert({title:'完成',message:'已完成'})"),
-    method('dialog-confirm','dialog.confirm','可选 secondaryText；通过 action 区分三个动作。',"dialog.confirm({title:'保存？',confirmText:'保存',secondaryText:'不保存',cancelText:'继续编辑'}).then(r => console.log(r.action))"),
-    method('dialog-text','dialog.text','value/placeholder/required/minLength/maxLength/language；默认64，最大8000字符，不自动 trim。',"dialog.text({title:'名称',value:'测试',maxLength:100}).then(r => {if(r.action==='confirm') console.log(r.value)})"),
-    method('dialog-number','dialog.number','支持负数小数；required/min/max/decimals，默认6位小数，0为整数。',"dialog.number({title:'温度',value:-2.5,min:-20,max:50,decimals:1})"),
-    method('dialog-select','dialog.select','items 的 label/value 分开；支持 description/disabled、多选/数量约束，最多100项，原生列表连续滚动。',"dialog.select({items:[{label:'工具',value:'tool'},{label:'游戏',value:'game'}],multiple:true,minSelected:1})")
-  ],'无效参数 DIALOG_INVALID；已有对话框 DIALOG_BUSY；打开失败 DIALOG_OPEN_FAILED；退出来源 DIALOG_INACTIVE。结果在来源页面恢复后交付。')
+  document('api-script-core', 'script', '脚本信息与运行控制', '脚本可直接使用 script 对象，不需要导入。', [
+    method('script-info', 'script.name', '读取当前脚本的文件名。', 'console.log(script.name)'),
+    method('script-capability', 'script.canUse(capability)', '检查设备是否支持某项系统功能。', "if (script.canUse('@system.sensor.subscribeAccelerometer')) {\n  console.log('支持加速度计')\n}"),
+    method('script-locale', 'script.locale()', '读取设备的语言和地区信息。', 'console.log(script.locale())'),
+    method('script-reload', 'script.reload()', '重新运行这次打开时的代码，包括从编辑器运行时尚未保存的修改。', 'script.reload()'),
+    method('script-exit', 'script.exit()', '离开运行页。脚本启动的录音、传感器监听等任务，应在不再使用时主动停止。', 'script.exit()'),
+    method('script-toast', 'script.toast(message, duration)', '在屏幕上显示短暂提示；可设置 1500 至 10000 毫秒。', "script.toast('已保存')")
+  ], '需要等待异步操作时，把代码放进 async 函数，并在脚本末尾写 return main()；不能直接在最外层使用 await。'),
+  document('api-console', 'console', '输出和清空日志', '日志页显示脚本的输出。切换到界面后，日志仍会保留；日志不会自动保存为文件。', [
+    method('console-output', 'log / info / warn / error', '可以输出多个值。error 用于标记错误消息，不会让脚本自动退出。', "console.log('结果', 42)"),
+    method('console-clear', 'console.clear()', '清空本次运行的日志。', 'console.clear()')
+  ], '日志最多保留最近 64 条。记录较多时，最早的内容会被移除。'),
+  document('api-script-data', '保存脚本数据', 'script.data 与 script.config', '用 script.data 保存脚本产生的数据，用 script.config 保存设置。两者的用法相同，数据分别保存；不同文件名的脚本也互不共用。', [
+    method('script-store-get', 'get(key, fallback)', '读取一个值；没有保存过时返回给定的默认值。', "script.data.get('count', 0).then(value => console.log(value))"),
+    method('script-store-set', 'set(key, value)', '保存字符串、数字、布尔值或可序列化的对象。', "script.config.set('unit', 'metric')"),
+    method('script-store-manage', 'delete / clear / all', '删除一个键、清空全部数据，或读取全部内容。', "script.data.delete('count')")
+  ], '这些方法返回 Promise。单个值最多 16 KiB，data 和 config 各可保存 64 KiB。编辑器菜单可以分别清除当前脚本的数据或配置；重命名脚本时两者会迁移，删除脚本时会一并删除。'),
+  document('api-dialog', '对话框', '提示、确认、输入和选择', 'dialog 的方法会在用户完成操作后返回结果。先检查 result.action，再使用 result.value；按返回或取消时，action 为 cancel。', [
+    method('dialog-alert', 'dialog.alert', '显示一条消息和确认按钮。', "dialog.alert({ title: '完成', message: '已保存' })"),
+    method('dialog-confirm', 'dialog.confirm', '让用户确认操作。设置 secondaryText 可以增加第三个选择，并通过 action 区分结果。', "return dialog.confirm({ title: '保存修改？', confirmText: '保存', secondaryText: '不保存' })\n  .then(result => console.log(result.action))"),
+    method('dialog-text', 'dialog.text', '输入文字。可设置初始值 value、提示文字 placeholder、是否必填 required，以及长度和输入语言。', "return dialog.text({ title: '名称', maxLength: 100 })\n  .then(result => {\n    if (result.action === 'confirm') console.log(result.value)\n  })"),
+    method('dialog-number', 'dialog.number', '输入整数或小数。可用 min、max 限制范围，用 decimals 设置小数位数；0 表示只输入整数。', "dialog.number({ title: '温度', value: -2.5, min: -20, max: 50, decimals: 1 })"),
+    method('dialog-select', 'dialog.select', '从 items 中选择。每项可设置 label、value、description 和 disabled；设置 multiple: true 可多选。', "dialog.select({ items: [\n  { label: '工具', value: 'tool' },\n  { label: '游戏', value: 'game' }\n] })")
+  ], '同一时间只能打开一个对话框。文字输入默认最多 64 字，选择列表最多 100 项；取消时的 value 为 null，空字符串和数字 0 则可能是有效输入。')
 ];
 
 const UI_API = [
-  document('api-ui-runtime', 'ui 渲染与状态', 'UI API v2', '所有脚本调用 ui.render 成功提交后显示界面；同时可输出 console 日志。渲染函数保持纯函数，不在其中请求网络、创建计时器或更新状态。', [
-    method('ui-render', 'ui.render(view | factory)', '立即显示组件、数组或纯渲染函数的结果。null 和 false 不占位置。', "const count = ui.signal(0)\nui.render(() => [\n  ui.text('当前：' + count.get(), { lines: 1 }),\n  ui.button('增加', () => count.update(n => n + 1), { id: 'add' })\n])"),
-    method('ui-refresh', 'ui.refresh()', '请求重绘；同一轮多次更新合并一次，不立即刷新。', 'ui.refresh()'),
-    method('ui-signal', 'ui.signal(initial)', 'get/set/update 立即读写值。相同值或相同对象引用不刷新；对象请创建新对象。', "const state = ui.signal({ count: 0 })\nstate.update(old => ({ count: old.count + 1 }))"),
-    method('ui-page', 'setTitle / showHeader / scroll', '标题最多80字符；显示顶栏时内容从84px开始，隐藏后从12px开始。', "ui.setTitle('设置')\nui.showHeader(false)\nui.scrollTop()")
-  ], '40个声明节点（含布局、buttonRow按钮，不含grid格子）；布局最多4层；展开后最多160个绘制节点；二维码最多2个。超限显示错误，不截断。id全页唯一、最长56字符且不能以$开头。'),
-  document('api-ui-layout', '行、列与叠放', '少量布局描述，浅层渲染', '布局容器默认不生成原生节点。设置background才绘制背景。尺寸单位为设计像素，页面内容宽324px；默认根节点纵向间距10px。', [
-    method('ui-row', 'ui.row(children, options)', '横向排列；未指定宽度的子项按flex分配剩余宽度，默认等分。', "ui.row([\n  ui.text('左', { width: 100, lines: 1 }),\n  ui.text('右', { lines: 1 })\n], { gap: 8, align: 'center' })"),
-    method('ui-column', 'ui.column(children, options)', '纵向排列；可嵌套row/column。子项默认填满宽度。', "ui.column([ui.heading('标题'), ui.text('内容')], { padding: 12, gap: 8, background: '#24262a', radius: 24 })"),
-    method('ui-stack', 'ui.stack(children, options)', '叠放，后面的子项在上；子项通过x/y定位，需指定较小width才能水平移动。', "ui.stack([\n  ui.text('底层', { lines: 1 }),\n  ui.text('右上', { width: 80, x: 220, y: 0, lines: 1 })\n], { height: 80 })"),
-    method('ui-size', 'width / height / gap / padding', 'width支持像素或百分比；height为像素。gap默认8、范围0–48；padding为统一内边距0–48。背景用background，圆角用radius。', "ui.column([ui.text('居中', { width: '60%', lines: 1 })], { align: 'center' })"),
-    method('ui-align', 'align / justify / flex', '布局align支持start/center/end；justify还支持between。row按高度对齐，column按宽度对齐；justify分配剩余主轴空间。flex只分配row子项的剩余宽度。', "ui.row([ui.text('1', { flex: 1, lines: 1 }), ui.text('2', { flex: 2, lines: 1 })])")
-  ], '不支持CSS、递归原生组件或自动换行row。布局height不会压缩内容；叶子height会裁剪内容。短标签推荐lines:1；自动文本高度采用保守估算，精确面板显式设置lines/lineHeight。'),
-  document('api-ui-components', '组件与颜色', '现有组件 + 二维码', '交互使用原生点击和数值变化；按钮 disabled 排除回调并显示禁用样式。', [
-    method('ui-text', 'heading / text', 'size为16–36；color文字色；align为left/center/right；支持bold、lines、lineHeight及通用宽高背景。', "ui.text('正文', { lines: 2, color: '#abc', lineHeight: 32 })"),
-    method('ui-action', 'button / buttonRow', '按钮color控制文字、background控制背景。tone仍支持primary/neutral/danger。buttonRow最多4项，子按钮id有效。', "ui.button('操作', run, { id: 'run', background: '#176b45', color: '#fff' })"),
-    method('ui-input', 'switch / slider', 'color为标题色、background为卡片背景、accent为滑轨强调色、thumbColor为滑块色。slider另有trackColor、min/max/step；switch另有detail/detailColor。最小宽160px。', "ui.switch('启用', true, value => script.toast(String(value)), { id: 'enabled', accent: '#176b45' })"),
-    method('ui-display', 'progress / grid', 'progress用accent强调进度，兼容原color进度色；grid为2–4列、最多9行，只展示。格子支持background/color，文字最多8字符。', "ui.progress('下载', 68, { accent: '#176b45' })\nui.grid([{ text: 'A', background: '#174', color: '#fff' }], { columns: 2 })"),
-    method('ui-qr', 'ui.qrcode(value, options)', '内容1–256字符；size为96–288、默认160，包含四周8px空白；color/background默认黑白。同屏最多2个。', "ui.column([ui.qrcode('https://ccicc.icu', { id: 'qr', size: 180 })], { align: 'center' })"),
-    method('ui-layout', 'divider / spacer', 'divider支持color/height；spacer控制垂直间距。', "ui.divider({ color: '#456' })\nui.spacer(16)")
-  ], '推荐不透明#RGB/#RRGGBB/rgb(r,g,b)，兼容有效rgba。没有opacity。未知颜色回退默认值。尺寸过窄、重复id、节点超限会提示具体错误。')
+  document('api-ui-runtime', '显示与更新界面', '显示界面和更新数据', '调用 ui.render 后，脚本就能显示自己的界面。变化的数据可以放在 ui.signal 中，界面会随之更新。', [
+    method('ui-render', 'ui.render(view | factory)', '显示一个组件、一组组件，或根据当前状态生成界面的函数。', "const count = ui.signal(0)\nui.render(() => [\n  ui.text('当前：' + count.get(), { lines: 1 }),\n  ui.button('增加', () => count.update(n => n + 1), { id: 'add' })\n])"),
+    method('ui-signal', 'ui.signal(initial)', '用 get 读取，用 set 或 update 修改。对象内容变化时，请返回新对象。', "const state = ui.signal({ count: 0 })\nstate.update(old => ({ count: old.count + 1 }))"),
+    method('ui-refresh', 'ui.refresh()', '手动请求更新界面。连续修改多次状态时，会合并更新。', 'ui.refresh()'),
+    method('ui-page', '标题、顶栏和滚动', '用 setTitle 设置标题，showHeader 控制顶栏；scrollTo、scrollTop 和 scrollBottom 可移动页面。', "ui.setTitle('设置')\nui.showHeader(false)\nui.scrollTop()")
+  ], '生成界面的函数只负责返回组件。网络请求、计时器和状态修改请放在函数外或按钮回调中。'),
+  document('api-ui-layout', '排列界面内容', '横排、竖排与自由定位', '用 row 横向排列，用 column 纵向排列。需要把按钮放在指定位置时，可用 stack 和 x、y。下面的布局示例可放在 ui.render 中使用。', [
+    method('ui-row', 'ui.row(children, options)', '横向排列组件。没有指定宽度的子项默认平分剩余空间。', "ui.row([\n  ui.text('左', { width: 100, lines: 1 }),\n  ui.text('右', { lines: 1 })\n], { gap: 8 })"),
+    method('ui-column', 'ui.column(children, options)', '纵向排列组件。可设置间距、内边距、背景色和圆角。', "ui.column([\n  ui.heading('标题'),\n  ui.text('内容')\n], { gap: 8, padding: 12, background: '#262626', radius: 24 })"),
+    method('ui-stack', 'ui.stack(children, options)', '让组件叠放，并用 x、y 指定位置。靠后的组件会盖在前面的组件上。', "ui.stack([\n  ui.button('左', () => {}, { id: 'left', x: 0, y: 20, width: 90 }),\n  ui.button('右', () => {}, { id: 'right', x: 220, y: 20, width: 90 })\n], { height: 80 })"),
+    method('ui-size', 'width / height / gap / padding', 'width 可用像素或百分比；height、gap 和 padding 使用像素。background 设置背景色，radius 设置圆角。', "ui.text('半宽文字', { width: '50%', lines: 1 })"),
+    method('ui-align', 'align / justify / flex', 'align 控制横向或纵向对齐；justify 分配多余空间；row 子项可用 flex 指定宽度比例。', "ui.row([\n  ui.text('1', { flex: 1, lines: 1 }),\n  ui.text('2', { flex: 2, lines: 1 })\n])")
+  ], 'row 不会自动换行。文字或按钮需要固定高度时，可设置 height；内容超出高度可能被裁剪。样式请写在组件的 options 中。'),
+  document('api-ui-components', '界面组件与颜色', '文字、按钮和二维码等', '组件的颜色和尺寸通过 options 设置。需要响应点击时，给按钮传入回调函数。下面的组件示例可放在 ui.render 中使用。', [
+    method('ui-text', 'heading / text', '显示标题或正文。可设置 size、color、bold、align、lines 和 lineHeight。', "ui.text('正文', { color: '#ffffff', lines: 2 })"),
+    method('ui-action', 'button / buttonRow', '创建单个按钮或一排按钮。background 设置底色，color 设置文字色；disabled: true 可禁用按钮。', "ui.button('保存', () => script.toast('已保存'), {\n  id: 'save', background: '#0d6eff', color: '#fff'\n})"),
+    method('ui-input', 'switch / slider', '创建开关或滑块。回调会收到新值；可用 accent、trackColor、thumbColor 调整颜色。', "ui.switch('启用', true, value => {\n  console.log('当前状态', value)\n}, { id: 'enabled' })"),
+    method('ui-display', 'progress / grid', 'progress 显示进度；grid 以 2 至 4 列展示信息，格子不能直接点击。', "ui.progress('下载', 68, { accent: '#0d6eff' })\nui.grid([{ text: 'A' }, { text: 'B' }], { columns: 2 })"),
+    method('ui-qr', 'ui.qrcode(value, options)', '显示二维码。size 可设为 96 至 288 像素；建议使用短网址并保持黑白对比。', "ui.qrcode('https://ccicc.icu', { size: 180 })"),
+    method('ui-layout', 'divider / spacer', '添加分隔线或留出纵向空白。', "ui.divider({ color: '#666666' })\nui.spacer(16)")
+  ], '交互组件建议设置唯一且稳定的 id。组件数量、布局层数和二维码数量没有额外上限。手环性能参考值为约 40 个组件、160 个绘制节点、4 层布局、2 个二维码；较大的界面建议分批显示并降低更新频率。')
 ];
 
 const SYSTEM_API = [
-  directory('system-device', '设备与文件', 'system.device、system.files、system.display', [
-    document('system-device-api', 'system.device', '设备资料与容量', '读取设备信息、ID、序列号和存储容量。设备 ID/序列号受权限和设备支持影响。', [
-      method('system-device-info', 'getInfo', '读取设备资料。', "system.device.getInfo({ success: data => script.toast(data.deviceType), fail: () => script.toast('不可用') })"),
-      method('system-device-storage', 'getTotalStorage / getAvailableStorage', '读取存储容量。', "system.device.getAvailableStorage({ success: data => script.toast(String(data.size)) })")
+  directory('system-device', '设备与文件', '设备信息、文件与屏幕', [
+    document('system-device-api', 'system.device', '设备信息和存储空间', '读取设备信息、设备标识和存储容量。可获取的字段因设备和权限而异。', [
+      method('system-device-info', 'getInfo', '读取设备类型等信息。', "system.device.getInfo({\n  success: data => console.log(data.deviceType),\n  fail: () => script.toast('无法读取设备信息')\n})"),
+      method('system-device-storage', 'getTotalStorage / getAvailableStorage', '读取总容量或剩余容量。', "system.device.getAvailableStorage({\n  success: data => console.log(data.size)\n})")
     ]),
-    document('system-files-api', 'system.files', '文本、二进制与目录', '文件 URI 使用 internal://files/。写入、删除、移动、复制前应由用户明确触发。', [
-      method('system-files-text', 'readText / writeText', '读写文本文件。', "system.files.writeText({ uri: 'internal://files/note.txt', text: 'hello' })"),
-      method('system-files-manage', 'list / get / access / mkdir / rmdir / move / copy / delete', '列出、检查或管理文件和目录。', "system.files.list({ uri: 'internal://files/', success: data => script.toast(String(data.fileList.length)) })")
+    document('system-files-api', 'system.files', '读取和管理文件', '脚本可操作 internal://files/ 中的文件。覆盖、移动或删除文件前，建议先让用户确认。', [
+      method('system-files-text', 'readText / writeText', '读取或写入文本文件。', "system.files.writeText({\n  uri: 'internal://files/note.txt', text: 'hello'\n})"),
+      method('system-files-manage', 'list / get / access / mkdir / rmdir / move / copy / delete', '查看目录、检查文件，或管理文件与文件夹。', "system.files.list({\n  uri: 'internal://files/',\n  success: data => console.log(data.fileList.length)\n})")
     ]),
-    document('system-display-api', 'system.display', '亮度与常亮', '读取或设置显示亮度和模式。修改设备设置应由用户主动触发。', [
-      method('system-display-value', 'getValue / setValue', '亮度范围为 0 至 255。', "system.display.setValue({ value: 100 })"),
-      method('system-display-keep', 'getMode / setMode / setKeepScreenOn', '设置显示模式或常亮。', "system.display.setKeepScreenOn({ keepScreenOn: true })")
+    document('system-display-api', 'system.display', '屏幕亮度与常亮', '读取或调整屏幕亮度，也可以让屏幕保持点亮。修改设备设置前，请让用户主动选择。', [
+      method('system-display-value', 'getValue / setValue', '读取或设置亮度，数值范围为 0 至 255。', 'system.display.setValue({ value: 100 })'),
+      method('system-display-keep', 'getMode / setMode / setKeepScreenOn', '读取或设置显示模式及常亮状态。', 'system.display.setKeepScreenOn({ keepScreenOn: true })')
     ]),
-    document('system-battery-api', 'system.battery', '电量与充电状态', '该模块在部分 Band Pro 设备不可用；调用前检查能力，并始终提供 fail 处理。', [
-      method('system-battery-status', 'getStatus', '读取 0 到 1 的电量和 charging 状态。', "if (script.canUse('@system.battery.getStatus')) {\n  system.battery.getStatus({ success: data => script.toast(String(data.level)) })\n}")
+    document('system-battery-api', 'system.battery', '电量与充电状态', '部分设备不支持电池接口。调用前先检查是否可用，并处理读取失败的情况。', [
+      method('system-battery-status', 'getStatus', '读取电量比例和充电状态。电量值为 0 至 1。', "if (script.canUse('@system.battery.getStatus')) {\n  system.battery.getStatus({\n    success: data => console.log(data.level, data.charging),\n    fail: () => script.toast('无法读取电量')\n  })\n}")
     ])
   ]),
-  directory('system-network', '网络与配套端', 'system.http、download、upload、companion', [
-    document('system-http-api', 'system.http', 'HTTP 请求', '使用对象参数和 success/fail/complete 回调；UI 中把结果写入 signal 或界面状态。', [
-      method('system-http-request', 'request(options)', '发送 HTTP 请求。', "system.http.request({\n  url: 'https://example.com/api', responseType: 'json',\n  success: res => script.toast('HTTP ' + res.code),\n  fail: (data, code) => script.toast('请求失败：' + code)\n})")
+  directory('system-network', '网络与配套端', '网络请求、传输与连接', [
+    document('system-http-api', 'system.http', '发送网络请求', '请求完成后分别在 success 或 fail 中处理结果。界面脚本可以把结果写入 ui.signal 来更新显示。', [
+      method('system-http-request', 'request(options)', '发送 HTTP 请求并处理响应。', "system.http.request({\n  url: 'https://example.com/api',\n  responseType: 'json',\n  success: res => console.log(res.data),\n  fail: (data, code) => console.error('请求失败', code)\n})")
     ]),
-    document('system-transfer-api', 'system.download 与 system.upload', '下载和上传文件', '下载先 start 再 wait；上传返回任务，可 abort 或监听进度。完成或退出时清理任务监听。', [
-      method('system-download', 'download.start / download.wait', '创建并等待下载任务。', "system.download.start({ url: 'https://example.com/file', success: task => system.download.wait({ token: task.token, success: data => script.toast(data.uri) }) })"),
-      method('system-upload', 'upload.file', '上传文件，返回 UploadTask。', "const task = system.upload.file({ url: 'https://example.com/upload', filePath: 'internal://files/note.txt', name: 'file' })")
+    document('system-transfer-api', 'system.download 与 system.upload', '下载和上传文件', '下载时先开始任务，再等待完成；上传任务可以取消，也可以监听进度。', [
+      method('system-download', 'download.start / download.wait', '下载文件并读取保存位置。', "system.download.start({\n  url: 'https://example.com/file',\n  success: task => system.download.wait({\n    token: task.token,\n    success: data => console.log(data.uri)\n  })\n})"),
+      method('system-upload', 'upload.file', '上传本地文件并取得上传任务。', "const task = system.upload.file({\n  url: 'https://example.com/upload',\n  filePath: 'internal://files/note.txt',\n  name: 'file'\n})")
     ]),
-    document('system-companion-api', 'system.companion', '配套端连接', '通过 instance 获取连接对象；连接状态和传输能力依设备与配套端而定。', [
-      method('system-companion-instance', 'instance()', '获取连接对象。', 'const connect = system.companion.instance()'),
-      method('system-companion-operations', 'getReadyState / diagnosis / send', '读取状态、诊断或发送数据。', "connect.send({ data: { type: 'hello' } })")
+    document('system-companion-api', 'system.companion', '与配套端通信', '设备支持配套端连接时，可读取连接状态并发送数据。', [
+      method('system-companion-instance', 'instance()', '取得配套端连接对象。', 'const connection = system.companion.instance()'),
+      method('system-companion-operations', 'getReadyState / diagnosis / send', '检查连接、诊断问题或发送数据。', "const connection = system.companion.instance()\nconnection.send({ data: { type: 'hello' } })")
     ])
   ]),
-  directory('system-hardware', '传感器、媒体与工具', 'vibration、sensors、location、audio、crypto 等', [
-    document('system-feedback-api', 'system.vibration', '触觉反馈', '短震动或长震动。避免在循环和高频回调中调用。', [
-      method('system-vibrate', 'vibrate({ mode })', 'mode 为 short 或 long。', "system.vibration.vibrate({ mode: 'short' })")
+  directory('system-hardware', '传感器与媒体', '震动、定位与音频', [
+    document('system-feedback-api', 'system.vibration', '震动反馈', '可以发出短震动或长震动。避免在高频循环中反复震动。', [
+      method('system-vibrate', 'vibrate({ mode })', 'mode 可设为 short 或 long。', "system.vibration.vibrate({ mode: 'short' })")
     ]),
-    document('system-sensors-api', 'system.sensors / system.location / system.network', '传感器、定位与网络变化', '调用前用 script.canUse 检查。订阅必须在不再需要时取消；部分能力在 Band Pro 不支持。', [
-      method('system-sensor', 'subscribe / unsubscribe', '压力和加速度计订阅。', "system.sensors.subscribeAccelerometer({ interval: 'normal', callback: data => { /* 节流处理 */ } })"),
-      method('system-location', 'location.getLocation / subscribe / unsubscribe', '定位需要权限。', "if (script.canUse('@system.geolocation.getLocation')) system.location.getLocation({ success: data => script.toast(String(data.latitude)) })"),
-      method('system-network-info', 'network.getType / subscribe / unsubscribe', '网络类型和变化监听。', "system.network.getType({ success: data => script.toast(data.type) })")
+    document('system-sensors-api', '传感器、定位与网络状态', 'system.sensors / location / network', '设备提供的能力可能不同。订阅变化后，脚本应在不再需要时取消订阅。', [
+      method('system-sensor', 'sensors.subscribe / unsubscribe', '读取加速度计或压力传感器的变化。不要在高频回调中持续输出日志。', "let latest = null\nif (script.canUse('@system.sensor.subscribeAccelerometer')) {\n  system.sensors.subscribeAccelerometer({\n    interval: 'normal',\n    callback: data => { latest = data }\n  })\n}"),
+      method('system-location', 'location.getLocation / subscribe / unsubscribe', '读取位置或持续监听位置变化；定位需要设备授权。', "if (script.canUse('@system.geolocation.getLocation')) {\n  system.location.getLocation({\n    success: data => console.log(data.latitude)\n  })\n}"),
+      method('system-network-info', 'network.getType / subscribe / unsubscribe', '读取网络类型或监听网络变化。', "system.network.getType({\n  success: data => console.log(data.type)\n})")
     ]),
-    document('system-media-api', 'system.audio / recorder / events', '音频、录音与应用内事件', '长时间运行的音频、录音和订阅都需要明确的停止操作，并在退出前释放。', [
-      method('system-audio', 'play / pause / stop / getPlayState', '控制音频播放。', 'system.audio.stop()'),
-      method('system-recorder', 'start / stop / onframerecorded', '录音控制及音频帧回调。', 'system.recorder.stop()'),
-      method('system-events', 'publish / subscribe / unsubscribe', '发布、订阅和取消应用内事件。', "const id = system.events.subscribe({ eventName: 'changed', callback: () => {} })")
+    document('system-media-api', '音频、录音与事件', 'system.audio / recorder / events', '播放、录音和事件订阅可能在脚本界面切换后继续运行。用完后请停止或取消订阅。', [
+      method('system-audio', 'audio.play / pause / stop / getPlayState', '播放、暂停、停止音频，或读取播放状态。', 'system.audio.stop()'),
+      method('system-recorder', 'recorder.start / stop / onframerecorded', '开始或停止录音，并处理录音数据。', 'system.recorder.stop()'),
+      method('system-events', 'events.publish / subscribe / unsubscribe', '在应用内发送事件、监听事件或取消监听。')
     ]),
-    document('system-crypto-api', 'system.crypto', '摘要、签名、加解密与 Base64', '不要在脚本中硬编码或持久化密钥。异步方法处理 success/fail。', [
-      method('system-crypto-hash', 'hashDigest', '计算摘要。', "const digest = system.crypto.hashDigest({ data: 'hello', algo: 'SHA256' })"),
-      method('system-crypto-codec', 'btoa / atob', 'Base64 编码和解码。', "const text = system.crypto.atob(system.crypto.btoa('hello'))")
+    document('system-crypto-api', 'system.crypto', '摘要与编码', '可计算摘要、加解密或进行 Base64 编码。涉及密钥时，不要直接把密钥写进脚本。', [
+      method('system-crypto-hash', 'hashDigest', '计算数据摘要。', "const digest = system.crypto.hashDigest({\n  data: 'hello', algo: 'SHA256'\n})"),
+      method('system-crypto-codec', 'btoa / atob', '进行 Base64 编码或解码。', "const encoded = system.crypto.btoa('hello')\nconsole.log(system.crypto.atob(encoded))")
     ])
   ])
 ];
 
-const CLOUD = document('guide-cloud', '云端文件与 JS 市场', '手动上传、下载与市场脚本', '云空间只保存当前文件。手环生成一次性配对码和二维码，用户在 ccicc.icu 的网页确认；设备不会保存主站密码。', [
-  method('cloud-pair', '手环发起配对', '在云账户生成配对码或二维码，再在网页确认。', '云账户 -> 生成配对码 -> 网页确认'),
-  method('cloud-files', '云空间', '从本地文件操作中手动上传，或从云端文件手动下载。', '同名上传会替换云端当前内容'),
-  method('cloud-market', 'JS 市场', '市场右上角可选择本地脚本，填写名称、说明与标签后提交审核；市场脚本也可下载到本地。', '下载同名文件前确认覆盖')
+const CLOUD = document('guide-cloud', '云空间与 JS 市场', '配对、传输文件和发布脚本', '使用云端功能前，先在“设置 > 云账户”生成配对二维码，并在 ccicc.icu 网页完成确认。云空间需要在网页端激活。', [
+  method('cloud-pair', '配对设备', '在手环的云账户页点击“生成配对二维码”，再用网页扫码或输入配对码完成确认。', '设置 > 云账户 > 生成配对二维码'),
+  method('cloud-files', '上传与下载', '在首页选中本地脚本后，点击底部上传按钮；点击首页云朵进入云空间，选中文件后可下载到本地。文件不会自动同步；同名上传会替换云端文件。'),
+  method('cloud-market', '发布到 JS 市场', '打开 JS 市场，点击右上角上传按钮，选择本地脚本并填写名称和用途说明。提交审核后，审核通过才会公开。'),
+  method('cloud-download', '下载市场脚本', '在市场中点击脚本即可下载到本地。若本地已有同名文件，会先询问是否覆盖。')
 ]);
 
 export const HELP_ROOT = [
-  directory('getting-started', '快速开始', '创建、运行与视图切换', START),
-  directory('script-api', 'JSLab 脚本 API', 'script、dialog 与 UI', SCRIPT_API.concat([directory('ui-api', 'UI API', '所有脚本可用的界面组件', UI_API)])),
-  directory('system-api', '系统 API', '统一从 system 访问 Vela 能力', SYSTEM_API),
-  directory('tools-support', '工具与云端', '云端文件与市场', [CLOUD])
+  directory('getting-started', '开始使用', '新建脚本、运行并查看结果', START),
+  directory('script-api', '编写脚本', '日志、数据、对话框和界面', SCRIPT_API.concat([directory('ui-api', '制作界面', '布局、组件和状态更新', UI_API)])),
+  directory('system-api', '设备功能', '文件、网络和传感器等能力', SYSTEM_API),
+  directory('tools-support', '云空间与市场', '配对设备、传输和发布脚本', [CLOUD])
 ];
 
 export function findHelpNode(id, nodes) {

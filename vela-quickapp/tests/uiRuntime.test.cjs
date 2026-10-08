@@ -92,23 +92,20 @@ test('sync and async handler errors surface and late disposed errors are ignored
   assert.equal(state.errors.length, 2); assert.equal(session.invoke('sync'), false);
 });
 
-test('budgets and invalid layouts fail clearly without discarding the previous screen', async () => {
+test('invalid layouts fail clearly without discarding the previous screen', async () => {
   const { createUiSession } = await loadUi(); const { state, callbacks } = host(); const { ui } = createUiSession(callbacks);
   ui.render(ui.text('ok')); const previous = state.nodes;
   for (const view of [
-    Array.from({ length: 41 }, () => ui.text('x')),
     [ui.text('x', { id: 'same' }), ui.text('y', { id: 'same' })],
     ui.row([ui.text('x', { width: 300 }), ui.text('y', { width: 300 })]),
-    [ui.qrcode('1'), ui.qrcode('2'), ui.qrcode('3')],
     ui.qrcode(''), ui.qrcode('x'.repeat(257)),
-    ui.row([ui.slider('x', 1), ui.slider('y', 1)], { gap: 20 }),
-    Array.from({ length: 5 }, () => ui.grid(Array(36).fill('x')))
+    ui.row([ui.slider('x', 1), ui.slider('y', 1)], { gap: 20 })
   ]) {
     const errors = state.errors.length; ui.render(view);
     assert.equal(state.errors.length, errors + 1); assert.equal(state.nodes, previous);
   }
   const cycle = ui.column([]); cycle.children.push(cycle); ui.render(cycle);
-  assert.match(state.errors.at(-1).message, /嵌套/);
+  assert.match(state.errors.at(-1).message, /循环引用/);
 });
 
 test('render-side effects cannot recursively redraw; disposed queued work does not publish', async () => {
@@ -134,10 +131,24 @@ test('cached geometry updates on text, width, header and topology changes withou
   ui.render(null); assert.equal(state.nodes.length, 0);
 });
 
-test('buttonRow generated IDs cannot bypass the declaration budget', async () => {
+test('many nodes, deep layouts and multiple QR codes compile without artificial caps', async () => {
   const { createUiSession } = await loadUi(); const { state, callbacks } = host(); const { ui } = createUiSession(callbacks);
   ui.render(Array.from({ length: 9 }, () => ui.buttonRow(Array.from({ length: 4 }, () => ui.button('x', () => {})))));
-  assert.match(state.errors[0].message, /40/);
+  assert.equal(state.errors.length, 0);
+  assert.equal(state.nodes.length, 36);
+  ui.render(Array.from({ length: 5 }, () => ui.grid(Array(36).fill('2'))));
+  assert.equal(state.nodes.length, 180);
+  ui.render(ui.grid(Array(40).fill('2')));
+  assert.equal(state.nodes.length, 40);
+  ui.render(ui.buttonRow(Array.from({ length: 5 }, () => ui.button('x', () => {}))));
+  assert.equal(state.nodes.length, 5);
+  ui.render([ui.qrcode('1'), ui.qrcode('2'), ui.qrcode('3')]);
+  assert.equal(state.nodes.length, 3);
+  let nested = ui.text('deep');
+  for (let i = 0; i < 256; i += 1) nested = ui.column([nested]);
+  ui.render(nested);
+  assert.equal(state.errors.length, 0);
+  assert.equal(state.nodes.length, 1);
 });
 
 test('runner publication uses stable fields and no reactive comparisons', async () => {

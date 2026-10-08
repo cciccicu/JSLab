@@ -60,7 +60,10 @@
 		<div if="{{showEditorMenu}}" class="editor-menu-card">
 			<text class="editor-menu-item" @click="handleEditorMenu('ai')">AI 生成</text>
 			<text class="editor-menu-item" @click="handleEditorMenu('saveAs')">另存为</text>
-			<text class="editor-menu-item editor-menu-last" @click="handleEditorMenu('settings')">编辑器设置</text>
+			<text class="editor-menu-item" @click="handleEditorMenu('settings')">编辑器设置</text>
+			<text class="editor-menu-item" @click="handleEditorMenu('help')">帮助</text>
+			<text class="editor-menu-item" @click="handleEditorMenu('clearData')">清除数据</text>
+			<text class="editor-menu-item editor-menu-last" @click="handleEditorMenu('clearConfig')">清除配置</text>
 		</div>
 	</div>
 </template>
@@ -77,6 +80,7 @@ import { DEFAULT_HIGHLIGHT_PALETTE, normalizeHighlightPalette } from '../../../u
 import { getCursorPosition, getCharacterWidth, getLineHeight, moveCursorToPoint, moveCursorVertically } from '../../../utils/editor/codeEditor.js';
 import { DEFAULT_FONT_SIZE, normalizeFontSize } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
+import { createScriptStorage } from '../../../utils/runtime/scriptData.js';
 const CODE_VIEWPORT_HEIGHT = 300;
 const INITIAL_HIGHLIGHT_DELAY = 32;
 const DEFAULT_HIGHLIGHT_CHAR_THRESHOLD = 12 * 1024;
@@ -157,7 +161,8 @@ export default {
     editorVisible: false,
     backPromptOpen: false,
     pendingBackAfterDialog: false,
-    saveInProgress: false
+    saveInProgress: false,
+    storageActionInProgress: false
   },
   onInit() {
     this.activateEditorSession();
@@ -421,6 +426,29 @@ export default {
     if (action === 'ai') this.openAiGenerator();
     else if (action === 'saveAs') { vibrate('short'); this.startSaveAs(); }
     else if (action === 'settings') this.routerTo('settingsEditor');
+    else if (action === 'help') this.routerTo('settingsHelp');
+    else if (action === 'clearData') this.clearScriptArea('data');
+    else if (action === 'clearConfig') this.clearScriptArea('config');
+  },
+  clearScriptArea(area) {
+    if (this.storageActionInProgress || !this.editorVisible) return;
+    const name = this.$app.$def.editor.name;
+    const label = area === 'data' ? '数据' : '配置';
+    this.storageActionInProgress = true;
+    vibrate('short');
+    this.$app.$def.openDialog('confirm', {
+      title: '清除' + label + '？',
+      message: '将清除「' + name + '」保存的全部' + label + '。脚本文件不会删除。',
+      confirmText: '清除',
+      cancelText: '取消'
+    }, this).then(result => {
+      if (result.action !== 'confirm') return;
+      return createScriptStorage(name)[area].clear().then(() => {
+        if (this.pageActive) showToast(label + '已清除');
+      });
+    }).catch(error => {
+      if (this.pageActive) showToast('清除' + label + '失败：' + formatError(error));
+    }).then(() => { this.storageActionInProgress = false; });
   },
   openAiGenerator() {
     vibrate('short');
@@ -800,7 +828,7 @@ export default {
 	}
 
 	.editor-menu-dismiss { position:absolute; left:0px; top:84px; width:336px; height:396px; background-color:rgba(0,0,0,0.58); }
-	.editor-menu-card { position:absolute; left:70px; top:84px; width:260px; height:190px; padding:8px 12px; border-radius:28px; background-color:#262626; flex-direction:column; }
+	.editor-menu-card { position:absolute; left:70px; top:84px; width:260px; height:364px; padding:8px 12px; border-radius:28px; background-color:#262626; flex-direction:column; }
 	.editor-menu-item { width:236px; height:58px; line-height:58px; border-bottom-width:2px; border-bottom-color:#3d3d3d; color:#ffffff; font-size:22px; font-weight:bold; text-align:left; padding-left:18px; }
 	.editor-menu-last { border-bottom-width:0px; }
 

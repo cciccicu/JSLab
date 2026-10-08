@@ -1,6 +1,7 @@
 import file from '@system.file';
 import { sortFilesNewestFirst } from './fileMetadata.js';
 import { utf8ByteLength } from './textEncoding.js';
+import { removeScriptStorage, renameScriptStorage } from '../runtime/scriptData.js';
 
 const SCRIPT_DIRECTORY_URI = 'internal://files/js/';
 const changeListeners = [];
@@ -212,6 +213,9 @@ function renameScript(name, newName, options) {
           });
         }
       });
+    }))
+    .then(() => renameScriptStorage(name, newName).catch((error) => {
+      throw new Error('脚本已重命名，但迁移数据和配置失败：' + error.message);
     }));
 }
 
@@ -231,6 +235,9 @@ function removeScript(name, options) {
         },
         fail: (data, code) => reject(new Error('Failed to delete script: ' + code))
       });
+    }))
+    .then(() => removeScriptStorage(name).catch((error) => {
+      throw new Error('脚本已删除，但清除数据和配置失败：' + error.message);
     }));
 }
 

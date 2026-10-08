@@ -22,9 +22,9 @@
 
 ## 共享脚本契约
 
-根 runtime-contract.json 只描述公开方法和固定预算。快应用 scripts/sync-runtime-contract.cjs 在构建期同步设备常量及云插件 JSON，不混用构建产物。
+根 runtime-contract.json 描述公开方法、仍存在的长度限制及 UI 性能建议。快应用 scripts/sync-runtime-contract.cjs 在构建期同步设备常量及云插件 JSON，不混用构建产物。
 一个 /workspace/run 页面拥有源码快照、UI 会话和有界日志；原生页面生命周期交付对话框结果。所有脚本同时获得 console/ui/dialog/script/system。
-AI 用 jslab-unified 协议身份协调同版本覆盖更新；AstroBox cloudProxy 透传，不另建执行分类。
+AI 用 jslab-unified-open-ui 协议身份协调同版本覆盖更新；AstroBox cloudProxy 透传，不另建执行分类。
 
 ## 运行器模块边界
 

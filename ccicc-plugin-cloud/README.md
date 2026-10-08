@@ -79,12 +79,12 @@ http://jslab-api.ccicc.icu {
 
 ## 统一运行契约与迁移
 
-应用仍为1.9.3，插件仍为0.5.1，使用独立 `runtimeContract: 'jslab-unified'` 协调 AI。
+应用仍为1.9.3，插件仍为0.5.1，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
 额度响应公布契约，客户端收费请求前检查；服务端在预留余额/模型调用前拒绝不匹配请求；结果携带契约，客户端检查后才写入编辑器。fetch 与 cloudProxy 使用同一结构。
 云文件/市场/待审副本不再保存 type/pending_type，网页不要求 marketType。install 与 boot 共用幂等持久化初始化；升级只执行 boot 也会补建缺失辅助表、更新配置元数据并迁移（已有配置值保留）。boot 中事务执行可重复 SQLite DROP COLUMN（SQLite≥3.35），保留记录/索引/自增/源码/hash/checksum/时间，不自动改名或重新计算源数据。
 审核记录新增可空 content_hash，关联被审核的名称、说明、标签和源码哈希；旧记录保留，无法确认所属内容的旧结论不在当前审核中展示。异步审核返回后再次核对快照，避免把旧结论应用到新提交或已撤回内容。
 覆盖部署通过 PM2 重启整个进程，旧请求不会继续回调，不维护热更新请求管理器。进程中断留下的预留额度由下次 boot 恢复，不重复退款。
 市场名称可作为显示标题；明确下载或保存到云空间时统一生成合法 `.js` 文件名，源码响应提供 filename，保留已有市场记录。新增/改名文件统一限制为128个UTF-8字节，已有长文件名保持可读，原名更新保留。网页和管理页静态资源地址使用启动时计算的内容哈希，支持同版本重复覆盖更新。
 上线前备份真实数据库；本次仅产出安装包，没有执行在线升级。旧双模式客户端与旧服务需要同步更新，不支持旧 AI 提示词回退。
-运行方法和预算来自根目录 runtime-contract.json，构建期同步 lib/runtime-contract.json。更新时在快应用目录执行 npm run sync:contract。
+运行方法、文字长度限制和 UI 性能建议来自根目录 runtime-contract.json，构建期同步 lib/runtime-contract.json。更新时在快应用目录执行 npm run sync:contract。
 选择对话框最多 100 项，使用原生列表连续滚动；提示词不再描述每页 20 项或分页按钮。

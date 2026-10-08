@@ -33,7 +33,7 @@ const JSLAB_DIALOG_REFERENCE = `dialog 的五个方法全部返回 Promise<{acti
 const SYSTEM_API_REFERENCE = `JSLab 公开 API（不存在裸 app/device/fetch/file/router/prompt 等全局变量）：
 
 script.name 是当前文件名；script.reload() 完整重建本次运行页，重用本次源码快照；script.canUse(capability) 检查能力；script.locale() -> { language, countryOrRegion }；script.exit() 仅用于用户明确要求或明确触发的退出操作；script.toast(message,duration) 提示；另有 data、config。
-script.data：get(key,fallback)、set(key,value)、delete(key)、clear()、all()；script.config：get(key,fallback)、set(key,value)、delete(key)、clear()、all()；全部返回 Promise。单值16KiB、每区64KiB。
+script.data：get(key,fallback)、set(key,value)、delete(key)、clear()、all()；script.config：get(key,fallback)、set(key,value)、delete(key)、clear()、all()；全部返回 Promise。单值16KiB、每区64KiB。编辑器菜单可分别清除当前脚本的数据或配置；重命名脚本时两者迁移，删除脚本时一并删除。
 
 system.device：getInfo、getDeviceId、getSerial、getTotalStorage、getAvailableStorage。
 system.files：readText/writeText、readArrayBuffer/writeArrayBuffer、list/get/access、mkdir/rmdir、move/copy/delete；URI 使用 internal://files/。
@@ -59,7 +59,7 @@ const UI_CONTRACT = `UI 运行时（UI API v2，所有脚本均可用）：
 - ui.refresh()、signal.set/update会将当前同步执行期间的更新合并到一次异步重绘。signal.get()立即读取新值；相同值/相同对象引用不重绘。对象请用新对象替换，或显式ui.refresh()。
 - const state = ui.signal(initial)；state.get()；state.set(value)；state.update(fnOrValue)，set/update返回新值。
 - ui.setTitle(text)最多80字符；ui.showHeader(visible)；ui.scrollTo(y)、ui.scrollTop()、ui.scrollBottom()。提示用script.toast()；不要在初始化或任务完成后自动调用script.exit()。
-- 总计最多40个声明节点（含布局与buttonRow内按钮，不含grid格子），布局最多4层，展开后最多160个绘制节点、同屏最多2个二维码。超限明确报错，不截断。每段文本最多1024字符。
+- 声明节点、绘制节点、布局嵌套和二维码数量没有额外硬上限；手环性能参考值为约40个声明节点、160个绘制节点、4层布局、2个二维码。超过参考值仍可运行，应优先控制首屏和更新频率。每段文本最多1024字符。
 - 动态交互组件使用全页唯一的id，1–56字符且不以$开头；不要用重排数组索引。buttonRow内按钮的id同样有效。重复id报错。
 
 轻量布局（只计算位置，默认不生成额外原生容器）：
@@ -75,9 +75,9 @@ const UI_CONTRACT = `UI 运行时（UI API v2，所有脚本均可用）：
 - ui.switch(label, checked, onChange, options)：detail、detailColor、color（标题）、background、accent（滑轨）、thumbColor；onChange(boolean)。最小宽160px。
 - ui.slider(label, value, onChange, options)：min/max（-100000..100000）、step（0.01..100000）、color、background、accent（选中轨道）、trackColor、thumbColor；onChange(number)。最小宽160px。
 - ui.progress(label, percent, options)：percent 0..100、background、color、accent、trackColor；新代码用accent控制进度色。兼容旧代码未指定accent时color也控制进度色。
-- ui.grid(items, options)：columns 2..4，最多9行；cellHeight 44..72、gap默认6；item为{text,tone?,color?,background?,size?}。格子文字最多8字符；tone neutral/primary/success/warning/danger。只展示、不提供点击事件。
-- ui.buttonRow(buttons, options)：最多4个ui.button，文字最多8字符；新布局也可直接用ui.row。子按钮支持id、color、background。
-- ui.qrcode(value, options)：内容1..256字符，size 96..288默认160（含四周8px空白）；color/background默认黑白。建议短URL；父宽至少96px；最多2个。二维码不变时复用节点。
+- ui.grid(items, options)：columns 2..4，行数不限；cellHeight 44..72、gap默认6；item为{text,tone?,color?,background?,size?}。格子文字最多8字符；tone neutral/primary/success/warning/danger。只展示、不提供点击事件。
+- ui.buttonRow(buttons, options)：按钮数量由实际可用宽度决定，文字最多8字符；新布局也可直接用ui.row。子按钮支持id、color、background。
+- ui.qrcode(value, options)：内容1..256字符，size 96..288默认160（含四周8px空白）；color/background默认黑白。建议短URL；父宽至少96px；数量不限，但多个二维码会增加渲染开销。二维码不变时复用节点。
 - ui.divider({color?,height?})；ui.spacer(size)，size 0..480。
 - 颜色推荐不透明#RGB/#RRGGBB/rgb(r,g,b)，兼容有效rgba。无opacity属性；不要用透明度表示禁用状态。
 

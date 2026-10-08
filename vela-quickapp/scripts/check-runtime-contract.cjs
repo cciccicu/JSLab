@@ -40,7 +40,10 @@ for(const method of contract.methods.script)assert.match(read('src/utils/runtime
 for(const method of contract.methods.dialog)assert.ok(read('src/utils/runtime/scriptDialogApi.js').includes("'"+method+"'"));
 for(const method of contract.methods.console)assert.match(read('src/utils/runtime/consoleBuffer.js'),new RegExp('\\b'+method+'\\('));
 const layout=read('src/utils/runtime/uiLayout.js');
-assert.match(layout,new RegExp('nodes: '+contract.ui.declarations));assert.match(layout,new RegExp('painted: '+contract.ui.paintedNodes));
-assert.match(layout,new RegExp('depth: '+contract.ui.depth));assert.match(layout,new RegExp('qrcodes: '+contract.ui.qrcodes));
+assert.match(layout,new RegExp('declarations: '+contract.ui.performanceGuidance.declarations));
+assert.match(layout,new RegExp('paintedNodes: '+contract.ui.performanceGuidance.paintedNodes));
+assert.match(layout,new RegExp('depth: '+contract.ui.performanceGuidance.depth));
+assert.match(layout,new RegExp('qrcodes: '+contract.ui.performanceGuidance.qrcodes));
+assert.doesNotMatch(layout,/UI_LIMITS|最多 40 个节点|最多 160 个绘制节点|同屏最多 2 个二维码|布局最多嵌套 4 层/);
 assert.match(layout,/raw.disabled !== true/);
 console.log(`Static contract verified: ${sources} sources, ${templates} embedded scripts, ${contract.identity}`);

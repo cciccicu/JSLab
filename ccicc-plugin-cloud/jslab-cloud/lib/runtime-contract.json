@@ -1,5 +1,5 @@
 {
-  "identity": "jslab-unified",
+  "identity": "jslab-unified-open-ui",
   "sourceBytes": 49152,
   "logs": {
     "entries": 64,
@@ -11,12 +11,14 @@
     "items": 100
   },
   "ui": {
-    "declarations": 40,
-    "paintedNodes": 160,
-    "depth": 4,
-    "qrcodes": 2,
     "textCharacters": 1024,
-    "titleCharacters": 80
+    "titleCharacters": 80,
+    "performanceGuidance": {
+      "declarations": 40,
+      "paintedNodes": 160,
+      "depth": 4,
+      "qrcodes": 2
+    }
   },
   "methods": {
     "dialog": [

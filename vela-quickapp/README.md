@@ -30,7 +30,7 @@ JSLab 是一款运行在小米 Vela 手环上的 JavaScript 实验环境。你�
 再处理未保存修改。v2 的右上操作统一使用选择对话框；云页面首次读取后用刷新按钮或状态卡片主动刷新。
 标准对话框返回 action/value，支持长文本、负数小数、多选与三动作确认。
 查看 [统一脚本 API](docs/runtime-api.md)、[UI API](docs/ui-api.md)和[类型声明](docs/runtime-api.d.ts)。
-AI 生成需要设备与云插件共同支持 jslab-unified 契约；同版本覆盖安装不改变包版本号。
+AI 生成需要设备与云插件共同支持 jslab-unified-open-ui 契约；同版本覆盖安装不改变包版本号。
 
 ## 配套服务
 

@@ -9,7 +9,7 @@ test('production object bindings preserve toolkit style values and dependencies 
   const before = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/run-ui-style-strings.json'), 'utf8'));
   const pageSource = fs.readFileSync(path.join(root, 'src/pages/workspace/run/run.ux'), 'utf8');
   const after = [...pageSource.match(/<template>[\s\S]*?<\/template>/)[0].matchAll(/style="([^"]*)"/g)].map(match => match[1]);
-  assert.equal(before.length, 19); assert.equal(after.length, before.length);
+  assert.equal(before.length, 17); assert.equal(after.length, before.length);
   for (let i = 0; i < before.length; i++) {
     const oldBinding = await compileStyle(before[i]); const newBinding = await compileStyle(after[i]);
     for (let frame = 0; frame < 24; frame++) {

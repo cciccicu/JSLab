@@ -1,6 +1,6 @@
 # JSLab 统一脚本运行契约
 
-契约标识 `jslab-unified`。所有 `.js` 使用 `/workspace/run`，文件名只决定身份和持久化命名空间。
+契约标识 `jslab-unified-open-ui`。所有 `.js` 使用 `/workspace/run`，文件名只决定身份和持久化命名空间。
 源码是 `Function` 的函数体，每页实例初始化一次。不能 import/require，不支持裸顶层 await；异步函数可以通过 `return main()` 让运行器观察返回 Promise。JS 内建对象和计时器可用，系统模块统一从 system 访问。
 
 ## 视图与导航
@@ -28,7 +28,7 @@ console.log/info/warn/error 支持多参数；console.clear 清空日志。error
 错误前文继续显示，最后错误摘要单独保留最多512字符。可捕获编译、同步主体、顶层返回 thenable、UI 回调及编译/提交失败；未返回的 Promise 链和任意原生回调不是全面捕获范围。
 
 script.name：当前名字。script.canUse('@system.module.method')：能力查询。script.locale()：语言/地区。script.toast(message,duration)：1500–10000ms 提示。
-script.data/config 都有 get(key,fallback)、set(key,value)、delete(key)、clear()、all()，均返回 Promise；单值16KiB，每区64KiB，以实际文件名隔离，旧 name.ui.js 的数据身份保留。
+script.data/config 都有 get(key,fallback)、set(key,value)、delete(key)、clear()、all()，均返回 Promise；单值16KiB，每区64KiB，以实际文件名隔离。重命名脚本时数据与配置迁移到新文件名；删除脚本时一并清除。旧 name.ui.js 的数据身份保留。
 
 ## 标准对话框
 
@@ -70,7 +70,7 @@ return main();
 
 system.device/files/http/download/upload/companion/network/display/battery/location/vibration/events/sensors/recorder/audio/crypto 对应 Vela 原生接口，保留对象参数和 success/fail/complete，不包装成假 Promise。可选模块先检查能力，并处理 fail。完整方法参考内置“系统 API”帮助和本仓库 VelaDocs。
 
-`runtime-contract.json` 是公开名称/固定预算的构建期来源，`scripts/sync-runtime-contract.cjs` 同步设备常量及云插件 JSON；设备不解析文档。
+`runtime-contract.json` 是公开方法、仍存在的文字长度限制和 UI 性能建议的构建期来源，`scripts/sync-runtime-contract.cjs` 同步设备常量及云插件 JSON；设备不解析文档。
 AI 额度响应公布 runtimeContract；客户端发收费请求前校验，服务端在预留余额/模型调用前校验，结果也携带并再次校验；不按同版本安装包推断契约。旧客户端/服务器需要同步更新，不回退旧提示词。
 云 CRUD/市场/网页删除执行类型，保留业务用途标签。SQLite 原生 DROP COLUMN 迁移保留 ID、源码、hash、checksum、时间、归属、状态、索引和自增；需要SQLite3.35或更新版本，重复启动无副作用。不会自动改名或改写已有源码。
 插件启动会执行幂等持久化初始化和迁移，升级无需再次调用 install。部署通过 PM2 重启整个进程；中断请求的预留额度由下次 boot 退回。审核记录关联实际审核内容；历史记录保留，未关联记录不作为当前内容的审核结论。

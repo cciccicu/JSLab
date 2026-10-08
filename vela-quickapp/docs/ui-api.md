@@ -82,13 +82,13 @@ ui.stack([
 | `switch(label, checked, onChange, options)` | `color` 标题、`background`、`accent` 滑轨、`thumbColor`、`detail`、`detailColor`；最小宽 160 |
 | `slider(label, value, onChange, options)` | `color/background/accent/trackColor/thumbColor`、`min/max/step`；最小宽 160 |
 | `progress(label, percent, options)` | `accent` 进度、`trackColor` 轨道、`color` 标题、`background`；未指定 accent 时，旧 color 仍控制进度色；最小宽 160 |
-| `grid(items, options)` | 2–4 列、最多 9 行，`columns/cellHeight/gap`；格子支持 `text/tone/color/background/size`，只展示 |
-| `buttonRow(buttons, options)` | 最多 4 个 `ui.button`，按钮文本最多 8 字符；子按钮 id、color、background 有效 |
+| `grid(items, options)` | 2–4 列、行数不限，`columns/cellHeight/gap`；格子支持 `text/tone/color/background/size`，只展示 |
+| `buttonRow(buttons, options)` | 按可用宽度排列按钮，按钮文本最多 8 字符；子按钮 id、color、background 有效 |
 | `divider(options)` / `spacer(size)` | 分隔线 `color/height`，或 0–480px 间距 |
 | `qrcode(value, options)` | 1–256 字符，`size` 96–288 默认 160，含四周 8px 空白；`color/background` 默认黑白 |
 
 除 spacer 外，叶子可设置 `width/height/background/radius`（二维码始终正方形，用 size 控制）。
-二维码建议短 URL、黑白对比、160px 以上；同屏最多两个，值不变时不会反复提交更新。
+二维码建议短 URL、黑白对比、160px 以上；数量不限，值不变时不会反复提交更新。多个二维码会增加原生绘制开销。
 推荐不透明颜色 `#RGB`、`#RRGGBB`、`rgb(r,g,b)`；兼容有效 rgba。无 opacity。
 颜色无效时回退默认值。`disabled:true` 显示禁用样式并排除按钮回调。异步任务仍在回调检查业务 busy，防止确认状态发布前重复提交。
 
@@ -115,12 +115,11 @@ ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行�
 - 原生滚动处理点击/滑动、惯性、边界；运行器不另写触摸识别或滚动补偿。原生节点卸载后不承诺保留其滚动位置。
 - 页重建不是重启共享 JS context，脚本自己的原生系统任务仍由脚本管理。
 
-## 预算与兼容性
+## 性能建议与兼容性
 
-40 个声明节点计入布局和 buttonRow 按钮，不计 grid 格子；最多 4 层布局嵌套；
-展开后最多 160 个绘制节点；最多 2 个二维码；每段文本最多 1024 字符。
-预算同时约束中间编译过程，超限不会先构造无限树。
-这是上限，不是建议的常驻规模；减少组件数量、提前构造静态描述、避免高频更新。
+组件数量、布局层数和二维码数量没有额外硬上限，布局编译使用显式栈处理深层嵌套，并拒绝循环引用。
+对 336×480 手环，40 个声明节点、160 个绘制节点、4 层布局、2 个二维码可作为首屏性能参考值，并非超出后报错的限制。
+实际可用规模受设备内存、原生组件和刷新频率影响；大量组件建议分批显示、提前构造静态描述，并避免高频更新。每段文本仍最多 1024 字符。
 
 `id` 全页唯一，1–56 字符，不能以 `$` 开头。动态重排必须使用稳定 id。
 未给 id 的静态项按布局路径生成内部 id。
@@ -137,6 +136,6 @@ ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行�
 ## 开发与实机验证
 
 运行契约见 [统一脚本 API](runtime-api.md)，[类型声明](runtime-api.d.ts)与 `ui-api.d.ts` 均无设备运行开销。
-`npm run check:contract` 只校验源码、路由、公开方法和固定预算；`npm run lint` 与 `npm run release` 验证构建。
+`npm run check:contract` 校验源码、路由、公开方法和性能建议契约；`npm run lint` 与 `npm run release` 验证构建。
 历史性能测试保留在 tests/diagnostics，不能代表手环绘制完成、交互延迟或原生内存。
 本轮使用 [集中实机验收脚本](../diagnostics/unified-runner-check.js) 验证切换、重载与对话框。

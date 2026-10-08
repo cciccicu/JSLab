@@ -24,7 +24,7 @@ async function loadService(harness) {
   globalThis.__cloudCompanionBridge = harness.companionBridge;
   globalThis.__cloudTransport = await import('data:text/javascript;base64,' + Buffer.from(transportSource).toString('base64') + '#' + (++loadSequence));
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'cloudService.js'), 'utf8')
-    .replace("import { RUNTIME_CONTRACT } from '../runtime/runtimeContract.js';", "const RUNTIME_CONTRACT = 'jslab-unified';")
+    .replace("import { RUNTIME_CONTRACT } from '../runtime/runtimeContract.js';", "const RUNTIME_CONTRACT = 'jslab-unified-open-ui';")
     .replace("import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;')
     .replace("import jsManager from '../files/jsManager.js';", 'const jsManager = globalThis.__cloudJsManager;')
     .replace("import { adler32Utf8 } from '../files/transferIntegrity.js';", 'const adler32Utf8 = globalThis.__cloudAdler32;')
@@ -55,7 +55,7 @@ function createHarness(options = {}) {
     if (pathname.endsWith('/api/cloud/device/pairing/status')) return request.success({ code: 200, data: { ok: true, status: 'claimed' } });
     if (pathname.endsWith('/api/cloud/device/pairing/cancel')) return request.success({ code: 200, data: { ok: true, cancelled: true } });
     if (pathname.endsWith('/api/cloud/device/exchange')) return request.success({ code: 200, data: { ok: true, token: 'new-token' } });
-    if (pathname.endsWith('/api/cloud/device/entitlements')) return request.success({ code: 200, data: { ok: true, runtimeContract: 'jslab-unified', entitlement: { cloudEnabled: true, aiEnabled: true, aiCreditCents: 200 } } });
+    if (pathname.endsWith('/api/cloud/device/entitlements')) return request.success({ code: 200, data: { ok: true, runtimeContract: 'jslab-unified-open-ui', entitlement: { cloudEnabled: true, aiEnabled: true, aiCreditCents: 200 } } });
     if (pathname.endsWith('/api/cloud/device/revoke')) return request.success({ code: 200, data: { ok: true, revoked: true } });
     if (pathname.endsWith('/api/cloud/market')) return request.success({ code: 200, data: { ok: true, scripts: [{ id: 3, name: 'market.js' }] } });
     if (pathname.endsWith('/api/cloud/market/3/source')) {
@@ -120,8 +120,8 @@ async function run() {
     }
   }
   const slowAi = createHarness({ configValues: { 'cloud.transport': 'interconnect' }, responses: {
-    '/api/cloud/device/entitlements': { runtimeContract: 'jslab-unified', entitlement: { aiEnabled: true } },
-    '/api/cloud/device/ai/generate': { runtimeContract: 'jslab-unified', code: 'console.log(1)' }
+    '/api/cloud/device/entitlements': { runtimeContract: 'jslab-unified-open-ui', entitlement: { aiEnabled: true } },
+    '/api/cloud/device/ai/generate': { runtimeContract: 'jslab-unified-open-ui', code: 'console.log(1)' }
   } });
   await (await loadService(slowAi)).generateAi('create', 'test');
   assert.equal(slowAi.proxyCalls[0].timeoutMs, undefined);

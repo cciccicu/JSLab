@@ -67,7 +67,7 @@ function persist(next) {
 function mutate(update) {
   writeQueue = writeQueue.catch(() => {}).then(() => load()).then((root) => {
     const next = clone(root);
-    update(next);
+    if (update(next) === false) return false;
     return persist(next);
   });
   return writeQueue;
@@ -132,4 +132,28 @@ export function createScriptStorage(scriptName) {
   };
 }
 
-export default { createScriptStorage };
+// Removing the whole namespace also removes both areas and avoids retaining an
+// empty entry for every deleted script.
+export function removeScriptStorage(scriptName) {
+  const namespace = namespaceName(scriptName);
+  return mutate((next) => {
+    if (!Object.prototype.hasOwnProperty.call(next, namespace)) return false;
+    delete next[namespace];
+  });
+}
+
+export function renameScriptStorage(oldName, newName) {
+  const from = namespaceName(oldName);
+  const to = namespaceName(newName);
+  if (from === to) return Promise.resolve(false);
+  return mutate((next) => {
+    const hasOld = Object.prototype.hasOwnProperty.call(next, from);
+    const hasNew = Object.prototype.hasOwnProperty.call(next, to);
+    if (!hasOld && !hasNew) return false;
+    if (hasOld) next[to] = next[from];
+    else delete next[to]; // Discard stale storage from a previously deleted name.
+    delete next[from];
+  });
+}
+
+export default { createScriptStorage, removeScriptStorage, renameScriptStorage };

@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../src/utils/runtime/scriptData.js'), 'utf8')
-  .replace(/^import file[^\n]*\n/, '').replace('export function ', 'function ')
-  .replace('export default { createScriptStorage };', 'return createScriptStorage;');
+  .replace(/^import file[^\n]*\n/, '').replace(/export function /g, 'function ')
+  .replace('export default { createScriptStorage, removeScriptStorage, renameScriptStorage };', 'return { createScriptStorage, removeScriptStorage, renameScriptStorage };');
 
 function database() {
   let contents = '{}'; let inFlight = 0;
@@ -21,7 +21,12 @@ function database() {
       });
     }
   };
-  return { stats, load: () => new Function('file', source)(file) };
+  return { stats, contents: () => contents, load: () => {
+    const api = new Function('file', source)(file);
+    api.createScriptStorage.remove = api.removeScriptStorage;
+    api.createScriptStorage.rename = api.renameScriptStorage;
+    return api.createScriptStorage;
+  } };
 }
 
 test('one script can save multiple keys and config concurrently without losing earlier writes', async () => {
@@ -84,4 +89,28 @@ test('queued namespace-size validation rejects only the overflowing mutation', a
   await storage.data.delete('key0'); await storage.data.set('small', 1);
   assert.equal(await storage.data.get('small'), 1);
   assert.equal(await storage.data.get('key4', null), null);
+});
+
+test('deleting a script removes its data and config namespace without affecting another script', async () => {
+  const db = database(); const create = db.load();
+  await create('one.js').data.set('score', 2048);
+  await create('one.js').config.set('theme', 'dark');
+  await create('two.js').data.set('keep', true);
+  await create.remove('one.js');
+  assert.deepEqual(await create('one.js').data.all(), {});
+  assert.deepEqual(await create('one.js').config.all(), {});
+  assert.deepEqual(await create('two.js').data.all(), { keep: true });
+  assert.equal(Object.keys(JSON.parse(db.contents())).length, 1);
+});
+
+test('renaming a script carries its data and config to the new file name', async () => {
+  const db = database(); const create = db.load();
+  await create('old.js').data.set('score', 2048);
+  await create('old.js').config.set('theme', 'dark');
+  await create.rename('old.js', 'new.js');
+  assert.deepEqual(await create('old.js').data.all(), {});
+  assert.deepEqual(await create('new.js').data.all(), { score: 2048 });
+  assert.deepEqual(await create('new.js').config.all(), { theme: 'dark' });
+  await create.remove('new.js');
+  assert.deepEqual(JSON.parse(db.contents()), {});
 });

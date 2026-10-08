@@ -208,7 +208,7 @@ export default {
     const fileName = this.fileList[this.selectedFileIndex].name;
     this.$app.$def.openDialog('confirm', {
       title: '删除本地文件',
-      message: '确认删除 ' + fileName + '？此操作不会删除云端文件。'
+      message: '确认删除 ' + fileName + '？保存的数据和配置也会删除；云端文件不受影响。'
     }, this).then(result => {
       if (result.action === "confirm") {
         this.removeFile(fileName);

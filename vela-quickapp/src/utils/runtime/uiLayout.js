@@ -1,5 +1,6 @@
 // Layout groups are JS-only. Only painted leaves/backgrounds reach the ViewModel.
-export const UI_LIMITS = { nodes: 40, depth: 4, painted: 160, qrcodes: 2 };
+// Guidance for watch-sized screens, not limits enforced by the compiler.
+export const UI_PERFORMANCE_GUIDE = { declarations: 40, paintedNodes: 160, depth: 4, qrcodes: 2 };
 
 export function number(value, min, max, fallback) {
   if (value === undefined || value === null) return fallback;
@@ -60,8 +61,6 @@ export function compileUi(source, top, previous, cache) {
   let old = null;
   const nextCache = Object.create(null);
   let count = 0;
-  let qrCount = 0;
-  let painted = 0;
 
   // Stable trees find their previous nodes by position (or the leaf cache).
   // Build an ID index only when insertion, deletion or reordering needs it.
@@ -73,13 +72,9 @@ export function compileUi(source, top, previous, cache) {
     return old[id];
   }
 
-  function reservePainted() {
-    if (++painted > UI_LIMITS.painted) throw new Error('UI 展开后最多 160 个绘制节点，请减少网格');
-  }
-
   function identity(raw, path) {
     const id = raw.id == null ? '$' + path : String(raw.id);
-    if (!id || id.length > 56 || (raw.id != null && id.charAt(0) === '$')) throw new Error('UI id 需为 1–56 字符，不能以 $ 开头');
+    if (raw.id != null && (!id || id.length > 56 || id.charAt(0) === '$')) throw new Error('UI id 需为 1–56 字符，不能以 $ 开头');
     if (ids[id]) throw new Error('UI id 重复：' + id);
     ids[id] = true;
     return id;
@@ -92,7 +87,6 @@ export function compileUi(source, top, previous, cache) {
   function measureGridCell(cell, w, h, id) {
     if (ids[id]) throw new Error('UI id 重复：' + id);
     ids[id] = true;
-    reservePainted();
     const entry = cache && cache[id];
     const cached = entry && entry.grid ? entry : null;
     const before = cached && cached.input;
@@ -131,33 +125,72 @@ export function compileUi(source, top, previous, cache) {
     return { id, kind: 'text', w, h, node, cached: next };
   }
 
-  function measure(input, available, path, depth, forcedWidth, generated, gridCell) {
-    if (!gridCell && ++count > UI_LIMITS.nodes) throw new Error('UI 最多 40 个节点（含布局），请分页');
-    if (depth > UI_LIMITS.depth) throw new Error('UI 布局最多嵌套 4 层');
-    const raw = input && typeof input === 'object' ? input : { kind: 'text', text: input };
-    const id = generated || identity(raw, path);
-    if (generated) {
-      if (ids[id]) throw new Error('UI id 重复：' + id);
-      ids[id] = true;
+  function finishLayout(box, layout) {
+    const { raw, kind, padding, inner, gap, columns, cellHeight, horizontal, remaining, weight, children } = layout;
+    let natural = 0;
+    if (horizontal) box.children.forEach(child => { natural = Math.max(natural, child.h); });
+    else if (kind === 'grid') natural = Math.ceil(children.length / columns) * (cellHeight + gap) - (children.length ? gap : 0);
+    else if (kind === 'stack') box.children.forEach(child => { natural = Math.max(natural, child.h + number(child.raw.y, 0, 4096, 0)); });
+    else box.children.forEach((child, i) => { natural += child.h + (i ? gap : 0); });
+    box.h = Math.max(natural + padding * 2, number(raw.height, 0, 8192, natural + padding * 2));
+    const extra = Math.max(0, box.h - padding * 2 - natural);
+    let cursor = padding + (!horizontal && kind === 'column' ? offset(raw.justify, extra) : 0);
+    const freeX = horizontal && !weight ? remaining : 0;
+    if (horizontal) cursor += offset(raw.justify, freeX);
+    const between = raw.justify === 'between' && children.length > 1 ? (horizontal ? freeX : extra) / (children.length - 1) : 0;
+    box.children.forEach((child, i) => {
+      child.x = horizontal ? cursor : padding + offset(raw.align, inner - child.w);
+      child.y = horizontal ? padding + offset(raw.align, box.h - padding * 2 - child.h) : cursor;
+      if (kind === 'grid') { child.x = padding + (i % columns) * (child.w + gap); child.y = padding + Math.floor(i / columns) * (child.h + gap); }
+      if (kind === 'stack') { child.x = padding + number(child.raw.x, 0, Math.max(0, inner - child.w), 0); child.y = padding + number(child.raw.y, 0, 4096, 0); }
+      cursor += (horizontal ? child.w : child.h) + gap + between;
+    });
+    box.radius = number(raw.radius, 0, 80, 0);
+  }
+
+  // Explicit enter/exit frames keep layout depth independent of the JS call stack.
+  // Only ancestors are tracked: the same descriptor can be reused in siblings.
+  function measure(input, available, path, forcedWidth, generated) {
+    const active = new Set();
+    const frames = [{ input, available, path, forcedWidth, generated, parent: null, index: 0 }];
+    let rootBox = null;
+    function attach(frame, box) {
+      if (frame.parent) frame.parent.children[frame.index] = box;
+      else rootBox = box;
     }
-    const kind = raw.kind || 'text';
-    const w = forcedWidth == null ? widthOf(raw.width, available, available) : forcedWidth;
-    const box = { id, kind, w, h: 0, raw };
-    if (kind === 'row' || kind === 'column' || kind === 'stack' || kind === 'buttonRow' || kind === 'grid') {
+    while (frames.length) {
+      const frame = frames.pop();
+      if (frame.exit) {
+        finishLayout(frame.box, frame.layout);
+        active.delete(frame.raw);
+        attach(frame, frame.box);
+        continue;
+      }
+      const raw = frame.input && typeof frame.input === 'object' ? frame.input : { kind: 'text', text: frame.input };
+      if (active.has(raw)) throw new Error('UI 布局不能循环引用');
+      count += 1;
+      const id = frame.generated || identity(raw, frame.path);
+      if (frame.generated) {
+        if (ids[id]) throw new Error('UI id 重复：' + id);
+        ids[id] = true;
+      }
+      const kind = raw.kind || 'text';
+      const w = frame.forcedWidth == null ? widthOf(raw.width, frame.available, frame.available) : frame.forcedWidth;
+      const box = { id, kind, w, h: 0, raw };
+      if (kind !== 'row' && kind !== 'column' && kind !== 'stack' && kind !== 'buttonRow' && kind !== 'grid') {
+        attach(frame, measureLeaf(box, raw, id, kind, w));
+        continue;
+      }
+      active.add(raw);
       box.background = background(raw, 'transparent');
-      if (box.background !== 'transparent') reservePainted();
       const padding = number(raw.padding, 0, Math.min(48, (w - 1) / 2), 0);
       const inner = w - padding * 2;
       const gap = number(raw.gap, 0, 48, kind === 'grid' || kind === 'buttonRow' ? 6 : 8);
-      let children = list(kind === 'buttonRow' ? raw.buttons : kind === 'grid' ? raw.items : raw.children);
-      if (kind === 'buttonRow' && children.length > 4) throw new Error('buttonRow 最多 4 个按钮');
+      const children = list(kind === 'buttonRow' ? raw.buttons : kind === 'grid' ? raw.items : raw.children)
+        .filter(child => child != null && child !== false);
       const columns = Math.round(number(raw.columns, 2, 4, 4));
       const cellHeight = kind === 'grid' ? number(raw.cellHeight, 44, 72, 52) : 0;
       const cellWidth = (inner - gap * (columns - 1)) / columns;
-      if (kind === 'grid' && children.length > columns * 9) throw new Error('grid 最多 9 行');
-      // Check before walking/filtering huge arrays or a cycle.
-      if (children.length > (kind === 'grid' ? 36 : UI_LIMITS.nodes)) throw new Error('UI 子节点过多，请分页');
-      children = children.filter(child => child != null && child !== false);
       if (kind === 'grid' && children.length && cellWidth < 1) throw new Error('grid 宽度不足：减小 columns、padding 或 gap');
       const horizontal = kind === 'row' || kind === 'buttonRow';
       let remaining = inner - gap * Math.max(0, (kind === 'grid' ? columns : children.length) - 1);
@@ -171,7 +204,18 @@ export function compileUi(source, top, previous, cache) {
         });
         if (remaining < 0 || (weight && remaining < children.length)) throw new Error('row 宽度不足：减小 width、padding 或 gap');
       }
-      box.children = children.map((child, i) => {
+      box.children = new Array(children.length);
+      const layout = { raw, kind, padding, inner, gap, columns, cellHeight, horizontal, remaining, weight, children };
+      frames.push({ exit: true, box, layout, raw, parent: frame.parent, index: frame.index });
+      if (kind === 'grid') {
+        children.forEach((child, i) => {
+          const cell = child && typeof child === 'object' ? child : { text: child };
+          box.children[i] = measureGridCell(cell, cellWidth, cellHeight, id + '/cell/' + i);
+        });
+        continue;
+      }
+      for (let i = children.length - 1; i >= 0; i -= 1) {
+        const child = children[i];
         let item = child;
         let childWidth;
         let generatedId;
@@ -179,43 +223,22 @@ export function compileUi(source, top, previous, cache) {
           childWidth = widths[i] == null ? remaining * number(child && child.flex, 0.1, 100, 1) / weight : widths[i];
           if (childWidth < 1) throw new Error('row 子项宽度不足：调整 flex、width、padding 或 gap');
         }
-        if (kind === 'grid') {
-          const cell = child && typeof child === 'object' ? child : { text: child };
-          return measureGridCell(cell, cellWidth, cellHeight, id + '/cell/' + i);
-        } else if (kind === 'buttonRow') {
+        if (kind === 'buttonRow') {
           const button = child && typeof child === 'object' ? child : { text: child };
           item = Object.assign({}, button, { kind: 'button', text: text(button.text).slice(0, 8), height: 60 });
-          // Explicit button IDs are honored and validated, unlike v1.
           if (button.id == null) generatedId = id + '/button/' + i;
         }
-        const measured = measure(item, inner, path + '.' + i, depth + (generatedId || kind === 'buttonRow' ? 0 : 1), childWidth, generatedId, kind === 'grid');
-        return measured;
-      });
-      let natural = 0;
-      if (horizontal) box.children.forEach(child => { natural = Math.max(natural, child.h); });
-      else if (kind === 'grid') natural = Math.ceil(children.length / columns) * (cellHeight + gap) - (children.length ? gap : 0);
-      else if (kind === 'stack') box.children.forEach(child => { natural = Math.max(natural, child.h + number(child.raw.y, 0, 4096, 0)); });
-      else box.children.forEach((child, i) => { natural += child.h + (i ? gap : 0); });
-      box.h = Math.max(natural + padding * 2, number(raw.height, 0, 8192, natural + padding * 2));
-      const extra = Math.max(0, box.h - padding * 2 - natural);
-      let cursor = padding + (!horizontal && kind === 'column' ? offset(raw.justify, extra) : 0);
-      const freeX = horizontal && !weight ? remaining : 0;
-      if (horizontal) cursor += offset(raw.justify, freeX);
-      const between = raw.justify === 'between' && children.length > 1 ? (horizontal ? freeX : extra) / (children.length - 1) : 0;
-      box.children.forEach((child, i) => {
-        child.x = horizontal ? cursor : padding + offset(raw.align, inner - child.w);
-        child.y = horizontal ? padding + offset(raw.align, box.h - padding * 2 - child.h) : cursor;
-        if (kind === 'grid') { child.x = padding + (i % columns) * (child.w + gap); child.y = padding + Math.floor(i / columns) * (child.h + gap); }
-        if (kind === 'stack') { child.x = padding + number(child.raw.x, 0, Math.max(0, inner - child.w), 0); child.y = padding + number(child.raw.y, 0, 4096, 0); }
-        cursor += (horizontal ? child.w : child.h) + gap + between;
-      });
-      box.radius = number(raw.radius, 0, 80, 0);
-      return box;
+        // Compact the path when deeply nested, without limiting nesting itself.
+        const childPath = frame.path.length < 48 ? frame.path + '.' + i : '#' + count + '.' + i;
+        frames.push({ input: item, available: inner, path: childPath, forcedWidth: childWidth,
+          generated: generatedId, parent: box, index: i });
+      }
     }
+    return rootBox;
+  }
 
+  function measureLeaf(box, raw, id, kind, w) {
     if (kind === 'spacer') { box.h = number(raw.size, 0, 480, 12); return box; }
-    reservePainted();
-    if (kind === 'qrcode' && ++qrCount > UI_LIMITS.qrcodes) throw new Error('同屏最多 2 个二维码');
     if (kind === 'button' && raw.disabled !== true && typeof raw.onPress === 'function') handlers[id] = raw.onPress;
     if ((kind === 'switch' || kind === 'slider') && typeof raw.onChange === 'function') handlers[id] = raw.onChange;
     // Cache only leaf inputs, never factories or callbacks. The next cache is
@@ -309,32 +332,39 @@ export function compileUi(source, top, previous, cache) {
     return box;
   }
 
-  function emit(box, left, topPosition) {
-    const x = Math.round(left);
-    const y = Math.round(topPosition);
-    if (box.children) {
-      if (box.background !== 'transparent') add({ id: box.id, kind: 'background', x, y, width: Math.round(box.w), height: Math.ceil(box.h), background: box.background, radius: box.radius });
-      box.children.forEach(child => emit(child, left + child.x, topPosition + child.y));
-    } else if (box.kind !== 'spacer') {
-      let node = box.node;
-      if (node.x !== x || node.y !== y || node.height !== Math.ceil(box.h)) {
-        // A fresh measurement is private to this compilation. Only cache hits
-        // share nodes with a prior frame and need a copy before moving them.
-        if (cache && cache[box.id] && node === cache[box.id].node) node = Object.assign({}, node);
-        node.x = x; node.y = y; node.height = Math.ceil(box.h);
-      }
-      const paintedNode = add(node);
-      if (box.cached && (box.cached.width !== box.w || box.cached.height !== box.h || box.cached.node !== paintedNode)) {
-        // Keep previous cache entries valid even if a later node fails to
-        // compile. Store the canonical reused node, not an equal new object.
-        const entry = cache && box.cached === cache[box.id] ? Object.assign({}, box.cached) : box.cached;
-        entry.width = box.w; entry.height = box.h; entry.node = paintedNode;
-        nextCache[box.id] = entry;
+  function emit(root, left, topPosition) {
+    const frames = [{ box: root, left, topPosition }];
+    while (frames.length) {
+      const frame = frames.pop();
+      const box = frame.box;
+      const x = Math.round(frame.left);
+      const y = Math.round(frame.topPosition);
+      if (box.children) {
+        if (box.background !== 'transparent') add({ id: box.id, kind: 'background', x, y, width: Math.round(box.w), height: Math.ceil(box.h), background: box.background, radius: box.radius });
+        for (let i = box.children.length - 1; i >= 0; i -= 1) {
+          const child = box.children[i];
+          frames.push({ box: child, left: frame.left + child.x, topPosition: frame.topPosition + child.y });
+        }
+      } else if (box.kind !== 'spacer') {
+        let node = box.node;
+        if (node.x !== x || node.y !== y || node.height !== Math.ceil(box.h)) {
+          // A fresh measurement is private to this compilation. Only cache hits
+          // share nodes with a prior frame and need a copy before moving them.
+          if (cache && cache[box.id] && node === cache[box.id].node) node = Object.assign({}, node);
+          node.x = x; node.y = y; node.height = Math.ceil(box.h);
+        }
+        const paintedNode = add(node);
+        if (box.cached && (box.cached.width !== box.w || box.cached.height !== box.h || box.cached.node !== paintedNode)) {
+          // Keep previous cache entries valid even if a later node fails to
+          // compile. Store the canonical reused node, not an equal new object.
+          const entry = cache && box.cached === cache[box.id] ? Object.assign({}, box.cached) : box.cached;
+          entry.width = box.w; entry.height = box.h; entry.node = paintedNode;
+          nextCache[box.id] = entry;
+        }
       }
     }
   }
   function add(node) {
-    if (nodes.length >= UI_LIMITS.painted) throw new Error('UI 展开后最多 160 个绘制节点，请减少网格');
     const aligned = previous && previous[nodes.length];
     const before = aligned && aligned.id === node.id ? aligned : previousNode(node.id);
     const result = before === node || sameNode(before, node) ? before : node;
@@ -342,11 +372,10 @@ export function compileUi(source, top, previous, cache) {
     return result;
   }
   const roots = list(source);
-  if (roots.length > UI_LIMITS.nodes) throw new Error('UI 最多 40 个节点，请分页');
   let y = top;
   roots.forEach((raw, i) => {
     if (raw == null || raw === false) return;
-    const box = measure(raw, 324, String(i), 0);
+    const box = measure(raw, 324, String(i));
     emit(box, 6, y);
     y += box.h + 10;
   });
