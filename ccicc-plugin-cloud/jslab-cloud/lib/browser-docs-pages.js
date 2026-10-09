@@ -3,10 +3,10 @@ const path = require('node:path');
 const MarkdownIt = require('markdown-it');
 
 const DOCS = [
-  { slug: 'getting-started', title: '快速开始', description: '编写和运行第一个脚本，连接云端工作区。' },
-  { slug: 'cloud-guide', title: '云空间与 JS 市场', description: '设备配对、激活、文件管理、市场发布与 AI。' },
-  { slug: 'runtime-api', title: '统一脚本 API', description: '运行模型、日志、对话框、数据存储与系统能力。' },
-  { slug: 'ui-api', title: 'UI API', description: '组件、布局、状态更新和手环性能建议。' }
+  { slug: 'getting-started', title: '写出你的第一个手环脚本', description: '从打印一句话开始，做一个能点击的计数器。' },
+  { slug: 'cloud-guide', title: '使用云空间和 JS 市场', description: '在电脑上写代码，传到手环运行，再分享给其他人。' },
+  { slug: 'runtime-api', title: '输入、记录与脚本控制', description: '询问名字、计算金额、选择选项，记住上次运行的结果。' },
+  { slug: 'ui-api', title: '制作交互界面', description: '排列文字和按钮，用开关、滑块和二维码完成小工具。' }
 ];
 const DOWNLOADS = ['runtime-api.d.ts', 'ui-api.d.ts'];
 
@@ -54,7 +54,7 @@ function registerDocsPages(ctx, options, view) {
     const query = String(req.query?.q || '').trim().slice(0, 80);
     const results = documents.filter(doc => `${doc.title}\n${doc.description}\n${doc.source}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
     const list = results.map(doc => `<li class="jslab-cloud-docs-item"><h2 class="h5"><a href="${docLink(doc)}">${escapeHtml(doc.title)}</a></h2><p class="text-body-secondary mb-0">${escapeHtml(doc.description)}</p></li>`).join('');
-    return page(req, res, `<section class="plugin-page jslab-cloud-page">${header('JSLab 文档', '从第一个脚本到云空间与市场，查看当前版本的使用说明和 API。')}<form method="get" action="/jslab-cloud/docs" class="jslab-cloud-search mb-4"><label class="visually-hidden" for="docs-search">搜索文档</label><input id="docs-search" class="form-control" name="q" maxlength="80" value="${escAttr(query)}" placeholder="搜索文档内容"><button class="btn btn-outline-secondary" type="submit">搜索</button></form>${query ? `<p role="status">找到 ${results.length} 篇相关文档。</p>` : ''}<ul class="list-unstyled jslab-cloud-docs-list">${list || '<li>没有找到相关文档，请尝试其他关键词。</li>'}</ul></section>`, 'JSLab 文档');
+    return page(req, res, `<section class="plugin-page jslab-cloud-page">${header('JSLab 使用指南', '第一次使用？先写一个计数器，再尝试输入、保存和分享。')}<form method="get" action="/jslab-cloud/docs" class="jslab-cloud-search mb-4"><label class="visually-hidden" for="docs-search">搜索文档</label><input id="docs-search" class="form-control" name="q" maxlength="80" value="${escAttr(query)}" placeholder="搜索文档内容"><button class="btn btn-outline-secondary" type="submit">搜索</button></form>${query ? `<p role="status">找到 ${results.length} 篇相关文档。</p>` : ''}<ul class="list-unstyled jslab-cloud-docs-list">${list || '<li>没有找到相关文档，请尝试其他关键词。</li>'}</ul></section>`, 'JSLab 使用指南');
   });
 
   ctx.routes.frontend.get('/docs/download/:file', (req, res) => {

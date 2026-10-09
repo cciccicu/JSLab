@@ -1,141 +1,165 @@
-# JSLab UI API v2
+# 制作交互界面
 
-所有 `.js` 脚本都可以通过 `ui.render()` 描述界面；`.ui.js` 没有特殊含义。设计尺寸为 336×480，内容宽 324px。
-新建脚本里的“布局与二维码”模板可以直接运行。[类型声明](./ui-api.d.ts)可用于桌面编辑器补全。
+这篇教程会把一个计数器逐步做成完整的小工具：先显示数字和按钮，再调整布局，最后加上开关和二维码。每段示例都可以单独复制到脚本中运行。
+
+## 让数字随着按钮变化
 
 ```js
 const count = ui.signal(0);
-ui.render(() => ui.column([
-  ui.row([
-    ui.text('计数', { lines: 1 }),
-    ui.text(count.get(), { lines: 1, align: 'right' })
-  ]),
-  ui.button('增加', () => count.update(n => n + 1), {
-    id: 'add', background: '#176b45', color: '#fff'
-  })
-], { padding: 12, gap: 12, background: '#24262a', radius: 24 }));
+
+ui.render(() => [
+  ui.heading('计数器'),
+  ui.text('当前次数：' + count.get(), { lines: 1 }),
+  ui.button('加一', () => count.update(value => value + 1)),
+  ui.button('清零', () => count.set(0))
+]);
 ```
 
-## 布局
+运行后会看到标题、次数和两个按钮。`get()` 读取数字，`set(0)` 把数字改回 0，`update()` 根据之前的值算出新的值。
 
-| 写法 | 作用 |
-| --- | --- |
-| `ui.row(children, options)` | 横向排列，未指定宽度的子项按 `flex` 分配剩余宽度，默认等分 |
-| `ui.column(children, options)` | 纵向排列，默认子项填满父宽 |
-| `ui.stack(children, options)` | 叠放，后项在上；子项可设置 `x/y/width` |
-| `ui.render([a, b])` | 根节点纵向排列，间距 10px |
+当数字变化时，传给 `ui.render()` 的函数会重新生成显示内容。因此在这个函数里只描述界面；把修改数字、保存文件等操作放在按钮回调中，避免界面更新时反复执行它们。
 
-布局可以嵌套；`null`、`undefined`、`false` 不占位置，适合 `condition && ui.text(...)`。
-布局描述在 JS 中展开为浅层绘制节点，没有递归原生组件实例。无背景的布局容器不产生原生节点。
+数组里的组件按顺序向下排列。想让两个按钮并排，可以用 `ui.row()`。
 
-| 参数 | 规则 |
-| --- | --- |
-| `width` | 像素或百分比，例如 `120`、`'50%'`，不超过父内容宽；默认满宽，row 中默认分配剩余空间 |
-| `height` | 像素；容器不会压缩子内容，叶子会按高度裁剪；默认按内容计算 |
-| `gap` | 容器子项间距，0–48，默认 8；grid/buttonRow 默认 6 |
-| `padding` | 容器统一内边距，0–48，自动限制到可用宽度内 |
-| `align` | 容器交叉轴对齐：`start/center/end`；row 控制垂直，column 控制水平 |
-| `justify` | row/column 主轴剩余空间：`start/center/end/between`；column 需设置更大的 height 才有剩余空间 |
-| `flex` | row 子项未指定 width 时的宽度权重，0.1–100，默认 1 |
-| `background` / `radius` | 背景色 / 圆角 0–80；容器背景只增加一个绘制节点 |
-| `x/y` | 仅 stack 子项，原点为父容器 padding 内侧；x 限制在父宽内，y 为 0–4096 |
-
-row 不自动换行，`width`、`gap` 总和超出父宽会报错。百分比基于父内容宽，**不扣除 gap**；等分优先省略 width。
-grid 格子或 row 子项分配宽度不足 1px 时也会报错，请调整间距、列数或 flex 比例。
-容器最小高度为内容所需高度；文本、按钮等叶子固定高度不足时会裁剪。
-stack 的子项默认满宽，因此要向右移动应同时设置较小 width。整个 stack 随页面滚动，不是屏幕固定图层。
-按钮同样支持这种坐标布局：把 `ui.button` 直接放入 `ui.stack`，设置 `x/y/width/height` 即可。
-`x/y` 相对于 stack 的内容区，按钮最小高度仍为 48px；重叠时后面的节点在上，需自行预留点击区域。
+## 把两个按钮排成一行
 
 ```js
-ui.row([
-  ui.text('固定宽', { width: 100, lines: 1 }),
-  ui.column([
-    ui.text('右侧第一行', { lines: 1 }),
-    ui.text('右侧第二行', { lines: 1 })
+const count = ui.signal(0);
+
+ui.render(() => ui.column([
+  ui.heading('计数器'),
+  ui.text('当前次数：' + count.get(), { lines: 1 }),
+  ui.row([
+    ui.button('加一', () => count.update(value => value + 1)),
+    ui.button('清零', () => count.set(0))
   ])
-], { gap: 8, align: 'center' });
-
-ui.stack([
-  ui.text('内容', { lines: 1 }),
-  ui.text('状态', { width: 64, x: 250, y: 4, lines: 1, color: '#0f0' })
-], { height: 80 });
-
-// 自由定位按钮；新建模板“UI 2048 游戏”使用这一方式摆放十字方向键。
-ui.stack([
-  ui.button('↑', () => move('up'), { id: 'up', x: 122, y: 0, width: 80, height: 50, lines: 1 }),
-  ui.button('←', () => move('left'), { id: 'left', x: 36, y: 53, width: 80, height: 50, lines: 1 }),
-  ui.button('→', () => move('right'), { id: 'right', x: 208, y: 53, width: 80, height: 50, lines: 1 }),
-  ui.button('↓', () => move('down'), { id: 'down', x: 122, y: 106, width: 80, height: 50, lines: 1 })
-], { height: 156 });
+], { padding: 12, gap: 12 }));
 ```
 
-## 组件与配色
+`ui.column()` 纵向排列，`ui.row()` 横向排列。这里的 `padding: 12` 在四周留出 12 像素，`gap: 12` 在各项之间留出 12 像素。
 
-没有增加图片、列表、图表等组件。v2 只新增二维码；原有交互仍是按钮点击、switch/slider 值变化。
-按钮支持 `disabled`；不提供 busy、手势、运行菜单或生命周期登记 API。
+一行里没有指定宽度的组件会平分剩余空间。想让某一项更宽，可以给它设置 `flex: 2`，另一项保持 `flex: 1`。
 
-| 组件 | 常用参数 |
+不要直接给两项都设置 `width: '50%'` 再添加间距：两个 50% 已经占满整行，加上间距就放不下了。等宽排列时，让 `ui.row()` 自动分配即可。
+
+## 调整文字和颜色
+
+```js
+ui.render(ui.column([
+  ui.heading('今日目标', { size: 28, color: '#7dd3fc' }),
+  ui.text('读书 20 分钟', { size: 22, lines: 1 }),
+  ui.text('完成后给自己留一点休息时间。', { size: 18, lines: 2 }),
+  ui.button('知道了', () => script.toast('开始吧！'), {
+    background: '#176b45',
+    color: '#ffffff'
+  })
+], { padding: 12, gap: 12, background: '#24262a', radius: 16 }));
+```
+
+`size` 调整字号，`color` 设置文字颜色，`background` 设置背景，`radius` 设置圆角。`lines` 表示给文字预留几行，内容超出时会省略。短标签用 `lines: 1`；较长说明可以预留两三行。
+
+文字支持 `align: 'left'`、`'center'` 或 `'right'`。正文尽量用清晰的字号和对比度，不要在小屏幕上塞进整段长文。
+
+## 用开关选择一个状态
+
+```js
+const reminder = ui.signal(false);
+
+ui.render(() => [
+  ui.heading('提醒设置'),
+  ui.switch('开启提醒', reminder.get(), value => reminder.set(value)),
+  ui.text(reminder.get() ? '提醒已开启' : '提醒已关闭')
+]);
+```
+
+开关改变时，回调收到的是 `true` 或 `false`。把它保存到 signal，下面的文字就能跟着变化。
+
+滑块回调收到的是数字。下面这个例子用滑块选择目标数量，再用进度条显示已完成 30 次时的进度：
+
+```js
+const target = ui.signal(50);
+
+ui.render(() => [
+  ui.heading('今日目标'),
+  ui.slider('目标次数', target.get(), value => target.set(value), {
+    min: 30, max: 100, step: 10
+  }),
+  ui.progress('已完成 30 次', 30 / target.get() * 100)
+]);
+```
+
+进度条的第二个参数是百分比，使用 0–100 的数值。开关和滑块适合独占一行，排成很窄的两列时可能放不下。
+
+## 显示一个二维码
+
+```js
+ui.render([
+  ui.heading('手机打开'),
+  ui.text('扫描下面的二维码访问网站。'),
+  ui.qrcode('https://ccicc.icu', { size: 180 })
+]);
+```
+
+二维码适合短链接或短文字，内容最多 256 个字符。尺寸可以设置为 96–288 像素，建议从 160 或 180 开始，保留黑白配色，方便手机识别。
+
+## 自己摆放组件的位置
+
+大多数页面用横排和竖排就够了。想把一个小标签放在另一段内容旁边，可以用 `ui.stack()` 指定位置：
+
+```js
+ui.render(ui.stack([
+  ui.text('本周进度', { width: 210, lines: 1 }),
+  ui.text('3 / 7', { x: 220, y: 0, width: 80, lines: 1 })
+], { height: 48 }));
+```
+
+`x`、`y` 是相对于这块布局内容区左上角的位置，`width`、`height` 决定组件大小。靠右摆放时也要设置合适的宽度，保证组件能放进屏幕。
+
+后写的组件会盖在先写的组件上面。摆放按钮时，给它留出足够的点击空间，避免重叠。这里的位置会随着页面一起滚动。
+
+## 界面操作速查
+
+| 想做的事 | 写法 |
 | --- | --- |
-| `heading(text, options)` / `text(text, options)` | `size` 16–36、`color`、`align: left/center/right`、`bold`、`lines` 1–64、`lineHeight`（字号至 64） |
-| `button(text, onPress, options)` | `background`、`color`、`tone: primary/neutral/danger`、`id`、`disabled`；最小高度 48 |
-| `switch(label, checked, onChange, options)` | `color` 标题、`background`、`accent` 滑轨、`thumbColor`、`detail`、`detailColor`；最小宽 160 |
-| `slider(label, value, onChange, options)` | `color/background/accent/trackColor/thumbColor`、`min/max/step`；最小宽 160 |
-| `progress(label, percent, options)` | `accent` 进度、`trackColor` 轨道、`color` 标题、`background`；未指定 accent 时，旧 color 仍控制进度色；最小宽 160 |
-| `grid(items, options)` | 2–4 列、行数不限，`columns/cellHeight/gap`；格子支持 `text/tone/color/background/size`，只展示 |
-| `buttonRow(buttons, options)` | 按可用宽度排列按钮，按钮文本最多 8 字符；子按钮 id、color、background 有效 |
-| `divider(options)` / `spacer(size)` | 分隔线 `color/height`，或 0–480px 间距 |
-| `qrcode(value, options)` | 1–256 字符，`size` 96–288 默认 160，含四周 8px 空白；`color/background` 默认黑白 |
+| 显示一组组件或按状态生成界面 | `ui.render(组件数组)` 或 `ui.render(() => 组件数组)` |
+| 回到日志页 | `ui.hide()` |
+| 恢复之前显示过的界面 | `ui.show()` |
+| 修改顶部标题 | `ui.setTitle('标题')` |
+| 隐藏界面顶部栏，留出更多空间 | `ui.showHeader(false)` |
+| 恢复顶部栏 | `ui.showHeader(true)` |
+| 滚动到开头或结尾 | `ui.scrollTop()`、`ui.scrollBottom()` |
+| 滚动到指定位置 | `ui.scrollTo(120)` |
+| 普通变量变化后，手动更新界面 | `ui.refresh()` |
 
-除 spacer 外，叶子可设置 `width/height/background/radius`（二维码始终正方形，用 size 控制）。
-二维码建议短 URL、黑白对比、160px 以上；数量不限，值不变时不会反复提交更新。多个二维码会增加原生绘制开销。
-推荐不透明颜色 `#RGB`、`#RRGGBB`、`rgb(r,g,b)`；兼容有效 rgba。无 opacity。
-颜色无效时回退默认值。`disabled:true` 显示禁用样式并排除按钮回调。异步任务仍在回调检查业务 busy，防止确认状态发布前重复提交。
+用了 signal 时通常不需要再调用 `ui.refresh()`。切到日志后，界面里的状态仍然保留；恢复界面会显示最新的值，不会从头运行脚本。隐藏顶部栏后，仍可以通过返回操作查看日志。
 
-文本的 `lines` 是高度预算与最大行数，过长内容省略。省略 lines 时，按字号、字符数、显式换行保守估算，
-ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行预算。内部仍由原生 text 负责断行。
-未绑定字体测量或每轮原生尺寸查询，以保持低开销。中文长文应分页。
+## 组件速查
 
-## 状态、事件与更新
+| 组件 | 用途与常用参数 |
+| --- | --- |
+| `ui.heading(文字, 参数)`、`ui.text(文字, 参数)` | 标题、正文；`size`、`color`、`lines`、`align`、`bold` |
+| `ui.button(文字, 点击函数, 参数)` | 操作按钮；`tone: 'primary' / 'neutral' / 'danger'`、`disabled`、`background`、`color` |
+| `ui.switch(标题, 是否开启, 改变函数, 参数)` | 开关；`detail`、`accent`、`thumbColor` |
+| `ui.slider(标题, 当前值, 改变函数, 参数)` | 滑块；`min`、`max`、`step`、`accent`、`trackColor` |
+| `ui.progress(标题, 百分比, 参数)` | 显示进度；`accent`、`trackColor` |
+| `ui.grid(内容数组, 参数)` | 展示网格；`columns` 为 2–4，`cellHeight`、`gap`；格子不接收点击 |
+| `ui.buttonRow(按钮数组, 参数)` | 排列一组短按钮；按钮文字最多 8 个字符 |
+| `ui.divider(参数)` | 分隔线；`color`、`height` |
+| `ui.spacer(高度)` | 添加空白间距 |
+| `ui.qrcode(内容, 参数)` | 二维码；`size`、`color`、`background` |
 
-- `ui.render(viewOrFactory)` 立即编译，成功提交后显示 UI，返回 boolean；factory 必须是纯函数。失败保留先前成功的定义和界面。
-- `signal.set/update` 立即改变值，但将同一同步调用中的更新合并为一次微任务重绘。
-- 相同值（包括 NaN）或相同对象引用不刷新。对象使用新引用：`state.update(s => ({ count: s.count + 1 }))`。
-- `ui.refresh()` 显式请求下一次重绘。不要在 render factory 内写 signal 或请求重绘，会报错。
-- 节点顺序、id、类型不变时，保留页面数组和节点对象，只更新变化字段；编译快照独立于页面响应式数据。
-  拓扑变化时复用同 id、同类型的节点。视觉相同也会更新回调，避免闭包旧值。
-- 按钮回调无参数，switch 收到 boolean，slider 收到 number；返回的 Promise 拒绝会显示运行错误。
-- 运行错误保留到下一次有效控件交互、显式 `ui.render()` 或重新运行；signal 和 `ui.refresh()` 不会自动清除错误。
-- `ui.setTitle()` 最多 80 字符，长标题使用原生滚动展示；`ui.showHeader(false)` 将内容起点从 84px 改为 12px。
-- `ui.scrollTo(y)` / `ui.scrollTop()` / `ui.scrollBottom()` 在布局提交后执行。
-- 隐藏 UI 时 signal/refresh 只标记 dirty，恢复后合并最新状态。显式 render 仍校验，背后对话框不被抢占。
-- `ui.show()` 显示已有成功界面，无有效界面返回 false；`ui.hide()` 显示 Console，不丢失状态和日志。
-- UI 返回到 Console；轻点日志内容恢复界面；Console 返回离开运行页。全屏仅隐藏 UI 顶栏，系统返回仍进入 Console。
-- `script.reload()` 与右上按钮完整替换运行页，重新执行本次源码快照；切换视图和 onShow 不重新运行。
-- 原生滚动处理点击/滑动、惯性、边界；运行器不另写触摸识别或滚动补偿。原生节点卸载后不承诺保留其滚动位置。
-- 页重建不是重启共享 JS context，脚本自己的原生系统任务仍由脚本管理。
+布局容器可使用 `padding`、`gap`、`align` 和 `justify` 调整间距和对齐；组件可以使用 `width`、`height` 调整大小。按钮高度至少 48 像素，开关和滑块宽度至少 160 像素。文字的 `size` 支持 16–36，单段文字最多 1024 个字符。
 
-## 性能建议与兼容性
+需要根据状态增删或重新排列组件时，给组件设置唯一且稳定的 `id`，例如 `id: 'score'`。同一页不要重复使用一个 id；id 为 1–56 个字符，不能以 `$` 开头。
 
-组件数量、布局层数和二维码数量没有额外硬上限，布局编译使用显式栈处理深层嵌套，并拒绝循环引用。
-对 336×480 手环，40 个声明节点、160 个绘制节点、4 层布局、2 个二维码可作为首屏性能参考值，并非超出后报错的限制。
-实际可用规模受设备内存、原生组件和刷新频率影响；大量组件建议分批显示、提前构造静态描述，并避免高频更新。每段文本仍最多 1024 字符。
+## 做得更顺手一些
 
-`id` 全页唯一，1–56 字符，不能以 `$` 开头。动态重排必须使用稳定 id。
-未给 id 的静态项按布局路径生成内部 id。
+先把常用内容放在第一屏，其余内容让用户滚动查看。不要每隔几毫秒更新整个页面；计数器、开关之类的工具，在用户操作后更新就够了。
 
-相较 v1 的有意变化：
+如果更新的是对象，要创建一个新对象，例如 `state.update(value => ({ count: value.count + 1 }))`。只修改原对象里的字段，signal 无法判断它已经变化。
 
-- `ui.version` 为 2；原来的组件构造调用继续可用。
-- `refresh` 与 signal 刷新改为合并执行；读取 signal 仍是同步的。
-- 重复 id、未知组件、超限或过窄布局报错，保留上一幅有效界面；不静默截断。
-- 文本通过行高预算排布，按钮文字过长或指定高度不足时裁剪/省略。
-- 原生渲染层变浅；滚动高度由布局结果得出，去掉每轮 `getScrollRect`。
-- 新版云端提示词生成 UI v2 代码；部署云插件时同步更新快应用。
+按钮需要等待网络请求时，可以先设置一个“正在处理”的状态，再用 `disabled: true` 暂时禁用按钮，并在回调开始时检查状态，避免连续点击发起多次请求。完成或失败后再恢复。
 
-## 开发与实机验证
+界面显示不出来时，先按返回查看日志，检查是否有重复 id、过窄的组件或放不下的一行。修改后重新运行即可。想在按钮中询问用户或保存结果，继续看 [输入、记录与脚本控制](runtime-api.md)。
 
-运行契约见 [统一脚本 API](runtime-api.md)，[类型声明](runtime-api.d.ts)与 `ui-api.d.ts` 均无设备运行开销。
-`npm run check:contract` 校验源码、路由、公开方法和性能建议契约；`npm run lint` 与 `npm run release` 验证构建。
-历史性能测试保留在 tests/diagnostics，不能代表手环绘制完成、交互延迟或原生内存。
-设备验收脚本位于仓库 vela-quickapp/diagnostics/unified-runner-check.js。
+在电脑上写代码时，可以下载 [UI 类型声明](ui-api.d.ts) 获得编辑器补全。

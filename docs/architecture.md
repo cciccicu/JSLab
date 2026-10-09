@@ -74,5 +74,6 @@ onHide/onDestroy 中停止；句柄不进入响应式数据。当前编辑器直
 ## 云端使用文档
 
 `/jslab-cloud/docs` 提供公开文档目录、内容搜索、文章目录及类型声明下载，无需登录或激活。
-入门和云端操作指南位于插件 `docs/`；运行 API、UI API 和类型声明由
-`ccicc-plugin-cloud/scripts/sync-docs.cjs` 从快应用文档同步。打包前自动同步，测试检查一致性。
+用户教程独立维护在插件 `docs/`，覆盖入门、云端操作、脚本输入与存储、交互界面。
+`ccicc-plugin-cloud/scripts/sync-docs.cjs` 仅从快应用同步类型声明，打包时不会覆盖教程正文。
+测试检查声明一致性，并验证教程代码的执行和界面布局。

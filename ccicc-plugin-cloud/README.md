@@ -32,12 +32,13 @@ npm run pack -- .\ ..\dist\jslab-cloud-2.0.1.zip
 ## 使用文档
 
 访问 `/jslab-cloud/docs`，无需登录或激活。云空间和 JS 市场页面均提供“文档”入口。
-内置快速开始、云空间与市场指南、统一脚本 API、UI API，支持全文关键词搜索、
+内置第一个脚本、云空间与市场、输入与存储、交互界面四篇教程，支持全文关键词搜索、
 本页目录、相邻文章导航及 `runtime-api.d.ts` / `ui-api.d.ts` 下载。
 
-入门和云端指南直接维护在 `jslab-cloud/docs/`。API 和类型声明源文件位于
-`../vela-quickapp/docs/`，在插件目录运行 `npm run sync:docs` 更新副本；打包前自动同步，
-`npm test` 会检查副本与源文件一致。插件只读取包内文档，部署后不依赖仓库其他项目。
+四篇教程直接维护在 `jslab-cloud/docs/`，不从项目契约或实施记录复制正文。
+类型声明源文件位于 `../vela-quickapp/docs/`，在插件目录运行 `npm run sync:docs` 更新声明副本；
+打包前仅自动同步声明，保留教程正文。`npm test` 检查声明一致性，并用实际 UI 引擎验证教程示例。
+插件只读取包内文档，部署后不依赖仓库其他项目。
 Markdown 渲染使用声明在 `package.json.dependencies` 的 `markdown-it`，禁止原始 HTML，
 并使用其默认安全链接校验。宿主安装或更新插件时需安装该依赖；直接覆盖部署也需运行 `npm install --omit=dev`。
 

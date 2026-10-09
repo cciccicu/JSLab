@@ -103,7 +103,7 @@ npm run pack -- .\ ..\dist\jslab-cloud-2.0.1.zip
 ```
 
 云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。
-内置使用文档位于 `/jslab-cloud/docs`，公开提供入门、云空间与市场指南和脚本 API。
+内置使用指南位于 `/jslab-cloud/docs`，通过小例子学习脚本、交互界面、云空间和作品分享。
 
 ### 构建 Lua 表盘
 

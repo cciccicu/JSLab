@@ -1,77 +1,191 @@
-# JSLab 统一脚本运行契约
+# 输入、记录与脚本控制
 
-契约标识 `jslab-unified-open-ui`。所有 `.js` 使用 `/workspace/run`，文件名只决定身份和持久化命名空间。
-源码是 `Function` 的函数体，每页实例初始化一次。不能 import/require，不支持裸顶层 await；异步函数可以通过 `return main()` 让运行器观察返回 Promise。JS 内建对象和计时器可用，系统模块统一从 system 访问。
+一个小工具通常要做三件事：向用户询问信息，处理输入，再显示或保存结果。这篇教程从一个问候程序开始，带你认识这些常用操作。
 
-## 视图与导航
+下面的代码都可以单独复制到一个 `.js` 文件中运行。
 
-| 方法/操作 | 行为 |
-| --- | --- |
-| `ui.render(viewOrFactory)` | 立即校验、编译；成功后选择 UI，返回 boolean；空数组也是有效提交 |
-| `ui.show()` | 显示已有成功界面，无界面返回 false；不会重新运行源码 |
-| `ui.hide()` | 显示 Console，保留 UI、signal、日志及全屏偏好 |
-| `ui.refresh()` / signal | 合并更新，不切换视图；隐藏时只记 dirty |
-| `ui.showHeader(false)` | 隐藏 UI 顶栏，Console 顶栏始终可见 |
-| `script.reload()` / 右上按钮 | 原生 replace 重建运行页，执行本次文件名/源码快照，包含未保存代码 |
-| `script.exit()` | 直接离开运行器，返回来源页面 |
-| 返回 | Dialog 取消；UI → Console；Console → 来源页面 |
-| 轻点 Console 内容 | 本次提交过成功 UI 时，等同 ui.show；原生 click，不自行识别手势 |
-
-显式 render 在对话框背后仅选择返回视图，不关闭对话框。对话框期间 reload/exit 先取消对话框，来源运行页恢复后执行导航。导航使用 Vela 文档规定的生命周期，无中转页和轮询。
-提交 API 不保证屏幕已绘制完成。失败 render 保留上一成功定义/帧；错误在后续显式 render、有效控件操作或重载时清除提示，日志保留。同步死循环仍阻塞 JS 线程。
-没有运行菜单、停止 API、页面内重跑、ui.exit、script.mode、onDispose 或通用任务清理注册。页重建不会重启应用共享 JS context；系统订阅、音频等资源仍应由脚本限制寿命或在业务退出操作中释放。
-
-## Console 与 script
-
-console.log/info/warn/error 支持多参数；console.clear 清空日志。error 仅是级别，不切屏、不退出。
-保留最近64条，总计6144字符，单条最多1024字符；超限淘汰最旧记录并显示省略数。对象预览限层级/成员/字符，循环引用可显示。隐藏 Console 不发布日志 text、不安排日志 flush timer；可见时合并发布，不强制跟随滚动。
-错误前文继续显示，最后错误摘要单独保留最多512字符。可捕获编译、同步主体、顶层返回 thenable、UI 回调及编译/提交失败；未返回的 Promise 链和任意原生回调不是全面捕获范围。
-
-script.name：当前名字。script.canUse('@system.module.method')：能力查询。script.locale()：语言/地区。script.toast(message,duration)：1500–10000ms 提示。
-script.data/config 都有 get(key,fallback)、set(key,value)、delete(key)、clear()、all()，均返回 Promise；单值16KiB，每区64KiB，以实际文件名隔离。重命名脚本时数据与配置迁移到新文件名；删除脚本时一并清除。旧 name.ui.js 的数据身份保留。
-
-## 标准对话框
-
-五个方法均返回 `Promise<{action:'confirm'|'secondary'|'cancel', value:...}>`。
-公共参数 title/message/confirmText/cancelText；初值统一 value，选项集合统一 items。正常取消为 `{action:'cancel',value:null}`，不是异常；空字符串、0、false 均为有效业务值。
-
-| 方法 | 专用参数 | 确认值 |
-| --- | --- | --- |
-| dialog.alert | 无 | null，确认 action='confirm' |
-| dialog.confirm | secondaryText 可增加第二业务动作 | null，依 action 判断 |
-| dialog.text | value、placeholder、required、minLength、maxLength、language:'en'或'cn' | string，不自动 trim |
-| dialog.number | value、required、min、max、decimals | 有限 number；允许空时未输入为 null |
-| dialog.select | items、value、multiple、minSelected、maxSelected | 单选原始值；多选按 items 顺序的数组 |
-
-text 默认 maxLength=64，硬上限8000；初值超限报参数错误，不默默截断。复用输入法，组合上限5与最终字段长度独立；长文本只显示24字符窗口与计数，提供基本中间编辑。
-number 默认 decimals=6，允许0–10；0为整数。支持负数、小数和中间输入状态，确认校验范围/精度，不夹紧、不取整。初值绝对值<1e15，整数位最多15。
-select 最多100项，使用原生列表连续滚动，没有分页按钮；items 每项 `{label:string,value:string|number|boolean,description?:string,disabled?:boolean}`，值唯一且数值有限。单选先选中再确认，默认要求1项；多选默认允许0项，上限100。禁用项不能选中，初值必须匹配可用项。
-对话框沿用应用原有的灰色圆角卡片、蓝色主操作/选中态、图片勾选和一致的顶栏。确认页保留底部横排操作，secondaryText 存在时横排三项；文字/数字页保留各自输入能力。
-同一时间一个对话框，无嵌套、队列、多字段表单或任意布局。函数和 Promise 结算器不进入页面响应式数据，结果在来源页面 onShow 恢复后交付。
-
-| 错误 code | 条件 |
-| --- | --- |
-| DIALOG_INVALID | 参数或初值无效 |
-| DIALOG_BUSY | 已有对话框 |
-| DIALOG_OPEN_FAILED | 原生打开抛错 |
-| DIALOG_INACTIVE | 来源运行页已退出或正在重载/退出 |
+## 询问用户的名字
 
 ```js
 async function main() {
-  const answer = await dialog.confirm({ title:'保存修改？', confirmText:'保存', secondaryText:'不保存', cancelText:'继续编辑' });
-  console.log(answer.action);
-  const temperature = await dialog.number({ title:'温度', value:-2.5, min:-20, max:50, decimals:1 });
-  if (temperature.action === 'confirm') console.log(temperature.value);
+  const answer = await dialog.text({
+    title: '怎么称呼你？',
+    placeholder: '输入名字',
+    required: true
+  });
+
+  if (answer.action === 'confirm') {
+    console.log('你好，' + answer.value + '！');
+  } else {
+    console.log('这次没有输入名字。');
+  }
 }
+
 return main();
 ```
 
-## 系统与云端
+运行后会弹出输入窗口。填好名字并确认，日志中就会显示问候；按取消或返回，则显示“这次没有输入名字”。
 
-system.device/files/http/download/upload/companion/network/display/battery/location/vibration/events/sensors/recorder/audio/crypto 对应 Vela 原生接口，保留对象参数和 success/fail/complete，不包装成假 Promise。可选模块先检查能力，并处理 fail。完整方法参考内置“系统 API”帮助和本仓库 VelaDocs。
+`await` 表示先等用户完成输入，再执行后面的代码。它需要放在 `async` 函数里。最后的 `return main()` 启动这个函数，也让 JSLab 能显示函数执行期间发生的错误。
 
-`runtime-contract.json` 是公开方法、仍存在的文字长度限制和 UI 性能建议的构建期来源，`scripts/sync-runtime-contract.cjs` 同步设备常量及云插件 JSON；设备不解析文档。
-AI 额度响应公布 runtimeContract；客户端发收费请求前校验，服务端在预留余额/模型调用前校验，结果也携带并再次校验；不按同版本安装包推断契约。旧客户端/服务器需要同步更新，不回退旧提示词。
-云 CRUD/市场/网页删除执行类型，保留业务用途标签。SQLite 原生 DROP COLUMN 迁移保留 ID、源码、hash、checksum、时间、归属、状态、索引和自增；需要SQLite3.35或更新版本，重复启动无副作用。不会自动改名或改写已有源码。
-插件启动会执行幂等持久化初始化和迁移，升级无需再次调用 install。部署通过 PM2 重启整个进程；中断请求的预留额度由下次 boot 退回。审核记录关联实际审核内容；历史记录保留，未关联记录不作为当前内容的审核结论。
-市场名称是显示标题；明确导出时云端生成合法 `.js` 默认文件名，源码响应包含 filename。网页下载与保存到云空间使用该名称；手环端点击市场条目后弹出“另存为”，按相同规则预填名称，用户可修改本地文件名。此操作不改市场记录。
+对话框的结果有两个常用字段：`action` 表示用户做了什么，`value` 是输入内容。判断是否确认时，使用 `answer.action === 'confirm'`，这样输入的数字 0 或空字符串也不会被误当作取消。
+
+## 输入数字并计算
+
+用 `dialog.number()` 接收金额、次数、温度等数字。下面这个程序会计算一笔账单平分给 3 个人后的金额：
+
+```js
+async function main() {
+  const answer = await dialog.number({
+    title: '账单金额',
+    value: 0,
+    required: true,
+    min: 0,
+    max: 10000,
+    decimals: 2
+  });
+
+  if (answer.action !== 'confirm') return;
+  console.log('每人应付：¥' + (answer.value / 3).toFixed(2));
+}
+
+return main();
+```
+
+`value` 是打开窗口时的初始值，`min`、`max` 限制输入范围，`decimals` 限制小数位数。只允许整数时写 `decimals: 0`。支持负数；输入温度时，可以把 `min` 设成负数。
+
+## 让用户选择一项
+
+```js
+async function main() {
+  const answer = await dialog.select({
+    title: '休息多久？',
+    items: [
+      { label: '5 分钟', value: 5 },
+      { label: '10 分钟', value: 10 },
+      { label: '15 分钟', value: 15 }
+    ],
+    value: 10
+  });
+
+  if (answer.action === 'confirm') {
+    console.log('你选择了 ' + answer.value + ' 分钟。');
+  }
+}
+
+return main();
+```
+
+`label` 是屏幕上显示的文字，`value` 是确认后交给程序的值。上面的 `value: 10` 表示默认选中“10 分钟”。每项的值要不同，最多可以提供 100 项。
+
+需要多选时，添加 `multiple: true`；初始值也改成数组，例如 `value: [5, 10]`。确认后会得到所选值的数组。可以用 `minSelected`、`maxSelected` 限制选择数量，用 `disabled: true` 暂时禁用某项。
+
+## 确认后再继续
+
+需要用户决定是否继续时，用 `dialog.confirm()`：
+
+```js
+async function main() {
+  const answer = await dialog.confirm({
+    title: '开始新的一局？',
+    message: '本局分数会清零。',
+    confirmText: '开始',
+    cancelText: '继续本局'
+  });
+
+  if (answer.action === 'confirm') {
+    console.log('新的一局开始了。');
+  }
+}
+
+return main();
+```
+
+如果还有第三种选择，添加 `secondaryText`，用户点击它时会返回 `action: 'secondary'`。只想显示一段提示，让用户读完后关闭，可以用 `dialog.alert()`。
+
+每次只打开一个对话框。连续询问多个问题时，像上面的例子一样先 `await` 等待前一个结束，再打开下一个。
+
+## 记住上次运行的结果
+
+普通变量在程序重新运行时会重新创建。希望下次还能读到的内容，可以放进 `script.data`：
+
+```js
+async function main() {
+  const previous = await script.data.get('opens', 0);
+  const current = previous + 1;
+  await script.data.set('opens', current);
+  console.log('这是你第 ' + current + ' 次打开这个脚本。');
+}
+
+return main();
+```
+
+第一次运行时还没有 `opens`，所以 `get('opens', 0)` 返回默认值 0。之后每次运行，都会读出上次保存的数字，再加一保存。
+
+`script.config` 的用法相同，适合保存字号、默认数量等设置。你可以把程序产生的记录放进 `data`，把用户选择的偏好放进 `config`。
+
+| 操作 | 用法 |
+| --- | --- |
+| 读取内容，没有时使用默认值 | `await script.data.get('key', 默认值)` |
+| 保存文字、数字、数组或普通对象 | `await script.data.set('key', 内容)` |
+| 删除一项 | `await script.data.delete('key')` |
+| 删除本脚本保存的全部数据 | `await script.data.clear()` |
+| 读取本脚本保存的全部数据 | `await script.data.all()` |
+
+每个脚本有自己的数据，互不混用。通过 JSLab 重命名文件时，数据会一起迁移；删除脚本时，对应的数据和设置也会删除。单项内容最多 16 KiB，`data` 和 `config` 各最多 64 KiB，适合小型记录和设置。
+
+## 用日志检查程序
+
+`console.log()` 可以一次显示多个内容，例如 `console.log('次数：', 3)`。`console.info()`、`console.warn()`、`console.error()` 分别用于普通信息、提醒和错误，`console.clear()` 清空日志。
+
+`console.error()` 只是打印错误信息，不会自动结束程序。想停止当前函数，可以写 `return`。
+
+日志只保留最近的内容，最多 64 条、合计 6144 个字符。检查长数组或连续循环时，优先打印需要的几项，避免重要信息很快被新日志覆盖。
+
+## 返回日志、重新开始和退出
+
+| 想做的事 | 写法或操作 |
+| --- | --- |
+| 从界面切到日志，稍后继续 | `ui.hide()`，或在界面中按返回 |
+| 恢复之前的界面 | `ui.show()`，或轻点日志内容 |
+| 从头执行本次代码 | `script.reload()`，或点击右上角的重载按钮 |
+| 结束这次运行，回到打开脚本的页面 | `script.exit()` |
+| 显示一条短提示 | `script.toast('已完成')` |
+| 查看当前文件名 | `script.name` |
+
+切到日志再恢复界面，计数器之类的状态仍会保留。重载会重新执行代码，普通变量重新初始化，之前用 `script.data` 保存的内容仍在。重载本身不会保存编辑器里的代码。
+
+## 使用手环的系统功能
+
+除了界面和对话框，还可以通过 `system` 使用设备信息、文件、网络和振动等功能。例如短振动：
+
+```js
+if (script.canUse('@system.vibrator.vibrate')) {
+  system.vibration.vibrate({ mode: 'short' });
+  console.log('已请求短振动。');
+} else {
+  console.log('这台设备不支持脚本振动。');
+}
+```
+
+`script.canUse()` 用来检查设备是否支持某个功能。具体接口及参数可以在手环的“系统 API”帮助中查找；不同设备和系统版本的支持情况可能不同。
+
+系统接口通常通过 `success`、`fail` 回调返回结果，不能直接在调用前加 `await`。使用录音、音频或持续订阅等功能时，也要在自己的结束操作中停止它们。
+
+## 参数速查
+
+所有对话框都可以设置 `title`、`message`、`confirmText` 和 `cancelText`。确认返回 `action: 'confirm'`，取消返回 `action: 'cancel'`；文本、数字和选择框的结果放在 `value` 中。
+
+| 对话框 | 常用的专用参数 |
+| --- | --- |
+| `dialog.alert()` | 显示提示，不需要输入值 |
+| `dialog.confirm()` | `secondaryText` 增加第三种选择 |
+| `dialog.text()` | `value`、`placeholder`、`required`、`minLength`、`maxLength`、`language: 'cn'` 或 `'en'` |
+| `dialog.number()` | `value`、`required`、`min`、`max`、`decimals` |
+| `dialog.select()` | `items`、`value`、`multiple`、`minSelected`、`maxSelected` |
+
+文字输入默认最多 64 个字符，可以用 `maxLength` 调整到最多 8000；小数位数 `decimals` 可以设置为 0–10。把初始值设置在允许范围内，避免窗口打开时就报参数错误。
+
+JSLab 提供了 `console`、`ui`、`dialog`、`script` 和 `system`，不需要导入它们。脚本中不能使用 `import` 或 `require`；异步步骤请放进 `async` 函数，并像教程那样用 `return main()` 启动。
+
+想把输入结果显示成按钮和卡片，继续看 [制作交互界面](ui-api.md)。在电脑上写代码时，也可以下载 [脚本类型声明](runtime-api.d.ts) 和 [UI 类型声明](ui-api.d.ts)，放在代码旁边，方便支持 TypeScript 声明的编辑器提供补全。
