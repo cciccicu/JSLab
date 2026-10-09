@@ -6,8 +6,7 @@
     <div class="field-group">
       <text class="label">文件名（自动补 .js）</text>
       <div class="input-box" @click="toggleKeyboard">
-        <text if="{{fileName}}" class="input-text">{{fileName}}_</text>
-        <text else class="input-placeholder">输入文件名_</text>
+        <text class="input-text">{{fileName}}_</text>
       </div>
     </div>
 
@@ -240,12 +239,6 @@ export default {
   width: 284px;
   font-size: 24px;
   color: white;
-}
-
-.input-placeholder {
-  width: 284px;
-  font-size: 22px;
-  color: rgba(255,255,255,0.45);
 }
 
 .picker {

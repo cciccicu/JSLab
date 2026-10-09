@@ -53,6 +53,5 @@ npm run release
 
 发布包会生成在 `dist/` 目录。`npm run release` 默认启用 JSC。
 
-公共模块职责见 [模块说明](src/utils/README.md)，本轮边界、功能与迁移复查见
-[公共模块复查记录](docs/shared-modules-review.md)。
-其余小型模块的合并和修复见 [小型公共模块复查](docs/small-shared-modules-review.md)。
+公共模块职责与限制见 [模块说明](src/utils/README.md)，UI 优化原则与本地验证见
+[UI 性能建议](docs/ui-performance.md)。

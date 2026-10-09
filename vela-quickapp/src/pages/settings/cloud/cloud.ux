@@ -312,7 +312,7 @@ export default {
     this.$app.$def.openDialog('select', {
       title: '传输方式',
       message: '选择云 API 的请求方式',
-      items: [{label:'fetch 直连',value:'fetch'},{label:'AstroBox 网络桥接',value:'interconnect'}],
+      items: [{label:'fetch 直连',value:'fetch'},{label:'JSLabSync网络桥接',value:'interconnect'}],
       value: this.transport
     }, this).then(result => {
       if (result.action === "confirm") {

@@ -16,16 +16,30 @@ JS 市场、账户激活、充值和服务端 AI 代码生成。manifest ID 为 
 - 手环发起一次性配对，网页可输入配对码或扫描手环二维码确认；
 - 支持云空间激活、AI 激活、充值、余额和按 Token 计费；
 - 代码生成和审核使用独立的 API、模型和价格配置；
-- AI 提示词注入完整的 JSLab/Vela API、统一运行契约和设备运行信息。
+- AI 提示词注入完整的 JSLab/Vela API、统一运行契约和设备运行信息；
+- 内置公开使用文档，提供内容搜索、文章目录和 API 类型声明下载。
 
 ## 打包与地址
 
 在 `jslab-cloud/` 目录执行：
 
 ```powershell
+npm install
 npm test
 npm run pack -- .\ ..\dist\jslab-cloud-2.0.0.zip
 ```
+
+## 使用文档
+
+访问 `/jslab-cloud/docs`，无需登录或激活。云空间和 JS 市场页面均提供“文档”入口。
+内置快速开始、云空间与市场指南、统一脚本 API、UI API，支持全文关键词搜索、
+本页目录、相邻文章导航及 `runtime-api.d.ts` / `ui-api.d.ts` 下载。
+
+入门和云端指南直接维护在 `jslab-cloud/docs/`。API 和类型声明源文件位于
+`../vela-quickapp/docs/`，在插件目录运行 `npm run sync:docs` 更新副本；打包前自动同步，
+`npm test` 会检查副本与源文件一致。插件只读取包内文档，部署后不依赖仓库其他项目。
+Markdown 渲染使用声明在 `package.json.dependencies` 的 `markdown-it`，禁止原始 HTML，
+并使用其默认安全链接校验。宿主安装或更新插件时需安装该依赖；直接覆盖部署也需运行 `npm install --omit=dev`。
 
 当前快应用开发地址为 `http://192.168.3.17:3000/jslab-cloud`。二维码地址由插件
 运行环境生成，不写死临时开发地址；生产环境使用 `ccicc.icu` 域名。

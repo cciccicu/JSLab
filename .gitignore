@@ -1,6 +1,25 @@
 # Workspace-local files
 /watchfaces/
 .codex-temp/
+.mimocode/
+
+# Dependencies, intermediate builds and local release archives in every project.
+node_modules/
+build/
+dist/
+target/
+release-archive/
+sign/
+/vela-quickapp/output/
+
+# Generated installation packages and Python caches.
+*.rpk
+*.abp
+*.face
+*.zip
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # Editor, OS and test output
 .DS_Store

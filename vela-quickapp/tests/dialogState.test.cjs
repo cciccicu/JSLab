@@ -18,7 +18,11 @@ function loadDialogState(push, back) {
 
 function loadApp(state) {
   const source = read('src/app.ux').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/^import .*;\r?\n/gm, '').replace('export default', 'return');
-  return new Function('requestDialog', ...methods.slice(1), source)(...methods.map(method => state[method]));
+  // app.ux assembles these imports at module load time; this suite only exercises its dialog bridge.
+  const clients = { deviceAccount: {}, deviceAi: {}, marketClient: {}, cloudFilesClient: {} };
+  return new Function('requestDialog', ...methods.slice(1), ...Object.keys(clients), source)(
+    ...methods.map(method => state[method]), ...Object.values(clients)
+  );
 }
 
 async function checkOwnership() {

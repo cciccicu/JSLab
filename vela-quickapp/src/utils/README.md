@@ -72,4 +72,3 @@ Interconnect、脚本文件锁与变更订阅、脚本数据、配置缓存和�
 
 `editorPreferences.js` 只维护仍在使用的字号与高亮设置。
 `scheduleNextTick` 优先调用原生 `$nextTick`，缺失时仅排到下一轮事件循环，不保证屏幕绘制完成。
-小模块的保留/合并依据及功能修复见 [小型公共模块复查](../../docs/small-shared-modules-review.md)。

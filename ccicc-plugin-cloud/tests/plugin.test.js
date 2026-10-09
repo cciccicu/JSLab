@@ -8,6 +8,68 @@ const { buildAiSystemPrompt, normalizeAiEnvironment } = require('../jslab-cloud/
 const { withErrorMessage } = require('../jslab-cloud/lib/error-messages.js');
 const { identity: RUNTIME_CONTRACT } = require('../jslab-cloud/lib/runtime-contract.json');
 const browserScript = fs.readFileSync(path.join(__dirname, '..', 'jslab-cloud', 'assets', 'jslab-cloud.js'), 'utf8');
+const { DOCS, renderDocument } = require('../jslab-cloud/lib/browser-docs-pages');
+
+test('documentation is public, searchable, and linked from the workspace and public market', async () => {
+  const fixture = context();
+  try {
+    plugin.boot(fixture.ctx);
+    const request = { query: {}, params: {}, headers: {} };
+    const index = await invoke(fixture.frontend.registry.get('GET /docs'), request);
+    assert.equal(index.statusCode, 200);
+    for (const doc of DOCS) {
+      assert.ok(index.body.includes(`/jslab-cloud/docs/${doc.slug}`));
+      const article = await invoke(fixture.frontend.registry.get('GET /docs/:slug'), { ...request, params: { slug: doc.slug } });
+      assert.equal(article.statusCode, 200);
+      assert.match(article.body, /aria-current="page"/);
+      assert.match(article.body, /aria-label="本页目录"/);
+      for (const [, anchor] of article.body.matchAll(/href="#([^"]+)"/g)) assert.ok(article.body.includes(`id="${anchor}"`));
+      assert.doesNotMatch(article.body, /href="(?:\.\/)?[a-z-]+\.(?:md|d\.ts)"/);
+    }
+    const search = await invoke(fixture.frontend.registry.get('GET /docs'), { ...request, query: { q: 'dialog.number' } });
+    assert.match(search.body, /找到 1 篇相关文档/);
+    assert.match(search.body, /href="\/jslab-cloud\/docs\/runtime-api"/);
+    assert.doesNotMatch(search.body, /href="\/jslab-cloud\/docs\/getting-started"/);
+    const empty = await invoke(fixture.frontend.registry.get('GET /docs'), { ...request, query: { q: '\"><script>alert(1)</script>' } });
+    assert.match(empty.body, /没有找到相关文档/);
+    assert.doesNotMatch(empty.body, /<script>alert\(1\)<\/script>/);
+    const missing = await invoke(fixture.frontend.registry.get('GET /docs/:slug'), { ...request, params: { slug: '../../index.js' } });
+    assert.equal(missing.statusCode, 404);
+    const market = await invoke(fixture.frontend.registry.get('GET /workspace/market'), request);
+    assert.match(market.body, /href="\/jslab-cloud\/docs"/);
+    const workspace = await invoke(fixture.frontend.registry.get('GET /workspace'), { ...request, user: fixture.user });
+    assert.match(workspace.body, /href="\/jslab-cloud\/docs"/);
+  } finally { fixture.raw.close(); }
+});
+
+test('documentation escapes raw HTML and blocks active links without breaking code and tables', () => {
+  const source = '# Title\n\n## Repeat\n\n<script>alert(1)</script>\n\n[unsafe](javascript:alert(1))\n\n[Runtime](runtime-api.md)\n\n[Types](./ui-api.d.ts)\n\n## Repeat\n\n```js\nconsole.log("<script>");\n```\n\n| Key | Value |\n| --- | --- |\n| A | B |';
+  const rendered = renderDocument(source);
+  assert.doesNotMatch(rendered.html, /<script>|href="javascript:/);
+  assert.match(rendered.html, /&lt;script&gt;/);
+  assert.match(rendered.html, /href="\/jslab-cloud\/docs\/runtime-api"/);
+  assert.match(rendered.html, /href="\/jslab-cloud\/docs\/download\/ui-api.d.ts"/);
+  assert.match(rendered.html, /<table>/);
+  assert.match(rendered.html, /<code class="language-js">/);
+  assert.equal(new Set(rendered.headings.map(heading => heading.id)).size, 3);
+});
+
+test('documentation downloads only allow bundled public type declarations', async () => {
+  const fixture = context();
+  try {
+    plugin.boot(fixture.ctx);
+    for (const file of ['runtime-api.d.ts', 'ui-api.d.ts']) {
+      const result = await invoke(fixture.frontend.registry.get('GET /docs/download/:file'), { params: { file } });
+      assert.equal(result.statusCode, 200);
+      assert.equal(result.body, fs.readFileSync(path.join(__dirname, '../jslab-cloud/docs', file), 'utf8'));
+      assert.match(result.headers['Content-Disposition'], /attachment/);
+    }
+    for (const file of ['../../index.js', 'index.js', '__proto__']) {
+      const result = await invoke(fixture.frontend.registry.get('GET /docs/download/:file'), { params: { file } });
+      assert.equal(result.statusCode, 404);
+    }
+  } finally { fixture.raw.close(); }
+});
 
 test('every API error receives a concrete public message', () => {
   assert.deepEqual(withErrorMessage({ error: 'device_auth_required' }), {

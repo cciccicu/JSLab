@@ -19,8 +19,8 @@
 从 `ccicc-plugin-cloud/development-kit/example-plugin` 复制示例后，修改目录名、
 `manifest.json.id`、路由前缀和数据库表名。插件目录名必须与 manifest ID 一致，
 开发 Kit 用于创建其他插件。JSLab Cloud 的源码位于 `ccicc-plugin-cloud/jslab-cloud/`，
-从该目录打包时将 ZIP 输出到上一级 `ccicc-plugin-cloud/dist/`。旧安装包保存在
-各交付项目的 `release-archive/`，不纳入 Git。
+从该目录打包时将 ZIP 输出到上一级 `ccicc-plugin-cloud/dist/`。构建产物与本地备份
+不纳入 Git，定期清理过时内容；需要保留的快应用安装包须在构建前备份到 `dist/` 外。
 
 ## 共享脚本契约
 
@@ -40,7 +40,7 @@ AI 用 jslab-unified-open-ui 协议身份协调同版本覆盖更新；AstroBox 
 模块局部变量共享请求。路由只交付 dialogId，overlay 页负责显示和输入。
 
 云插件 `index.js` 负责生命周期和模块装配；`browser-api.js` 与 `device-api.js` 分别注册网页和手环接口；
-`browser-pages.js` 装配按工作区、市场和设备拆分的 SSR 页面；
+`browser-pages.js` 装配按工作区、市场、设备和文档拆分的 SSR 页面；
 审核、计费和文件操作位于各自的业务模块；
 `persistent-state.js` 供 install/boot 共用持久化初始化，`unified-migration.js` 事务迁移已有库，
 提示词、文件名和静态资源分别由小型专用模块负责。部署覆盖后由 PM2 重启整个进程，
@@ -59,17 +59,20 @@ AI 用 jslab-unified-open-ui 协议身份协调同版本覆盖更新；AstroBox 
 委托给 `bridge/scriptTransfer.js`。
 字体上传仍按既有磁盘协议串行交付，不另建连接管理或通用任务框架。
 这些模块调整不改变脚本运行契约、配置键、用户文件路径或字体 Helper 协议。
-详细职责与限制见 [公共模块说明](../vela-quickapp/src/utils/README.md)及
-[复查记录](../vela-quickapp/docs/shared-modules-review.md)。
+详细职责与限制见 [公共模块说明](../vela-quickapp/src/utils/README.md)。
 
 编辑器字号和高亮阈值由 `editor/editorPreferences.js` 统一归一化；
 页面 Toast 与 `script.toast` 共用 `core/uiFeedback.js`。`time`、`deviceInfo`、
 路由和兼容辅助按职责保留，不为了减少文件数量合并到含混的总工具文件。
 页面调度只交付原生 `$nextTick` 或下一轮事件循环，不宣称已完成屏幕绘制。
-详见 [小型模块复查](../vela-quickapp/docs/small-shared-modules-review.md)。
 
 页面显示的分钟时钟由 `time.startPageClock/stopPageClock` 共用，在原生 onShow 中启动、
 onHide/onDestroy 中停止；句柄不进入响应式数据。当前编辑器直接运行尚未保存的内容，
 保存由用户单独执行；新建完成后 replace 到编辑器，返回落到首页。
 帮助页切换内容时使用原生 scrollTo 复位，不重建滚动容器。
-逐页检查见 [页面一致性复查](../vela-quickapp/docs/pages-consistency-review.md)。
+
+## 云端使用文档
+
+`/jslab-cloud/docs` 提供公开文档目录、内容搜索、文章目录及类型声明下载，无需登录或激活。
+入门和云端操作指南位于插件 `docs/`；运行 API、UI API 和类型声明由
+`ccicc-plugin-cloud/scripts/sync-docs.cjs` 从快应用文档同步。打包前自动同步，测试检查一致性。

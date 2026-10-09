@@ -97,11 +97,13 @@ cd ..\astrobox-plugin-sync
 
 ```powershell
 cd ..\ccicc-plugin-cloud\jslab-cloud
+npm install
 npm test
 npm run pack -- .\ ..\dist\jslab-cloud-2.0.0.zip
 ```
 
 云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。
+内置使用文档位于 `/jslab-cloud/docs`，公开提供入门、云空间与市场指南和脚本 API。
 
 ### 构建 Lua 表盘
 
@@ -120,6 +122,13 @@ python -m pip install -r requirements.txt
 - 云端市场条目是独立发布快照，删除云空间文件不会删除已发布内容；
 - 生成 API 和审核 API 分开配置，服务端不会把服务商密钥、系统提示词或设备 Token 下发到脚本；
 - Lua 表盘是独立运行时资源，不会打入手环 `.rpk` 或 AstroBox `.abp`；
+
+### 清理本地产物
+
+在仓库根目录执行 `./scripts/clean-local-artifacts.ps1` 预览，传入 `-Apply` 执行清理，
+或传入 `-Apply -WhatIf` 检查执行计划。脚本仅清理 Git 已忽略且未跟踪的临时目录、
+构建缓存、历史归档和旧安装包，保留当前 manifest 版本的包、依赖、签名和宣传素材。
+构建目录、安装包、Python 缓存及 `vela-quickapp/output/` 不纳入 Git。
 
 ## 文档
 

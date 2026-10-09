@@ -2,7 +2,7 @@
   <div class="page">
     <div class="input-card">
       <text class="note {{error ? 'error' : ''}}">{{error || dialog.message || '请输入数字'}}</text>
-      <text class="input-value number-value">{{inputValue || '空'}}_</text>
+      <text class="input-value number-value">{{inputValue}}_</text>
       <text class="note">{{dialog.confirmText}}：右上角勾选</text>
     </div>
     <div class="keys">

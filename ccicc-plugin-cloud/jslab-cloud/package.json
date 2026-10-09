@@ -4,7 +4,13 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "node --test ../tests/plugin.test.js",
+    "test": "npm run check:docs && node --test ../tests/*.test.js",
+    "sync:docs": "node ../scripts/sync-docs.cjs",
+    "check:docs": "node ../scripts/sync-docs.cjs --check",
+    "prepack": "npm run sync:docs",
     "pack": "node ../development-kit/tools/pack-plugin.mjs"
+  },
+  "dependencies": {
+    "markdown-it": "^14.3.2"
   }
 }

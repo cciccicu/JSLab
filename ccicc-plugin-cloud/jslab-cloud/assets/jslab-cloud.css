@@ -20,6 +20,79 @@
   letter-spacing: 0.08em;
 }
 
+.jslab-cloud-page .jslab-cloud-docs-list {
+  max-width: 760px;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-item {
+  padding-block: var(--app-space-5);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-layout {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: var(--ui-content-gap);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-sidebar {
+  align-self: start;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-sidebar li {
+  margin-bottom: var(--app-space-2);
+  overflow-wrap: anywhere;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-sidebar [aria-current="page"] {
+  font-weight: 700;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-toc {
+  margin-top: var(--app-space-6);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-body {
+  min-width: 0;
+  max-width: 760px;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content {
+  overflow-wrap: anywhere;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content > h1:first-child {
+  display: none;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content pre {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content h2,
+.jslab-cloud-page .jslab-cloud-docs-content h3 {
+  scroll-margin-top: var(--app-space-8);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-pagination {
+  margin-top: var(--app-space-6);
+  padding-top: var(--app-space-4);
+  border-top: 1px solid var(--app-border);
+}
+
+@media (max-width: 900px) {
+  .jslab-cloud-page .jslab-cloud-docs-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .jslab-cloud-toolbar {
   display: flex;
   align-items: center;
