@@ -35,7 +35,8 @@ rustup target add wasm32-wasip2
 .\build.ps1
 ```
 
-脚本在 `dist/` 生成带版本号的 `JSLab-Sync-<版本>.abp`，其中包含 manifest、图标和 WASM Component。旧包存放在 `release-archive/`。
+脚本在 `dist/` 生成带版本号的 `JSLab-Sync-<版本>.abp`，其中包含 manifest、图标和 WASM Component。
+官方源分发仓库与后续更新流程见 [官方源分发说明](MARKET.md)。
 
 ## JSLab 统一运行器
 

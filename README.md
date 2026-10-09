@@ -99,7 +99,7 @@ cd ..\astrobox-plugin-sync
 cd ..\ccicc-plugin-cloud\jslab-cloud
 npm install
 npm test
-npm run pack -- .\ ..\dist\jslab-cloud-2.0.0.zip
+npm run pack -- .\ ..\dist\jslab-cloud-2.0.1.zip
 ```
 
 云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。

@@ -1,6 +1,6 @@
 {
   "id": "jslab-cloud",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "displayName": "JSLab Cloud",
   "description": "为 JSLab 提供云端文件、AI 生成、JS 市场和使用文档。",
   "author": "ccicc",
