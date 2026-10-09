@@ -53,5 +53,7 @@ npm run release
 
 发布包会生成在 `dist/` 目录。`npm run release` 默认启用 JSC。
 
+AstroBox 版本可单独运行 `npm run release:astrobox` 构建，安装包保存在 `release-archive/JSLab-AstroBox-<版本号>.rpk`。该构建只在临时源码副本中启用版本标记，不会改动完整版本源码或清空现有 `dist/`。在 AstroBox 版本中，点击云空间、云上传或 AI 生成入口会看到限制说明；本地脚本和 JS 市场继续可用，云账户配对仍可用于市场发布。
+
 公共模块职责与限制见 [模块说明](src/utils/README.md)，UI 优化原则与本地验证见
 [UI 性能建议](docs/ui-performance.md)。

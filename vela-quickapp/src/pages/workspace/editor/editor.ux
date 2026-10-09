@@ -80,6 +80,7 @@ import { getLineHeight } from '../../../utils/editor/codeEditor.js';
 import { createCodeDocument, deleteCodeBackward, insertCodeText, moveCodeCursor, moveCodeCursorToPoint } from '../../../utils/editor/codeDocument.js';
 import { DEFAULT_FONT_SIZE, DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, normalizeFontSize, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
+import { IS_ASTROBOX_EDITION, showAstroBoxRestriction } from '../../../utils/core/edition.js';
 const CODE_VIEWPORT_HEIGHT = 300;
 const INITIAL_HIGHLIGHT_DELAY = 32;
 const CODE_TOP_SPACER_HEIGHT = 84;
@@ -423,6 +424,10 @@ export default {
   },
   openAiGenerator() {
     vibrate('short');
+    if (IS_ASTROBOX_EDITION) {
+      showAstroBoxRestriction(this).catch(error => console.error('无法显示版本说明:', error));
+      return;
+    }
     push('aiGenerate');
   },
   startSaveAs() {

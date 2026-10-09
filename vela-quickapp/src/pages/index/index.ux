@@ -49,6 +49,7 @@ import { utf8ByteLength } from '../../utils/files/textEncoding.js';
 import { errorMessage } from '../../utils/cloud/cloudError.js';
 import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../utils/core/networkFeedback.js';
 import { formatError } from '../../utils/core/userError.js';
+import { IS_ASTROBOX_EDITION, showAstroBoxRestriction } from '../../utils/core/edition.js';
 export default {
   private: {
     fileList: [],
@@ -132,6 +133,10 @@ export default {
   },
   routerTo(page) {
     vibrate('short');
+    if (IS_ASTROBOX_EDITION && page === 'settingsCloudFiles') {
+      showAstroBoxRestriction(this).catch(error => console.error('无法显示版本说明:', error));
+      return;
+    }
     push(page);
   },
   runSelected() { this.openSelected('run'); },
@@ -163,6 +168,10 @@ export default {
   uploadSelected() {
     if (this.cloudBusy || this.fileActionBusy || this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) return;
     vibrate('short');
+    if (IS_ASTROBOX_EDITION) {
+      showAstroBoxRestriction(this).catch(error => console.error('无法显示版本说明:', error));
+      return;
+    }
     const file = this.fileList[this.selectedFileIndex];
     this.cloudBusy = true;
     startNetworkFeedback(this, '正在检查云空间');
