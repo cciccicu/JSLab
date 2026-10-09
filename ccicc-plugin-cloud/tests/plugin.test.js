@@ -373,6 +373,8 @@ test('market browsing and downloading are public but saving to cloud space requi
   const listed = await invoke(fixture.frontend.registry.get('GET /api/cloud/market'), { query: {}, params: {}, headers: {} });
   assert.equal(listed.statusCode, 200);
   assert.equal(listed.body.scripts[0].id, submitted.body.marketId);
+  assert.equal(listed.body.scripts[0].authorName, fixture.user.username);
+  assert.equal(Object.hasOwn(listed.body.scripts[0], 'owner_user_id'), false);
   const source = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), { params: { id }, query: {}, headers: {} });
   assert.equal(source.statusCode, 200);
   assert.equal(source.body.script.source, 'console.log(1)');

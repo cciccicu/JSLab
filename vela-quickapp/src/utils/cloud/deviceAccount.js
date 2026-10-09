@@ -42,8 +42,8 @@ function getState() {
     .then((values) => ({ paired: !!values[0], transport: normalizeTransport(values[1]) }));
 }
 
-function getEntitlements() {
-  return request('/api/cloud/device/entitlements').then((result) => {
+function getEntitlements(timeoutMs) {
+  return request('/api/cloud/device/entitlements', timeoutMs ? { timeoutMs } : undefined).then((result) => {
     const value = result.entitlement;
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('cloud_invalid_response');
     return {

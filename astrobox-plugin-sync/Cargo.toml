@@ -1,6 +1,6 @@
 [package]
 name = "jslab-astrobox-sync"
-version = "1.9.5"
+version = "2.0.0"
 edition = "2024"
 
 [lib]

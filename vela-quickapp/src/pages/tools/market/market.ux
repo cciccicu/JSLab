@@ -2,10 +2,11 @@
   <div class="page">
     <scroll class="scroll" scroll-y="true">
       <div if="{{statusText}}" class="status"><text class="status-text">{{statusText}}</text></div>
-      <div for="{{script in visibleScripts}}" tid="id" class="script {{busy ? 'disabled-item' : ''}}" @click="download(script)">
+      <div for="{{script in visibleScripts}}" tid="id" class="script {{busy ? 'disabled-item' : ''}}" @click="saveAs(script)">
         <text class="name {{busy ? 'disabled-text' : ''}}">{{script.name}}</text>
         <text class="description {{busy ? 'disabled-text' : ''}}">{{script.description || '没有说明'}}</text>
-        <text class="meta {{busy ? 'disabled-text' : ''}}">点击下载到本地</text>
+        <text class="author {{busy ? 'disabled-text' : ''}}">作者：{{script.authorName || '未知'}}</text>
+        <text class="meta {{busy ? 'disabled-text' : ''}}">点击另存到本地</text>
       </div>
       <div if="{{shownCount < scripts.length}}" class="item load-more" @click="loadMore">
         <text class="load-more-text">显示更多（{{shownCount}}/{{scripts.length}}）</text>
@@ -32,6 +33,7 @@
 <script>
 import { back, push } from '../../../utils/core/routeManager.js';
 import { errorMessage } from '../../../utils/cloud/cloudError.js';
+import { normalizeMarketSaveName, suggestMarketFilename } from '../../../utils/cloud/marketFilename.js';
 import { startNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../utils/core/networkFeedback.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
@@ -127,42 +129,52 @@ export default {
       showToast(error.message || "无法打开对话框");
     });
   },
-  download(script) {
+  saveAs(script) {
     if (!script || this.busy || this.loading) return;
     this.busy = true;
-    startNetworkFeedback(this, '正在下载市场脚本');
-    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, false).then(saved => {
+    vibrate('short');
+    this.$app.$def.openDialog('text', {
+      title: '另存为',
+      message: '输入本地文件名，可省略 .js',
+      value: suggestMarketFilename(script.name),
+      maxLength: 128,
+      required: true
+    }, this).then(result => {
+      if (!this.pageActive) return;
+      if (result.action !== 'confirm') { this.busy = false; return; }
+      let name;
+      try { name = normalizeMarketSaveName(result.value); }
+      catch (error) { this.busy = false; showToast(error.message); return; }
+      this.download(script, name, false);
+    }).catch(error => {
+      if (this.pageActive) { this.busy = false; showToast(error.message || '无法打开对话框'); }
+    });
+  },
+  download(script, name, overwrite) {
+    if (!this.pageActive) return;
+    startNetworkFeedback(this, overwrite ? '正在覆盖本地脚本' : '正在保存市场脚本');
+    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, name, overwrite).then(saved => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
-      showToast('已下载 ' + saved.name);
       this.busy = false;
+      showToast((overwrite ? '已覆盖 ' : '已另存为 ') + saved.name);
     }).catch(error => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
-      if (error.message !== 'file_exists') {
+      if (error.message !== 'file_exists' || overwrite) {
         this.busy = false;
-        showToast(errorMessage(error, '下载市场脚本 ' + script.name));
+        showToast(errorMessage(error, '保存市场脚本 ' + script.name));
         return;
       }
-      this.busy = false;
       this.$app.$def.openDialog('confirm', {
-        title: '文件已存在',
-        message: '是否覆盖本地文件？'
+        title: '本地文件已存在',
+        message: '覆盖 ' + name + '？'
       }, this).then(result => {
-        if (result.action === "confirm") {
-          if (this.busy) return;
-          this.busy = true;
-          startNetworkFeedback(this, '正在覆盖本地脚本');
-          this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, true).then(() => {
-            if (this.pageActive) showToast('已覆盖本地文件');
-          }).catch(error => {
-            if (this.pageActive) showToast(errorMessage(error, '覆盖本地市场脚本 ' + script.name));
-          }).then(() => {
-            if (this.pageActive) { this.busy = false; stopNetworkFeedback(this); }
-          });
-        }
-      }).catch(error => {
-        showToast(error.message || "无法打开对话框");
+        if (!this.pageActive) return;
+        if (result.action === 'confirm') { this.download(script, name, true); return; }
+        this.busy = false;
+      }).catch(dialogError => {
+        if (this.pageActive) { this.busy = false; showToast(dialogError.message || '无法打开对话框'); }
       });
     });
   },
@@ -187,8 +199,8 @@ export default {
 .search { width:244px; height:72px; padding:0px 16px; border-radius:36px; background-color:#262626; justify-content:center; }
 .search-text { width:212px; color:rgba(255,255,255,0.6); font-size:24px; line-height:34px; text-overflow:ellipsis; lines:1; }
 .refresh-action { width:72px; height:72px; flex-shrink:0; }
-.item,.script,.status { width:100%; height:112px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
-.script { justify-content:space-between; }.name { width:100%; color:#fff; font-size:28px; line-height:34px; font-weight:bold; text-overflow:ellipsis; lines:1; }.description { width:100%; color:rgba(255,255,255,0.6); font-size:19px; line-height:25px; text-overflow:ellipsis; lines:1; }.meta { width:100%; color:rgba(255,255,255,0.6); font-size:17px; line-height:22px; text-overflow:ellipsis; lines:1; }
+.item,.status { width:100%; height:112px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
+.script { width:100%; height:144px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; justify-content:space-between; }.name { width:100%; color:#fff; font-size:28px; line-height:34px; font-weight:bold; text-overflow:ellipsis; lines:1; }.description { width:100%; color:rgba(255,255,255,0.6); font-size:19px; line-height:25px; text-overflow:ellipsis; lines:1; }.author { width:100%; color:rgba(255,255,255,0.75); font-size:18px; line-height:24px; text-overflow:ellipsis; lines:1; }.meta { width:100%; color:rgba(255,255,255,0.6); font-size:17px; line-height:22px; text-overflow:ellipsis; lines:1; }
 .status { justify-content:center; }.status-text { width:100%; text-align:center; color:rgba(255,255,255,0.6); font-size:24px; line-height:32px; lines:2; }
 .load-more { justify-content:center; }.load-more-text { width:100%; color:#ffffff; font-size:24px; font-weight:bold; text-align:center; }
 .disabled-item { background-color:#303030; }

@@ -26,7 +26,7 @@
         <text class="pairing-status">{{pairingStatusText}}</text>
         <div class="pairing-cancel" @click="cancelPairing"><text class="pairing-cancel-text">取消配对</text></div>
       </div>
-      <div if="{{paired && !activated && !loadError}}" class="item action disabled-item">
+      <div if="{{paired && !activated && !loadError && !activationPending}}" class="item action disabled-item">
         <text class="action-text disabled-text">请在网页端激活云空间</text>
       </div>
       <div if="{{paired}}" class="item action danger {{busy || loading ? 'disabled-item' : ''}}" @click="logout">
@@ -54,10 +54,12 @@ import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 import { getDeviceName } from '../../../utils/core/deviceInfo.js';
 import { formatError } from '../../../utils/core/userError.js';
+const ACCOUNT_CHECK_TIMEOUT_MS = 6000;
 export default {
   private: {
     paired: false,
     activated: false,
+    activationPending: false,
     activationText: '请在网页端激活云空间与 AI',
     busy: false,
     loading: false,
@@ -80,7 +82,8 @@ export default {
     pairingPollTick: 0,
     pageActive: true,
     pageVisible: false,
-    transportChangeId: 0
+    transportChangeId: 0,
+    accountCheckId: 0
   },
   onInit() {
     this.updateTime();
@@ -113,6 +116,7 @@ export default {
     stopNetworkFeedback(this);
     this.$app.$def.cancelOwnedDialog(this);
     this.pageActive = false;
+    this.accountCheckId += 1;
     this.pageVisible = false;
     if (this.pairingTimer) clearInterval(this.pairingTimer);
   },
@@ -127,26 +131,32 @@ export default {
   },
   loadState() {
     if (this.busy || this.loading) return;
+    const checkId = ++this.accountCheckId;
     this.loading = true;
-    startNetworkFeedback(this, '正在读取云账户配置');
     this.$app.$def.getCloudClients().deviceAccount.getState().then(state => {
-      if (!this.pageActive) return null;
+      if (!this.pageActive || checkId !== this.accountCheckId) return null;
       this.paired = state.paired;
+      this.activationPending = false;
       this.loadError = false;
       this.transport = state.transport;
       this.transportLabel = this.getTransportLabel(state.transport);
+      this.loading = false;
       if (!state.paired) {
         this.activated = false;
         this.activationText = '配对后可在网页端激活';
         return null;
       }
-      updateNetworkFeedback(this, '正在验证云账户');
-      return this.$app.$def.getCloudClients().deviceAccount.getEntitlements().then(entitlement => {
-        if (!this.pageActive) return;
+      this.activated = false;
+      this.activationPending = true;
+      this.activationText = '正在验证云账户...';
+      return this.$app.$def.getCloudClients().deviceAccount.getEntitlements(ACCOUNT_CHECK_TIMEOUT_MS).then(entitlement => {
+        if (!this.pageActive || checkId !== this.accountCheckId) return;
+        this.activationPending = false;
         this.activated = entitlement.cloudEnabled;
         this.activationText = entitlement.cloudEnabled ? '已激活，AI 余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
       }).catch(error => {
-        if (!this.pageActive) return;
+        if (!this.pageActive || checkId !== this.accountCheckId) return;
+        this.activationPending = false;
         if (this.isAuthenticationExpired(error)) {
           this.paired = false;
           this.activated = false;
@@ -160,7 +170,8 @@ export default {
         this.activationText = errorMessage(error, '验证云账户激活状态');
       });
     }).catch(error => {
-      if (!this.pageActive) return;
+      if (!this.pageActive || checkId !== this.accountCheckId) return;
+      this.activationPending = false;
       if (this.isAuthenticationExpired(error)) {
         this.paired = false;
         this.activated = false;
@@ -172,7 +183,7 @@ export default {
       this.activated = false;
       this.loadErrorText = errorMessage(error, '读取云账户配置') + '，点击重新读取';
       this.activationText = errorMessage(error, '读取云账户配置');
-    }).then(() => { if (this.pageActive) { this.loading = false; stopNetworkFeedback(this); } });
+    }).then(() => { if (this.pageActive && checkId === this.accountCheckId) this.loading = false; });
   },
   isAuthenticationExpired(error) {
     return !!error && (error.status === 401 || error.message === 'device_auth_required');
@@ -313,6 +324,8 @@ export default {
   },
   saveTransport(transport) {
     if (this.busy) return;
+    this.accountCheckId += 1;
+    this.activationPending = false;
     const changeId = this.transportChangeId + 1;
     this.transportChangeId = changeId;
     this.busy = true;
@@ -344,6 +357,8 @@ export default {
   },
   confirmLogout() {
     if (this.busy) return;
+    this.accountCheckId += 1;
+    this.activationPending = false;
     this.busy = true;
     startNetworkFeedback(this, '正在退出云账户');
     this.$app.$def.getCloudClients().deviceAccount.logout().then(result => {

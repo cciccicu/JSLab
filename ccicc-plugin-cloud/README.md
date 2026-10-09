@@ -24,7 +24,7 @@ JS 市场、账户激活、充值和服务端 AI 代码生成。manifest ID 为 
 
 ```powershell
 npm test
-npm run pack -- .\ ..\dist\jslab-cloud-0.5.2.zip
+npm run pack -- .\ ..\dist\jslab-cloud-2.0.0.zip
 ```
 
 当前快应用开发地址为 `http://192.168.3.17:3000/jslab-cloud`。二维码地址由插件
@@ -77,7 +77,7 @@ JS 市场浏览和下载公开，无需登录或激活；发布、编辑和管�
 不查询云空间激活状态。只有“保存到我的云空间”涉及云空间权限，仍需激活。
 手环通过设备 Bearer 令牌调用 `/api/cloud/device/market/submit`，与网页发布共用审核和数据校验；
 网页发布继续使用登录会话与 CSRF。覆盖插件并由 PM2 重启时在 `boot` 注册设备路由，
-不依赖再次执行 `install`。插件版本为 0.5.2。
+不依赖再次执行 `install`。插件版本为 2.0.0。
 
 手环的文件、市场、配对和 AI 接口集中在 `/api/cloud/device/`；文件读写必须使用设备令牌。
 网页账户和文件接口使用 `/api/cloud/` 下不带 `device` 的路径，以登录会话及 CSRF 保护写操作。
@@ -91,7 +91,7 @@ JS 市场浏览和下载公开，无需登录或激活；发布、编辑和管�
 
 ## 统一运行契约与迁移
 
-应用为 1.9.5，插件为 0.5.2，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
+应用与插件均为 2.0.0，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
 额度响应公布契约，客户端收费请求前检查；服务端在预留余额/模型调用前拒绝不匹配请求；结果携带契约，客户端检查后才写入编辑器。fetch 与 cloudProxy 使用同一结构。
 云文件/市场/待审副本不再保存 type/pending_type，网页不要求 marketType。install 与 boot 共用幂等持久化初始化；升级只执行 boot 也会补建缺失辅助表、更新配置元数据并迁移（已有配置值保留）。boot 中事务执行可重复 SQLite DROP COLUMN（SQLite≥3.35），保留记录/索引/自增/源码/hash/checksum/时间，不自动改名或重新计算源数据。
 审核记录新增可空 content_hash，关联被审核的名称、说明、标签和源码哈希；旧记录保留，无法确认所属内容的旧结论不在当前审核中展示。异步审核返回后再次核对快照，避免把旧结论应用到新提交或已撤回内容。

@@ -1,4 +1,5 @@
 import jsManager from '../files/jsManager.js';
+import { normalizeMarketSaveName } from './marketFilename.js';
 import { request } from './cloudTransport.js';
 import { scriptList, verifySourceChecksum } from './cloudResponse.js';
 
@@ -20,13 +21,11 @@ function submitMarketScript(localName, metadata) {
   }));
 }
 
-function downloadMarketScript(id, overwrite) {
+function downloadMarketScript(id, name, overwrite) {
   return request('/api/cloud/device/market/' + encodeURIComponent(id) + '/source').then((result) => {
     const script = result.script;
     if (!script || typeof script.source !== 'string') throw new Error('invalid_market_script');
-    let target = script.filename || script.name;
-    if (typeof target !== 'string' || !target) throw new Error('invalid_market_script');
-    if (!/\.js$/i.test(target)) target += '.js';
+    const target = normalizeMarketSaveName(name == null ? script.filename || script.name : name);
     verifySourceChecksum(script.source, script.checksum);
     return jsManager.list().then((files) => {
       if (!overwrite && files.some((file) => file.name === target)) throw new Error('file_exists');

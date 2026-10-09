@@ -37,6 +37,12 @@ async function loadService(harness) {
   globalThis.__cloudResponse = await loadCloudModule('cloudResponse.js', [
     ["import { adler32Utf8 } from '../files/transferIntegrity.js';", 'const adler32Utf8 = globalThis.__cloudAdler32;']
   ]);
+  globalThis.__cloudTextEncoding = await import('data:text/javascript;base64,' + Buffer.from(
+    fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'files', 'textEncoding.js'), 'utf8')
+  ).toString('base64') + '#' + (++loadSequence));
+  globalThis.__cloudMarketFilename = await loadCloudModule('marketFilename.js', [
+    ["import { utf8ByteLength } from '../files/textEncoding.js';", 'const { utf8ByteLength } = globalThis.__cloudTextEncoding;']
+  ]);
   globalThis.__cloudAccount = (await loadCloudModule('deviceAccount.js', [
     ["import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;'],
     ["import { request, normalizeTransport } from './cloudTransport.js';", 'const { request, normalizeTransport } = globalThis.__cloudTransport;']
@@ -51,9 +57,14 @@ async function loadService(harness) {
     ["import { request } from './cloudTransport.js';", 'const { request } = globalThis.__cloudTransport;'],
     ["import { scriptList, verifySourceChecksum } from './cloudResponse.js';", 'const { scriptList, verifySourceChecksum } = globalThis.__cloudResponse;']
   ];
-  const market = (await loadCloudModule('marketClient.js', domainImports)).default;
+  const market = (await loadCloudModule('marketClient.js', domainImports.concat([
+    ["import { normalizeMarketSaveName } from './marketFilename.js';", 'const { normalizeMarketSaveName } = globalThis.__cloudMarketFilename;']
+  ]))).default;
   const files = (await loadCloudModule('cloudFilesClient.js', domainImports)).default;
-  return Object.assign({}, globalThis.__cloudTransport, globalThis.__cloudError, globalThis.__cloudAccount, ai, market, files);
+  return Object.assign({}, globalThis.__cloudTransport, globalThis.__cloudError, globalThis.__cloudAccount, ai, market, files, {
+    suggestMarketFilename: globalThis.__cloudMarketFilename.suggestMarketFilename,
+    normalizeMarketSaveName: globalThis.__cloudMarketFilename.normalizeMarketSaveName
+  });
 }
 
 function createHarness(options = {}) {
@@ -64,6 +75,7 @@ function createHarness(options = {}) {
   const cloudScripts = options.cloudScripts || [{ id: 7, name: 'cloud.js' }];
   const fetch = { fetch(request) {
     calls.push(request);
+    if (options.pendingFetch) return;
     if (options.httpFailure) {
       const body = options.httpFailure.body === undefined
         ? JSON.stringify({ ok: false, error: options.httpFailure.error })
@@ -81,7 +93,7 @@ function createHarness(options = {}) {
     if (pathname.endsWith('/api/cloud/device/exchange')) return request.success({ code: 200, data: { ok: true, token: 'new-token' } });
     if (pathname.endsWith('/api/cloud/device/entitlements')) return request.success({ code: 200, data: { ok: true, runtimeContract: 'jslab-unified-open-ui', entitlement: { cloudEnabled: true, aiEnabled: true, aiCreditCents: 200 } } });
     if (pathname.endsWith('/api/cloud/device/revoke')) return request.success({ code: 200, data: { ok: true, revoked: true } });
-    if (pathname.endsWith('/api/cloud/device/market')) return request.success({ code: 200, data: { ok: true, scripts: [{ id: 3, name: 'market.js' }] } });
+    if (pathname.endsWith('/api/cloud/device/market')) return request.success({ code: 200, data: { ok: true, scripts: [{ id: 3, name: 'market.js', authorName: '测试作者' }] } });
     if (pathname.endsWith('/api/cloud/device/market/3/source')) {
       const source = 'console.log("中文🙂")';
       return request.success({ code: 200, data: { ok: true, script: { id: 3, name: 'market.js', source, checksum: adler32(source) } } });
@@ -178,6 +190,12 @@ async function run() {
   const unknownNativeService = await loadService(unknownNativeHarness);
   const unknownNativeError = await unknownNativeService.listMarketScripts('').catch(error => error);
   assert.equal(unknownNativeService.errorMessage(unknownNativeError, '读取市场'), '读取市场：fetch 直连请求未完成（Vela 999）');
+
+  const stalled = createHarness({ pendingFetch: true });
+  const stalledService = await loadService(stalled);
+  await assert.rejects(stalledService.request('/api/cloud/device/entitlements', { timeoutMs: 10 }), /cloud_fetch_deadline/);
+  stalled.calls[0].fail('{"ok":false,"error":"device_auth_required"}', 401);
+  assert.equal(stalled.configValues['cloud.token'], 'token', 'Late fetch responses must not invalidate the token');
 
   const staleToken = createHarness({ httpFailure: { status: 401, error: 'device_auth_required' } });
   const staleTokenService = await loadService(staleToken);
@@ -301,10 +319,17 @@ async function run() {
   assert.ok(download.calls.some((call) => call.method === 'DELETE' && call.url.includes('/api/cloud/device/scripts/7')));
 
   const market = createHarness({ files: {} }); const marketService = await loadService(market);
-  await marketService.downloadMarketScript(3, false);
-  assert.equal(market.files['market.js'], 'console.log("中文🙂")');
-  await assert.rejects(marketService.downloadMarketScript(3, false), /file_exists/);
-  await marketService.downloadMarketScript(3, true);
+  assert.equal((await marketService.listMarketScripts(''))[0].authorName, '测试作者');
+  assert.equal(marketService.suggestMarketFilename('工具/演示'), '工具_演示.js');
+  assert.equal(marketService.normalizeMarketSaveName(' 演示 '), '演示.js');
+  assert.throws(() => marketService.normalizeMarketSaveName('../演示'), /路径或连续句点/);
+  assert.throws(() => marketService.normalizeMarketSaveName('中'.repeat(43)), /128 个 UTF-8 字节/);
+  await marketService.downloadMarketScript(3, '自选名称.js', false);
+  assert.equal(market.files['自选名称.js'], 'console.log("中文🙂")');
+  await assert.rejects(marketService.downloadMarketScript(3, '自选名称.js', false), /file_exists/);
+  await marketService.downloadMarketScript(3, '自选名称.js', true);
+  await marketService.downloadMarketScript(3, '第二份.js', false);
+  assert.equal(market.files['第二份.js'], 'console.log("中文🙂")');
 
   assert.equal(typeof marketService.sync, 'undefined');
   assert.equal(typeof marketService.previewSync, 'undefined');

@@ -1,7 +1,7 @@
 import { cleanDetail, formatError } from '../core/userError.js';
 
 export function isNetworkError(error) {
-  return !!error && /^(cloud_network_unavailable|cloud_fetch_timeout|cloud_fetch_io_error|cloud_proxy_network_error|cloud_proxy_timeout|cloud_proxy_disconnected)$/.test(error.message);
+  return !!error && /^(cloud_network_unavailable|cloud_fetch_timeout|cloud_fetch_deadline|cloud_fetch_io_error|cloud_proxy_network_error|cloud_proxy_timeout|cloud_proxy_disconnected)$/.test(error.message);
 }
 
 const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
@@ -27,6 +27,7 @@ const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
   script_name_exists: '云空间已有同名脚本',
   cloud_fetch_unavailable: '当前设备不支持 fetch 直连，请切换 AstroBox 网络桥接（Vela 203）',
   cloud_fetch_timeout: 'fetch 直连请求超时（Vela 204）',
+  cloud_fetch_deadline: 'fetch 直连请求超过本次等待时限',
   cloud_fetch_invalid_parameters: 'fetch 直连参数无效（Vela 202）',
   cloud_fetch_io_error: 'fetch 直连发生网络 I/O 错误（Vela 300）',
   cloud_fetch_system_error: 'fetch 直连触发 Vela 系统内部错误（Vela 200）',

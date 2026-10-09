@@ -100,7 +100,10 @@ function createMarketService(state) {
   };
   const listMarket = (req, res) => {
     const query = `%${String(req.query?.q || '').slice(0, 80)}%`;
-    const scripts = ctx.db.prepare(`SELECT id,name,description,tags,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(query, query);
+    const scripts = ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(query, query).map(({ owner_user_id, ...script }) => {
+      const author = ctx.users.get(owner_user_id);
+      return { ...script, authorName: author?.display_name || author?.username || `用户 ${owner_user_id}` };
+    });
     return json(res, 200, { scripts });
   };
   const getMarketSource = (req, res) => {

@@ -102,21 +102,36 @@ export function request(path, options) {
     }
     if (!isDirectFetchSupported()) return Promise.reject(new Error('cloud_fetch_unavailable'));
     return new Promise((resolve, reject) => {
-      fetch.fetch({
+      let settled = false;
+      const timeoutMs = Number(settings.timeoutMs);
+      const timer = timeoutMs > 0 && Number.isFinite(timeoutMs) ? setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('cloud_fetch_deadline'));
+      }, timeoutMs) : null;
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        callback(value);
+      };
+      try { fetch.fetch({
         url,
         method: settings.method || 'GET',
         header: headers,
         data: settings.body ? JSON.stringify(settings.body) : undefined,
         responseType: 'json',
         success: (response) => {
-          try { resolve(handle(response.code, response.data)); }
-          catch (error) { reject(error); }
+          if (settled) return;
+          try { finish(resolve, handle(response.code, response.data)); }
+          catch (error) { finish(reject, error); }
         },
         fail: (data, code) => {
+          if (settled) return;
           const status = Number(code);
           if (status >= 400 && status <= 599) {
-            try { resolve(handle(status, data)); }
-            catch (error) { reject(error); }
+            try { finish(resolve, handle(status, data)); }
+            catch (error) { finish(reject, error); }
             return;
           }
           const nativeError = createNativeError('vela_fetch', data, status);
@@ -128,9 +143,9 @@ export function request(path, options) {
           else if (status === 205) nativeError.message = 'cloud_fetch_duplicate';
           else if (status === 300) nativeError.message = 'cloud_fetch_io_error';
           else nativeError.message = 'cloud_network_unavailable';
-          reject(nativeError);
+          finish(reject, nativeError);
         }
-      });
+      }); } catch (error) { finish(reject, error); }
     });
   });
 }
