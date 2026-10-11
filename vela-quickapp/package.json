@@ -1,6 +1,6 @@
 {
   "name": "JSLab",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "description": "",
   "engines": {
     "node": ">=8.10"
@@ -10,11 +10,12 @@
     "build": "aiot build --enable-jsc",
     "release": "aiot release --enable-jsc",
     "release:astrobox": "node scripts/release-astrobox.cjs",
+    "release:community": "node scripts/release-community.cjs",
     "watch": "aiot watch --open-nuttx",
     "lint": "eslint --format codeframe --ext .ux,.js src/",
     "test:dialogs": "node tests/dialogState.test.cjs",
     "test:highlighter": "node tests/javascriptHighlighter.test.cjs",
-    "test:editor": "node tests/editorDocument.test.cjs",
+    "test:editor": "node tests/editorDocument.test.cjs && node tests/editorScroll.test.cjs",
     "test:metadata": "node tests/fileMetadata.test.cjs",
     "test:files": "node tests/jsManager.test.cjs",
     "test:config": "node tests/configManager.test.cjs",

@@ -193,7 +193,7 @@ export default {
           { label: 'let value =', value: 'let value = ', width: 126 },
           { label: 'function', value: 'function name() {\n  \n}', width: 112 },
           { label: 'arrow function', value: '() => {\n  \n}', width: 142 },
-          { label: 'input(', value: 'input(', width: 92 }
+          { label: 'script.toast(', value: 'script.toast(', width: 138 }
         ],
         [
           { label: 'for loop', value: 'for (let i = 0; i < length; i += 1) {\n  \n}', width: 104 },
@@ -208,16 +208,15 @@ export default {
           { label: 'Promise.resolve(', value: 'Promise.resolve(', width: 156 }
         ],
         [
-          { label: 'JSON.stringify(', value: 'JSON.stringify(', width: 148 },
-          { label: 'JSON.parse(', value: 'JSON.parse(', width: 122 },
-          { label: 'Object.keys(', value: 'Object.keys(', width: 124 },
-          { label: 'Array.isArray(', value: 'Array.isArray(', width: 138 },
           { label: 'ui.signal(', value: 'ui.signal(', width: 108 },
           { label: 'ui.render(', value: 'ui.render(', width: 114 },
           { label: 'ui.text(', value: 'ui.text(', width: 96 },
           { label: 'ui.button(', value: 'ui.button(', width: 112 },
-          { label: 'prompt.showToast(', value: 'prompt.showToast(', width: 154 },
-          { label: 'fetch.fetch(', value: 'fetch.fetch(', width: 122 }
+          { label: 'ui.column(', value: 'ui.column(', width: 120 },
+          { label: 'dialog.alert(', value: 'dialog.alert(', width: 132 },
+          { label: 'dialog.text(', value: 'dialog.text(', width: 124 },
+          { label: 'script.data.get(', value: 'script.data.get(', width: 160 },
+          { label: 'system.http.request(', value: 'system.http.request(', width: 214 }
         ]
       ]
     }
@@ -446,7 +445,7 @@ export default {
   border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
   color: #ffffff; font-size: 25px; font-weight: bold; text-align: center;
 }
-.snippet-content { width: 1280px; height: 189px; flex-direction: column; flex-shrink: 0; }
+.snippet-content { width: 1340px; height: 189px; flex-direction: column; flex-shrink: 0; }
 .snippet-row { height: 56px; margin-bottom: 4px; flex-shrink: 0; }
 .snippet-key { height: 52px; margin-right: 6px; border-radius: 26px; border: 3px solid rgba(255,255,255,0.06); background-color: #262626; color: #ffffff; font-size: 18px; font-weight: bold; text-align: center; flex-shrink: 0; }
 .action-row-cn { position: absolute; left: 6px; top: 3px; width: 324px; height: 60px; flex-direction: row; }

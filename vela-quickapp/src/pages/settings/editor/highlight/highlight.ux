@@ -47,7 +47,7 @@ import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
 import { formatError } from '../../../../utils/core/userError.js';
 import { DEFAULT_HIGHLIGHT_PALETTE, getHighlightPalettePresets, normalizeHighlightPalette } from '../../../../utils/editor/highlightPalette.js';
-import { DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, MIN_HIGHLIGHT_CHAR_THRESHOLD, MAX_HIGHLIGHT_CHAR_THRESHOLD, MIN_HIGHLIGHT_LINE_THRESHOLD, MAX_HIGHLIGHT_LINE_THRESHOLD, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../../utils/editor/editorPreferences.js';
+import { DEFAULT_HIGHLIGHT_ENABLED, DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, MIN_HIGHLIGHT_CHAR_THRESHOLD, MAX_HIGHLIGHT_CHAR_THRESHOLD, MIN_HIGHLIGHT_LINE_THRESHOLD, MAX_HIGHLIGHT_LINE_THRESHOLD, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../../utils/editor/editorPreferences.js';
 const PALETTE_PRESETS = getHighlightPalettePresets();
 function getPaletteLabel(id) {
   for (let index = 0; index < PALETTE_PRESETS.length; index += 1) {
@@ -61,7 +61,7 @@ export default {
     nowTime: '00:00',
     settingsLoading: false,
     pendingWrites: 0,
-    highlightEnabled: true,
+    highlightEnabled: DEFAULT_HIGHLIGHT_ENABLED,
     charThreshold: DEFAULT_HIGHLIGHT_CHAR_THRESHOLD,
     lineThreshold: DEFAULT_HIGHLIGHT_LINE_THRESHOLD,
     paletteId: DEFAULT_HIGHLIGHT_PALETTE,
@@ -90,10 +90,10 @@ export default {
   loadSettings() {
     if (this.settingsLoading || this.pendingWrites > 0) return;
     this.settingsLoading = true;
-    Promise.all([this.$app.$def.getConfigManager().get('editor.highlight.enabled', true), this.$app.$def.getConfigManager().get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
+    Promise.all([this.$app.$def.getConfigManager().get('editor.highlight.enabled', DEFAULT_HIGHLIGHT_ENABLED), this.$app.$def.getConfigManager().get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
       if (!this.pageActive) return;
       this.settingsLoading = false;
-      this.highlightEnabled = values[0] !== false;
+      this.highlightEnabled = values[0] === true;
       this.charThreshold = normalizeHighlightCharThreshold(values[1]);
       this.lineThreshold = normalizeHighlightLineThreshold(values[2]);
       this.paletteId = normalizeHighlightPalette(values[3]);

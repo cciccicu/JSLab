@@ -224,7 +224,7 @@ export default {
 .btn-left-top { left:6px; top:6px; }
 .btn-right-top { left:258px; top:6px; }
 .console-content { position:absolute; top:84px; left:6px; width:324px; height:396px; padding:12px 12px 24px; flex-direction:column; }
-.console-log { width:300px; font-size:22px; line-height:30px; color:#ffffff; flex-shrink:0; }
+.console-log { width:300px; font-size:22px; line-height:30px; color:#0d6eff; flex-shrink:0; }
 .console-hint { width:300px; font-size:20px; line-height:28px; color:#999999; flex-shrink:0; margin-bottom:12px; }
 .console-error { width:300px; font-size:22px; line-height:30px; color:#f48771; flex-shrink:0; margin-top:12px; }
 </style>

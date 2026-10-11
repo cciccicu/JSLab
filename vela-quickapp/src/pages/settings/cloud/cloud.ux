@@ -9,6 +9,10 @@
         <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">传输方式</text>
         <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{transportLabel}}</text>
       </div>
+      <div if="{{communityEdition}}" class="item transport-item {{busy || loading ? 'disabled-item' : ''}}" @click="changeServer">
+        <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">当前服务器</text>
+        <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{serverLabel}}</text>
+      </div>
       <div class="item device-item">
         <text class="item-title">当前设备</text>
         <text class="item-description">{{deviceName}}</text>
@@ -54,9 +58,13 @@ import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 import { getDeviceName } from '../../../utils/core/deviceInfo.js';
 import { formatError } from '../../../utils/core/userError.js';
+import { IS_COMMUNITY_EDITION } from '../../../utils/core/edition.js';
+import { enterNetworkPage, chooseServer, selectedServer, OFFICIAL_ORIGIN } from '../../../utils/cloud/serverSelection.js';
 const ACCOUNT_CHECK_TIMEOUT_MS = 6000;
 export default {
   private: {
+    communityEdition: IS_COMMUNITY_EDITION,
+    serverLabel: '尚未选择',
     paired: false,
     activated: false,
     activationPending: false,
@@ -102,7 +110,23 @@ export default {
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     if (this.initialized) return;
     this.initialized = true;
-    this.loadState();
+    enterNetworkPage(this, () => {
+      this.refreshServerLabel();
+      this.loadState();
+    });
+  },
+  refreshServerLabel() {
+    selectedServer(this).then(origin => {
+      if (this.pageActive) this.serverLabel = origin === OFFICIAL_ORIGIN ? '官方服务器' : origin || '尚未选择';
+    });
+  },
+  changeServer() {
+    if (this.busy || this.loading || !IS_COMMUNITY_EDITION) return;
+    chooseServer(this, true).then(selected => {
+      if (!selected || !this.pageActive) return;
+      this.refreshServerLabel();
+      this.loadState();
+    }).catch(error => showToast(error && error.message ? error.message : '无法更换服务器'));
   },
   onHide() {
     stopPageClock(this);

@@ -39,6 +39,7 @@ import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible,
 import { back } from '../../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
+import { enterNetworkPage } from '../../../../utils/cloud/serverSelection.js';
 export default {
   private: {
     paired: false,
@@ -66,7 +67,7 @@ export default {
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     if (this.initialized) return;
     this.initialized = true;
-    this.loadFiles();
+    enterNetworkPage(this, () => this.loadFiles());
   },
   onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {

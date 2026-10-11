@@ -15,10 +15,12 @@ async function loadService(harness) {
   const transportSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'cloudTransport.js'), 'utf8')
     .replace("import fetch from '@system.fetch';", 'const fetch = globalThis.__cloudFetch;')
     .replace("import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;')
-    .replace("import { cleanDetail, createNativeError } from '../core/userError.js';", 'const { cleanDetail, createNativeError } = globalThis.__cloudUserError;');
+    .replace("import { cleanDetail, createNativeError } from '../core/userError.js';", 'const { cleanDetail, createNativeError } = globalThis.__cloudUserError;')
+    .replace("import { IS_COMMUNITY_EDITION } from '../core/edition.js';", 'const IS_COMMUNITY_EDITION = globalThis.__cloudCommunityEdition;');
   globalThis.__cloudFetch = harness.fetch;
   globalThis.__cloudConfig = harness.config;
   globalThis.__cloudJsManager = harness.jsManager;
+  globalThis.__cloudCommunityEdition = harness.communityEdition === true;
   globalThis.__cloudAdler32 = adler32;
   globalThis.__cloudTransport = await import('data:text/javascript;base64,' + Buffer.from(transportSource).toString('base64') + '#' + (++loadSequence));
   globalThis.__cloudTransport.setCloudProxyRequest(harness.companionBridge.requestCloud.bind(harness.companionBridge));
@@ -105,7 +107,7 @@ function createHarness(options = {}) {
     request.fail(null, 999);
   } };
   return {
-    files, calls, configValues, configGets, fetch, proxyCalls,
+    files, calls, configValues, configGets, fetch, proxyCalls, communityEdition: options.communityEdition === true,
     app: { canIUse() { canIUseCalls += 1; return options.fetchSupported !== false; } },
     getCanIUseCalls() { return canIUseCalls; },
     config: {
@@ -126,6 +128,52 @@ function createHarness(options = {}) {
 }
 
 async function run() {
+  const community = createHarness({ communityEdition: true, configValues: { 'cloud.origin': '', 'cloud.token': 'old-official-token', 'cloud.communityServerChosen': false } });
+  const communityService = await loadService(community);
+  await assert.rejects(communityService.listMarketScripts(''), /server_not_selected/);
+  assert.equal(community.calls.length, 0);
+  const upgraded = createHarness({ communityEdition: true, configValues: { 'cloud.origin': 'https://previous.test', 'cloud.communityServerChosen': false } });
+  const upgradedService = await loadService(upgraded);
+  await assert.rejects(upgradedService.listMarketScripts(''), /server_not_selected/);
+  assert.equal(upgraded.calls.length, 0);
+  const pageConfigValues = {};
+  globalThis.__cloudConfig = {
+    get(key, fallback) { return Promise.resolve(Object.prototype.hasOwnProperty.call(pageConfigValues, key) ? pageConfigValues[key] : fallback); },
+    set(key, value) { pageConfigValues[key] = value; return Promise.resolve(true); }
+  };
+  const selectionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'serverSelection.js'), 'utf8')
+    .replace("import { IS_COMMUNITY_EDITION } from '../core/edition.js';", 'const IS_COMMUNITY_EDITION = true;')
+    .replace("import { back } from '../core/routeManager.js';", 'const back = () => {};')
+    .replace("import { showToast } from '../core/uiFeedback.js';", 'const showToast = () => {};');
+  const selection = await import('data:text/javascript;base64,' + Buffer.from(selectionSource).toString('base64'));
+  assert.equal(selection.normalizeServerUrl('https://example.com/jslab-cloud/'), 'https://example.com/jslab-cloud');
+  assert.equal(selection.normalizeServerUrl('http://example.com'), '');
+  const choices = [{ action: 'confirm', value: 'custom' }, { action: 'confirm', value: 'https://community.test/jslab-cloud' }];
+  const owner = { $app: { $def: {
+    getConfigManager: () => community.config,
+    openDialog: () => Promise.resolve(choices.shift())
+  } } };
+  assert.equal(await selection.chooseServer(owner), true);
+  assert.equal(community.configValues['cloud.origin'], 'https://community.test/jslab-cloud');
+  assert.equal(community.configValues['cloud.communityServerChosen'], true);
+  assert.equal(community.configValues['cloud.token'], '');
+  assert.deepEqual(pageConfigValues, {}, 'Server selection must use the app config instance, not the page cache');
+  await communityService.listMarketScripts('');
+  assert.equal(community.calls[0].url, 'https://community.test/jslab-cloud/api/cloud/device/market');
+  assert.equal(await selection.selectedServer(owner), 'https://community.test/jslab-cloud');
+  assert.equal(await selection.chooseServer(owner), true, 'An already selected server must not prompt again');
+  choices.push({ action: 'confirm', value: 'official' });
+  assert.equal(await selection.chooseServer(owner, true), true);
+  assert.equal(community.configValues['cloud.origin'], 'http://jslab-api.ccicc.icu');
+  await communityService.listMarketScripts('');
+  assert.equal(community.calls.at(-1).url, 'http://jslab-api.ccicc.icu/api/cloud/device/market');
+  const previousOfficial = createHarness({ communityEdition: true, configValues: { 'cloud.origin': 'https://jslab-api.ccicc.icu', 'cloud.communityServerChosen': true } });
+  const previousOfficialService = await loadService(previousOfficial);
+  await previousOfficialService.listMarketScripts('');
+  assert.equal(previousOfficial.calls[0].url, 'http://jslab-api.ccicc.icu/api/cloud/device/market');
+  const previousOwner = { $app: { $def: { getConfigManager: () => previousOfficial.config } } };
+  assert.equal(await selection.selectedServer(previousOwner), 'http://jslab-api.ccicc.icu');
+
   const pairing = createHarness(); const pairingService = await loadService(pairing);
   const started = await pairingService.startPairing('Band Pro');
   assert.equal(started.code, 'ABCDEF12');
@@ -159,9 +207,13 @@ async function run() {
     '/api/cloud/device/entitlements': { runtimeContract: 'jslab-unified-open-ui', entitlement: { aiEnabled: true } },
     '/api/cloud/device/ai/generate': { runtimeContract: 'jslab-unified-open-ui', code: 'console.log(1)' }
   } });
-  await (await loadService(slowAi)).generateAi('create', 'test');
+  const aiService = await loadService(slowAi);
+  await aiService.generateAi('create', 'test', 'unneeded old source', 'test.js', { appVersion: 'unused' });
   assert.equal(slowAi.proxyCalls[0].timeoutMs, undefined);
   assert.equal(slowAi.proxyCalls[1].timeoutMs, 330000);
+  assert.deepEqual(JSON.parse(slowAi.proxyCalls[1].request.body), { runtimeContract: 'jslab-unified-open-ui', mode: 'create', prompt: 'test', name: 'test.js' });
+  await aiService.generateAi('rewrite', '保留计数', 'console.log(0)', 'test.js');
+  assert.deepEqual(JSON.parse(slowAi.proxyCalls[3].request.body), { runtimeContract: 'jslab-unified-open-ui', mode: 'rewrite', prompt: '保留计数', name: 'test.js', source: 'console.log(0)' });
 
   const unboundProxy = createHarness({ configValues: { 'cloud.transport': 'interconnect' } });
   const unboundService = await loadService(unboundProxy);

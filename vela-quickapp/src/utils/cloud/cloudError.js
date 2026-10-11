@@ -9,6 +9,7 @@ const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
   device_auth_required: '设备令牌未被云服务认可，请重新配对',
   auth_required: '网页账户尚未登录',
   activation_required: '云空间尚未激活，请先在网页端兑换激活码',
+  server_not_selected: '请先选择服务器',
   rate_limited: '请求频率超过云服务限制，请等待一分钟后再试',
   pairing_not_found: '云服务找不到此配对会话，配对码可能已过期',
   invalid_pairing_code: '配对码格式错误、已使用或已经过期',

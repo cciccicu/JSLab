@@ -1,6 +1,7 @@
 import fetch from '@system.fetch';
 import configManager from '../core/configManager.js';
 import { cleanDetail, createNativeError } from '../core/userError.js';
+import { IS_COMMUNITY_EDITION } from '../core/edition.js';
 
 // app.ux binds its single Interconnect sender for all cloud clients.
 let cloudProxyRequest = null;
@@ -8,7 +9,8 @@ export function setCloudProxyRequest(sender) {
   cloudProxyRequest = typeof sender === 'function' ? sender : null;
 }
 
-const DEFAULT_ORIGIN = 'http://jslab-api.ccicc.icu';
+const OFFICIAL_ORIGIN = 'http://jslab-api.ccicc.icu';
+const DEFAULT_ORIGIN = IS_COMMUNITY_EDITION ? '' : OFFICIAL_ORIGIN;
 const LEGACY_DEFAULT_ORIGINS = [
   'http://192.168.3.17:3000/jslab-cloud',
   'https://ccicc.icu/jslab-cloud'
@@ -17,8 +19,9 @@ const PRODUCTION_ORIGIN_RE = /^https?:\/\/jslab-api\.ccicc\.icu(?:\/jslab-cloud)
 
 function resolveOrigin(value) {
   const origin = String(value || '').trim().replace(/\/+$/, '');
+  if (!origin && IS_COMMUNITY_EDITION) throw new Error('server_not_selected');
   return !origin || PRODUCTION_ORIGIN_RE.test(origin) || LEGACY_DEFAULT_ORIGINS.indexOf(origin) !== -1
-    ? DEFAULT_ORIGIN
+    ? OFFICIAL_ORIGIN
     : origin;
 }
 
@@ -57,8 +60,10 @@ export function request(path, options) {
   return Promise.all([
     configManager.get('cloud.origin', DEFAULT_ORIGIN),
     configManager.get('cloud.token', ''),
-    configManager.get('cloud.transport', '')
+    configManager.get('cloud.transport', ''),
+    IS_COMMUNITY_EDITION ? configManager.get('cloud.communityServerChosen', false) : Promise.resolve(true)
   ]).then((values) => {
+    if (!values[3]) throw new Error('server_not_selected');
     const headers = { 'Content-Type': 'application/json' };
     if (values[1]) headers.Authorization = 'Bearer ' + values[1];
     const url = resolveOrigin(values[0]) + path;

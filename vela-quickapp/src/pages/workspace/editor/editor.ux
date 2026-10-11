@@ -19,7 +19,7 @@
 			  <text class="code code-line-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; height: {{cursorHeight}}px;"><span for="{{token in line.tokens}}" tid="tokenKey" style="color: {{token.color}};">{{token.text}}</span></text>
 			</div>
 		  </div>
-		  <text elif="{{!highlightRendering}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; height: {{codeTextHeight}}px;">{{plainCodeText}}</text>
+		  <text elif="{{!highlightRendering}}" class="code code-plain-text" style="font-family: {{fontFamily}}; font-size: {{fontSize}}px; line-height: {{cursorHeight}}px; width: {{codeWidth}}px; height: {{codeTextHeight}}px;">{{plainCodeText}}</text>
 		  <div else class="code-lines"></div>
 		  <div if="{{showCursor && !initialHighlightPending}}" class="code-cursor" style="left: {{cursorX}}px; top: {{cursorY}}px; width: {{fontSize/6}}px; height: {{cursorHeight}}px;"></div>
 		</div>
@@ -78,7 +78,7 @@ import { commitHighlightedLines, createHighlightState, highlightCodeDocument } f
 import { DEFAULT_HIGHLIGHT_PALETTE, normalizeHighlightPalette } from '../../../utils/editor/highlightPalette.js';
 import { getLineHeight } from '../../../utils/editor/codeEditor.js';
 import { createCodeDocument, deleteCodeBackward, insertCodeText, moveCodeCursor, moveCodeCursorToPoint } from '../../../utils/editor/codeDocument.js';
-import { DEFAULT_FONT_SIZE, DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, normalizeFontSize, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../utils/editor/editorPreferences.js';
+import { DEFAULT_FONT_SIZE, DEFAULT_HIGHLIGHT_ENABLED, DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, normalizeFontSize, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
 import { IS_ASTROBOX_EDITION, showAstroBoxRestriction } from '../../../utils/core/edition.js';
 const CODE_VIEWPORT_HEIGHT = 300;
@@ -86,6 +86,10 @@ const INITIAL_HIGHLIGHT_DELAY = 32;
 const CODE_TOP_SPACER_HEIGHT = 84;
 const KEYBOARD_TOP = 225;
 const CARET_VISIBLE_WIDTH = 280;
+const CODE_SCROLL_WIDTH = 336;
+const CODE_SCROLL_HEIGHT = 480;
+const CODE_HORIZONTAL_PADDING = 12;
+const KEYBOARD_BOTTOM_SPACER_HEIGHT = 255;
 const editorScrollPositions = new WeakMap();
 const editorStates = new WeakMap();
 function editorSource(state) {
@@ -106,7 +110,7 @@ export default {
     codeHeight: CODE_VIEWPORT_HEIGHT,
     codeTextHeight: 20,
     largeFileMode: false,
-    syntaxHighlightEnabled: false,
+    syntaxHighlightEnabled: DEFAULT_HIGHLIGHT_ENABLED,
     highlightCharThreshold: DEFAULT_HIGHLIGHT_CHAR_THRESHOLD,
     highlightLineThreshold: DEFAULT_HIGHLIGHT_LINE_THRESHOLD,
     highlightPalette: DEFAULT_HIGHLIGHT_PALETTE,
@@ -197,7 +201,7 @@ export default {
     editorStates.delete(this);
     const editor = this.$app.$def.editor;
     // 偏好读取完成前只走纯文本路径，不能沿用上一次会话的高亮状态。
-    this.syntaxHighlightEnabled = false;
+    this.syntaxHighlightEnabled = DEFAULT_HIGHLIGHT_ENABLED;
     this.highlightRendering = false;
     this.initialHighlightPending = false;
     this.initialHighlightComplete = false;
@@ -222,12 +226,12 @@ export default {
   loadEditorPreferences() {
     if (this.preferencesLoading) return;
     this.preferencesLoading = true;
-    Promise.all([this.$app.$def.getConfigManager().get('editor.font.size', DEFAULT_FONT_SIZE), readActiveFontProfile(), this.$app.$def.getConfigManager().get('editor.highlight.enabled', true), this.$app.$def.getConfigManager().get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
+    Promise.all([this.$app.$def.getConfigManager().get('editor.font.size', DEFAULT_FONT_SIZE), readActiveFontProfile(), this.$app.$def.getConfigManager().get('editor.highlight.enabled', DEFAULT_HIGHLIGHT_ENABLED), this.$app.$def.getConfigManager().get('editor.highlight.maxChars', DEFAULT_HIGHLIGHT_CHAR_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.maxLines', DEFAULT_HIGHLIGHT_LINE_THRESHOLD), this.$app.$def.getConfigManager().get('editor.highlight.palette', DEFAULT_HIGHLIGHT_PALETTE)]).then(values => {
       this.preferencesLoading = false;
       if (!this.pageActive) return;
       const nextSize = normalizeFontSize(values[0]);
       const nextProfile = values[1];
-      const nextHighlightEnabled = values[2] !== false;
+      const nextHighlightEnabled = values[2] === true;
       const nextCharThreshold = normalizeHighlightCharThreshold(values[3]);
       const nextLineThreshold = normalizeHighlightLineThreshold(values[4]);
       const nextPalette = normalizeHighlightPalette(values[5]);
@@ -493,14 +497,16 @@ export default {
     const detail = event && event.detail ? event.detail : event || {};
     const position = editorScrollPositions.get(this);
     if (!position) return;
-    // pageX/pageY omit the inner scroll offset on the target device. Convert
-    // viewport coordinates explicitly; offset coordinates are already local.
+    // offsetX/offsetY are relative to the code-document that owns the caret.
+    // Only fall back to viewport coordinates when the local coordinates are absent.
+    const offsetX = Number(detail.offsetX);
+    const offsetY = Number(detail.offsetY);
     const clientX = Number(detail.clientX);
     const clientY = Number(detail.clientY);
-    const x = detail.clientX != null && isFinite(clientX) ?
-      clientX + position.left - 6 : Number(detail.offsetX);
-    const y = detail.clientY != null && isFinite(clientY) ?
-      clientY + position.top - CODE_TOP_SPACER_HEIGHT : Number(detail.offsetY);
+    const x = detail.offsetX != null && isFinite(offsetX) ? offsetX :
+      clientX + position.left - 6;
+    const y = detail.offsetY != null && isFinite(offsetY) ? offsetY :
+      clientY + position.top - CODE_TOP_SPACER_HEIGHT;
     if (!isFinite(x) || !isFinite(y)) return;
     this.moveCursorTo(x, y);
     vibrate('short');
@@ -547,8 +553,15 @@ export default {
     const wasLarge = this.largeFileMode;
     if (wasLarge !== isLarge) this.largeFileMode = isLarge;
     const position = document.cursor;
-    const textHeight = document.lines.length * position.height;
-    const codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, textHeight);
+    // Vela does not paint trailing empty lines in a single multiline text.
+    // Size that text to the visible lines, while retaining the full document
+    // height so the caret can still enter trailing empty lines.
+    let renderedLineCount = document.lines.length;
+    while (renderedLineCount > 1 && document.lines[renderedLineCount - 1].text === '') {
+      renderedLineCount -= 1;
+    }
+    const codeHeight = Math.max(CODE_VIEWPORT_HEIGHT, document.lines.length * position.height);
+    const textHeight = renderedLineCount * position.height;
     if (this.cursorHeight !== position.height) this.cursorHeight = position.height;
     if (this.codeTextHeight !== textHeight) this.codeTextHeight = textHeight;
     if (this.codeHeight !== codeHeight) this.codeHeight = codeHeight;
@@ -637,19 +650,20 @@ export default {
     const position = editorScrollPositions.get(this);
     if (!position) return null;
     const visibleHeight = KEYBOARD_TOP - CODE_TOP_SPACER_HEIGHT;
-    let left = null;
-    let top = null;
+    const maxLeft = Math.max(0, this.codeWidth + CODE_HORIZONTAL_PADDING - CODE_SCROLL_WIDTH);
+    const maxTop = Math.max(0, CODE_TOP_SPACER_HEIGHT + this.codeHeight +
+      KEYBOARD_BOTTOM_SPACER_HEIGHT - CODE_SCROLL_HEIGHT);
+    let left = position.left;
+    let top = position.top;
     if (this.cursorX < position.left + 8) left = Math.max(0, this.cursorX - 16);
     else if (this.cursorX > position.left + CARET_VISIBLE_WIDTH) left = Math.max(0, this.cursorX - CARET_VISIBLE_WIDTH);
     if (this.cursorY < position.top + 8) top = Math.max(0, this.cursorY - 20);
     else if (this.cursorY + this.cursorHeight > position.top + visibleHeight - 8) top = Math.max(0, this.cursorY - 70);
-    if (left === position.left) left = null;
-    if (top === position.top) top = null;
-    if (left === null && top === null) return null;
-    const target = { behavior: 'instant' };
-    if (left !== null) target.left = left;
-    if (top !== null) target.top = top;
-    return target;
+    left = Math.min(left, maxLeft);
+    top = Math.min(top, maxTop);
+    if (left === position.left && top === position.top) return null;
+    // Always pass both axes. Some devices reset an omitted axis to zero.
+    return { left, top, behavior: 'instant' };
   },
   scheduleCursorReveal() {
     if (this.hideInputMethod || !this.pageActive || !this.editorVisible) return;
@@ -665,8 +679,8 @@ export default {
       if (!target) return;
       const position = editorScrollPositions.get(this);
       if (!position) return;
-      if (target.left !== undefined) position.left = target.left;
-      if (target.top !== undefined) position.top = target.top;
+      position.left = target.left;
+      position.top = target.top;
       scroll.scrollTo(target);
     }, 0);
   },

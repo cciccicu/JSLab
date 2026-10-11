@@ -1,7 +1,17 @@
-const { buildAiSystemPrompt } = require('./ai-prompts');
+const { buildAiSystemPrompt, buildAiUserPrompt } = require('./ai-prompts');
 const { DEFAULT_AI_MODEL } = require('./persistent-state');
 const { validScriptName } = require('./script-filename');
 const { identity: RUNTIME_CONTRACT } = require('./runtime-contract.json');
+
+function estimateTokenCount(value) {
+  const text = String(value || '');
+  const ascii = (text.match(/[\x00-\x7f]/g) || []).length;
+  const cjk = (text.match(/[\u2e80-\u9fff\uf900-\ufaff]/g) || []).length;
+  const otherBytes = Buffer.byteLength(text, 'utf8') - ascii - cjk * 3;
+  // Provider tokenizers differ. Estimate mixed code/Chinese with a 25% margin;
+  // uncommon Unicode retains its byte bound. Settlement uses reported usage.
+  return Math.ceil((ascii / 3 + cjk * 1.5 + otherBytes) * 1.25);
+}
 
 function recoverAiReservations(state) {
   const { ctx, aiReservations, entitlements } = state;
@@ -28,9 +38,7 @@ function createAiService(state) {
     cachedInput: getPositiveNumber('aiCachedInputCentsPerMillionTokens', 500, 1_000_000),
     output: getPositiveNumber('aiOutputCentsPerMillionTokens', 1000, 1_000_000)
   });
-  const estimateTokenCount = (value) => Buffer.byteLength(String(value || ''), 'utf8');
-  const tokenCost = (inputTokens, outputTokens, cachedInputTokens = 0) => {
-    const prices = getTokenPrices();
+  const tokenCost = (inputTokens, outputTokens, cachedInputTokens, prices) => {
     const cached = Math.min(inputTokens, Math.max(0, cachedInputTokens));
     const cacheMiss = inputTokens - cached;
     return Math.max(1, Math.ceil((cacheMiss * prices.input + cached * prices.cachedInput + outputTokens * prices.output) / 1_000_000));
@@ -64,14 +72,21 @@ function createAiService(state) {
     });
     return cancel();
   };
-  const settleAiReservation = (reservationId, userId, mode, model, inputTokens, outputTokens, cachedInputTokens) => {
-    const chargedCents = tokenCost(inputTokens, outputTokens, cachedInputTokens);
+  const settleAiReservation = (reservationId, userId, mode, model, inputTokens, outputTokens, cachedInputTokens, prices) => {
+    const chargedCents = tokenCost(inputTokens, outputTokens, cachedInputTokens, prices);
     const settle = ctx.db.transaction(() => {
       const reservation = ctx.db.prepare(`SELECT * FROM ${aiReservations} WHERE id=? AND user_id=? AND status='reserved'`)
         .get(reservationId, userId);
       if (!reservation) return null;
-      if (chargedCents > reservation.reserved_cents) return null;
-      const refundCents = reservation.reserved_cents - chargedCents;
+      // An estimate is not a cap. Supplement atomically without spending
+      // another in-flight request's reservation or allowing negative credit.
+      const extraCents = chargedCents - reservation.reserved_cents;
+      if (extraCents > 0) {
+        const extra = ctx.db.prepare(`UPDATE ${entitlements} SET ai_credit_cents=ai_credit_cents-?, updated_at=datetime('now')
+          WHERE user_id=? AND ai_credit_cents>=?`).run(extraCents, userId, extraCents);
+        if (!extra.changes) return null;
+      }
+      const refundCents = Math.max(0, reservation.reserved_cents - chargedCents);
       if (refundCents) ctx.db.prepare(`UPDATE ${entitlements} SET ai_credit_cents=ai_credit_cents+?, updated_at=datetime('now') WHERE user_id=?`)
         .run(refundCents, userId);
       const settled = ctx.db.prepare(`UPDATE ${aiReservations} SET status='settled', settled_at=datetime('now') WHERE id=? AND status='reserved'`)
@@ -99,12 +114,12 @@ function createAiService(state) {
     const maxTokens = getPositiveInteger('aiMaxOutputTokens', 8192, 16384);
     if (!url || !key || !model || typeof fetch !== 'function') return { error: 'ai_not_configured', status: 503 };
     if (!consume(`ai:${user.id}`, 6, 60_000)) return { error: 'rate_limited', status: 429 };
-    const userRequest = mode === 'rewrite'
-      ? `Task: Rewrite the existing ${name} according to this request: ${prompt}\n\nExisting source:\n${source}`
-      : `Task: Create a new ${name} according to this request: ${prompt}`;
-    const systemPrompt = buildAiSystemPrompt(name, body?.environment);
-    // UTF-8 bytes conservatively bound ordinary provider tokenization; reserve message overhead too.
-    const estimatedCost = tokenCost(estimateTokenCount(systemPrompt + userRequest) + 128, maxTokens);
+    const userRequest = buildAiUserPrompt({ mode, name, prompt, source });
+    const systemPrompt = buildAiSystemPrompt();
+    const prices = getTokenPrices();
+    // Include message overhead and the configured maximum output. Prices are
+    // fixed for this request even if an administrator updates them mid-flight.
+    const estimatedCost = tokenCost(estimateTokenCount(systemPrompt + userRequest) + 128, maxTokens, 0, prices);
     const reservation = reserveAiCredit(user.id, estimatedCost);
     if (!reservation) return { error: 'ai_credit_insufficient', status: 402 };
     let payload;
@@ -134,11 +149,12 @@ function createAiService(state) {
     const inputTokens = Number(payload?.usage?.prompt_tokens);
     const outputTokens = Number(payload?.usage?.completion_tokens);
     const cachedInputTokens = Number(payload?.usage?.prompt_tokens_details?.cached_tokens || 0);
-    if (!code || !validSource(name, code, mode === 'rewrite') || !validJavaScript(code) || !Number.isInteger(inputTokens) || inputTokens < 0 || !Number.isInteger(outputTokens) || outputTokens < 0 || !Number.isInteger(cachedInputTokens) || cachedInputTokens < 0 || cachedInputTokens > inputTokens) {
+    const finishReason = payload?.choices?.[0]?.finish_reason;
+    if (finishReason === 'length' || finishReason === 'content_filter' || !code || !validSource(name, code, mode === 'rewrite') || !validJavaScript(code) || !Number.isSafeInteger(inputTokens) || inputTokens < 0 || !Number.isSafeInteger(outputTokens) || outputTokens < 0 || !Number.isSafeInteger(inputTokens + outputTokens) || !Number.isSafeInteger(cachedInputTokens) || cachedInputTokens < 0 || cachedInputTokens > inputTokens) {
       cancelAiReservation(reservation.id);
       return { error: 'ai_invalid_response', status: 502 };
     }
-    const billing = settleAiReservation(reservation.id, user.id, mode, model, inputTokens, outputTokens, cachedInputTokens);
+    const billing = settleAiReservation(reservation.id, user.id, mode, model, inputTokens, outputTokens, cachedInputTokens, prices);
     if (!billing) {
       cancelAiReservation(reservation.id);
       return { error: 'ai_credit_insufficient', status: 402 };
@@ -149,4 +165,4 @@ function createAiService(state) {
   return { generateAiSource };
 }
 
-module.exports = { recoverAiReservations, createAiService };
+module.exports = { recoverAiReservations, createAiService, estimateTokenCount };

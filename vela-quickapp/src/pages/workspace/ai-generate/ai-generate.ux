@@ -35,13 +35,13 @@
 </template>
 
 <script>
-import app from '@system.app';
 import { RUNTIME_CONTRACT } from '../../../utils/runtime/runtimeContract.js';
 import { errorMessage } from '../../../utils/cloud/cloudError.js';
 import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../utils/core/networkFeedback.js';
 import { back } from '../../../utils/core/routeManager.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+import { enterNetworkPage } from '../../../utils/cloud/serverSelection.js';
 const MODE_OPTIONS = ['创作新脚本', '改写当前脚本'];
 export default {
   private: {
@@ -70,7 +70,7 @@ export default {
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     if (this.initialized) return;
     this.initialized = true;
-    this.loadEntitlement();
+    enterNetworkPage(this, () => this.loadEntitlement());
   },
   onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {
@@ -168,12 +168,9 @@ export default {
       return;
     }
     this.busy = true;
-    startNetworkFeedback(this, '正在准备 AI 请求');
-    const source = editor.before + editor.after;
-    this.getAiEnvironment().then(environment => {
-      updateNetworkFeedback(this, '正在等待 AI 结果');
-      return this.$app.$def.getCloudClients().deviceAi.generateAi(this.mode, this.prompt, source, editor.name, environment);
-    }).then(result => {
+    startNetworkFeedback(this, '正在等待 AI 结果');
+    const source = this.mode === 'rewrite' ? editor.before + editor.after : '';
+    this.$app.$def.getCloudClients().deviceAi.generateAi(this.mode, this.prompt, source, editor.name).then(result => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
       editor.before = result.code;
@@ -188,31 +185,6 @@ export default {
     }).then(() => {
       if (this.pageActive) this.busy = false;
     });
-  },
-  getAiEnvironment() {
-    let appInfo = {};
-    try {
-      appInfo = app.getInfo() || {};
-    } catch (error) {
-      appInfo = {};
-    }
-    return this.$app.$def.getCloudClients().deviceAccount.getState().then(state => ({
-      platform: 'Xiaomi Vela JavaScript quick app',
-      deviceType: 'watch',
-      screenShape: 'rect',
-      screenWidth: 336,
-      screenHeight: 480,
-      designWidth: 336,
-      minPlatformVersion: 1000,
-      appVersion: appInfo.versionName || '未知',
-      runtimeContract: RUNTIME_CONTRACT,
-      transport: state.transport,
-      fetchSupported: state.transport === 'fetch',
-      manifestPackage: 'icu.ccicc.jslab',
-      featureCount: 21,
-      locationPermissionDeclared: true,
-      deviceInfoPermissionDeclared: true
-    }));
   },
   goBack() {
     vibrate('short');

@@ -69,10 +69,11 @@
     if (!element) {
       element = document.createElement('div');
       element.id = 'cloud-confirm-modal';
-      element.className = 'modal fade';
+      element.className = 'modal fade jslab-cloud-modal';
       element.tabIndex = -1;
       element.setAttribute('aria-hidden', 'true');
-      element.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5">确认操作</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div><div class="modal-body"><p class="mb-0" data-cloud-confirm-message></p></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-danger" data-cloud-confirm-accept>确认</button></div></div></div>';
+      element.innerHTML = '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="cloud-confirm-title">确认操作</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div><div class="modal-body"><p class="mb-0" data-cloud-confirm-message></p></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-danger" data-cloud-confirm-accept>确认</button></div></div></div>';
+      element.setAttribute('aria-labelledby', 'cloud-confirm-title');
       document.body.appendChild(element);
     }
     element.querySelector('[data-cloud-confirm-message]').textContent = message;
@@ -227,6 +228,14 @@
         editorForm.querySelector('[data-cloud-delete]').classList.remove('d-none');
       }
       window.bootstrap.Modal.getOrCreateInstance(editorModal).show();
+    }
+    var newPublishButton = event.target.closest('[data-cloud-publish-new]');
+    if (newPublishButton) {
+      var newPublishForm = document.querySelector('[data-cloud-publish-form]');
+      if (newPublishForm) {
+        newPublishForm.reset();
+        newPublishForm.dataset.marketId = '';
+      }
     }
     var publishButton = event.target.closest('[data-cloud-publish]');
     if (publishButton) {

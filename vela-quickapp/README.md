@@ -55,5 +55,7 @@ npm run release
 
 AstroBox 版本可单独运行 `npm run release:astrobox` 构建，安装包保存在 `release-archive/JSLab-AstroBox-<版本号>.rpk`。该构建只在临时源码副本中启用版本标记，不会改动完整版本源码或清空现有 `dist/`。在 AstroBox 版本中，点击云空间、云上传或 AI 生成入口会看到限制说明；本地脚本和 JS 市场继续可用，云账户配对仍可用于市场发布。
 
+社区版可运行 `npm run release:community` 单独构建，生成 `release-archive/JSLab-Community-<版本号>.rpk`。安装包显示名称为“JSLab社区版”，包名保持 `icu.ccicc.jslab`。首次进入联网页面时选择官方或第三方 JSLab Cloud 服务器；社区版的默认服务器地址为空，未选择前不会发起云请求。云账户页可更换服务器，更换后需在新服务器重新配对。
+
 公共模块职责与限制见 [模块说明](src/utils/README.md)，UI 优化原则与本地验证见
 [UI 性能建议](docs/ui-performance.md)。

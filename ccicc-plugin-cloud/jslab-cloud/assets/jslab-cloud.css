@@ -1,9 +1,37 @@
 .jslab-cloud-page {
   --jslab-cloud-gap: var(--ui-content-gap, var(--app-space-6));
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.jslab-cloud-modal,
+.jslab-cloud-admin {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.jslab-cloud-page :where(.card, .card-body, .table-responsive, .plugin-page-header > div, .plugin-actions, .plugin-actions > form),
+.jslab-cloud-admin :where(.card, .card-body, .table-responsive, form),
+.jslab-cloud-modal :where(.modal-dialog, .modal-content, .modal-body, .table-responsive, form) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.jslab-cloud-modal .plugin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
 }
 
 .jslab-cloud-page .plugin-page-header {
   align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.jslab-cloud-page .plugin-page-header > div:first-child {
+  flex: 1 1 24rem;
 }
 
 .jslab-cloud-page .plugin-actions {
@@ -95,6 +123,7 @@
 
 .jslab-cloud-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--jslab-cloud-gap);
@@ -103,6 +132,7 @@
 
 .jslab-cloud-search {
   display: flex;
+  min-width: 0;
   flex: 1 1 32rem;
   gap: var(--app-space-2);
   max-width: 42rem;
@@ -193,16 +223,13 @@
   font-size: var(--app-font-size-sm);
 }
 
-.jslab-cloud-modal .modal-body .table {
-  min-width: 32rem;
-}
-
 .jslab-cloud-page [aria-busy="true"] {
   opacity: 0.65;
 }
 
 .jslab-cloud-inline-form {
   display: flex;
+  min-width: 0;
   gap: var(--app-space-2);
 }
 
@@ -210,6 +237,15 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--app-space-2);
+}
+
+:is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) :is(.jslab-cloud-inline-form, .jslab-cloud-pair-form) .form-control {
+  min-width: 0;
+}
+
+:is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) :is(.jslab-cloud-inline-form, .jslab-cloud-pair-form) .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .jslab-cloud-market-grid {
@@ -319,6 +355,7 @@
 
 .jslab-cloud-admin-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: var(--app-space-2);
 }
 
@@ -329,6 +366,11 @@
 
 .jslab-cloud-table-card .table {
   min-width: 48rem;
+}
+
+:is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table {
+  width: 100%;
+  table-layout: fixed;
 }
 
 .jslab-cloud-table-card th {
@@ -391,6 +433,7 @@
 
 .jslab-cloud-source-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--app-space-3);
@@ -453,7 +496,17 @@
   }
 }
 
-@media (max-width: 640px) {
+/* Match the host's mobile shell, including phones in landscape. */
+@media (max-width: 860px) {
+  .jslab-cloud-page .plugin-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .jslab-cloud-page .plugin-page-header > div:first-child {
+    flex-basis: auto;
+  }
+
   .jslab-cloud-toolbar,
   .jslab-cloud-search,
   .jslab-cloud-inline-form,
@@ -464,6 +517,7 @@
 
   .jslab-cloud-market-item .card-body {
     grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .jslab-cloud-market-actions {
@@ -479,25 +533,49 @@
     width: 100%;
   }
 
+  .jslab-cloud-search {
+    flex: 0 1 auto;
+    width: 100%;
+    max-width: none;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) :is(.btn, .form-control, .form-select) {
+    min-height: 44px;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) :is(.form-control, .form-select) {
+    font-size: max(16px, var(--app-font-size-base));
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .btn {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .jslab-cloud-modal .modal-header .btn-close {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+  }
+
   .jslab-cloud-pair-form {
     display: flex;
   }
 
-  .jslab-cloud-page .plugin-actions {
+  :is(.jslab-cloud-page, .jslab-cloud-modal) .plugin-actions {
     width: 100%;
   }
 
-  .jslab-cloud-page .plugin-actions .btn {
-    flex: 1 1 auto;
+  :is(.jslab-cloud-page, .jslab-cloud-modal) .plugin-actions > :is(.btn, form) {
+    flex: 1 1 8rem;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal) .plugin-actions > form > .btn {
+    width: 100%;
   }
 
   .jslab-cloud-market-grid {
     grid-template-columns: 1fr;
-  }
-
-  .jslab-cloud-market-item .card-body {
-    grid-template-columns: 1fr;
-    align-items: stretch;
   }
 
   .jslab-cloud-market-item .plugin-actions {
@@ -508,30 +586,75 @@
     grid-template-columns: 1fr;
   }
 
+  .jslab-cloud-admin-actions {
+    display: flex;
+    width: 100%;
+  }
+
+  .jslab-cloud-admin-actions .btn {
+    flex: 1 1 8rem;
+  }
+
   .jslab-cloud-code {
     min-height: 22rem;
   }
 
-  .jslab-cloud-table-card .jslab-cloud-files-table {
+  /* Keep all metadata and actions readable without scrolling the whole page. */
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table {
+    display: block;
     min-width: 0;
+    width: 100%;
+    margin-bottom: 0;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table :is(tbody, tr) {
+    display: block;
     width: 100%;
   }
 
-  .jslab-cloud-files-table .jslab-cloud-updated-column,
-  .jslab-cloud-files-table td:nth-child(2) {
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table tbody tr {
+    padding: var(--app-space-4);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table td {
+    display: block;
+    width: 100%;
+    padding: var(--app-space-1) 0;
+    border: 0;
+    box-shadow: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table td[data-label]::before {
+    content: attr(data-label) "：";
+    color: var(--app-text-muted);
+    font-size: var(--app-font-size-sm);
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table td.jslab-cloud-record-actions {
+    padding-top: var(--app-space-3);
+    text-align: start !important;
+  }
+
+  :is(.jslab-cloud-page, .jslab-cloud-modal, .jslab-cloud-admin) .jslab-cloud-record-table td.jslab-cloud-record-actions:empty {
     display: none;
   }
 
-  .jslab-cloud-files-table td:last-child {
-    width: 1%;
-    white-space: nowrap;
-  }
-
-  .jslab-cloud-files-table .plugin-actions {
-    width: auto;
-  }
-
-  .jslab-cloud-files-table .plugin-actions .btn {
-    flex: 0 0 auto;
+  .jslab-cloud-page .jslab-cloud-files-table .plugin-actions {
+    justify-content: flex-start !important;
   }
 }

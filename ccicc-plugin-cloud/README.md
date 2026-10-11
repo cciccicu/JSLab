@@ -16,7 +16,7 @@ JS 市场、账户激活、充值和服务端 AI 代码生成。manifest ID 为 
 - 手环发起一次性配对，网页可输入配对码或扫描手环二维码确认；
 - 支持云空间激活、AI 激活、充值、余额和按 Token 计费；
 - 代码生成和审核使用独立的 API、模型和价格配置；
-- AI 提示词注入完整的 JSLab/Vela API、统一运行契约和设备运行信息；
+- AI 使用固定的 JSLab/Vela API 参考，说明参数、返回值与运行规则；请求只传需求、文件名和改写所需源码，另保留运行契约校验，不采集设备环境信息；
 - 内置公开使用文档，提供内容搜索、文章目录和 API 类型声明下载。
 
 ## 打包与地址
@@ -26,7 +26,7 @@ JS 市场、账户激活、充值和服务端 AI 代码生成。manifest ID 为 
 ```powershell
 npm install
 npm test
-npm run pack -- .\ ..\dist\jslab-cloud-2.0.1.zip
+npm run pack -- .\ ..\dist\jslab-cloud-2.0.2.zip
 ```
 
 ## 使用文档
@@ -106,7 +106,7 @@ JS 市场浏览和下载公开，无需登录或激活；发布、编辑和管�
 
 ## 统一运行契约与迁移
 
-快应用为 2.0.0，云插件为 2.0.1，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
+快应用为 2.0.2，云插件为 2.0.2，使用独立 `runtimeContract: 'jslab-unified-open-ui'` 协调 AI。
 额度响应公布契约，客户端收费请求前检查；服务端在预留余额/模型调用前拒绝不匹配请求；结果携带契约，客户端检查后才写入编辑器。fetch 与 cloudProxy 使用同一结构。
 云文件/市场/待审副本不再保存 type/pending_type，网页不要求 marketType。install 与 boot 共用幂等持久化初始化；升级只执行 boot 也会补建缺失辅助表、更新配置元数据并迁移（已有配置值保留）。boot 中事务执行可重复 SQLite DROP COLUMN（SQLite≥3.35），保留记录/索引/自增/源码/hash/checksum/时间，不自动改名或重新计算源数据。
 审核记录新增可空 content_hash，关联被审核的名称、说明、标签和源码哈希；旧记录保留，无法确认所属内容的旧结论不在当前审核中展示。异步审核返回后再次核对快照，避免把旧结论应用到新提交或已撤回内容。

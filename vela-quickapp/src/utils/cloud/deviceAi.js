@@ -4,9 +4,9 @@ import { request } from './cloudTransport.js';
 
 const AI_TIMEOUT_MS = 330 * 1000;
 
-function generateAi(mode, prompt, source, name, environment) {
-  const body = { runtimeContract: RUNTIME_CONTRACT, mode: mode === 'rewrite' ? 'rewrite' : 'create', prompt: String(prompt || ''), source: String(source || ''), name: String(name || '') };
-  if (environment && typeof environment === 'object') body.environment = environment;
+function generateAi(mode, prompt, source, name) {
+  const body = { runtimeContract: RUNTIME_CONTRACT, mode: mode === 'rewrite' ? 'rewrite' : 'create', prompt: String(prompt || ''), name: String(name || '') };
+  if (body.mode === 'rewrite') body.source = String(source || '');
   return deviceAccount.getEntitlements().then(capabilities => {
     if (capabilities.runtimeContract !== RUNTIME_CONTRACT) throw new Error('设备与云端运行契约不一致，请同步更新应用和云插件');
     return request('/api/cloud/device/ai/generate', { method: 'POST', body, timeoutMs: AI_TIMEOUT_MS });

@@ -37,6 +37,7 @@ import { normalizeMarketSaveName, suggestMarketFilename } from '../../../utils/c
 import { startNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../utils/core/networkFeedback.js';
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+import { enterNetworkPage } from '../../../utils/cloud/serverSelection.js';
 const PAGE_SIZE = 10;
 export default {
   private: {
@@ -60,7 +61,7 @@ export default {
     startPageClock(this);
     setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
-    if (!this.initialized) { this.initialized = true; this.load(); return; }
+    if (!this.initialized) { this.initialized = true; enterNetworkPage(this, () => this.load()); return; }
     if (this.$app.$def.marketRefreshNeeded) {
       this.$app.$def.marketRefreshNeeded = false;
       this.load();

@@ -54,6 +54,7 @@ import { startNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } 
 import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
 import { formatError } from '../../../../utils/core/userError.js';
+import { enterNetworkPage } from '../../../../utils/cloud/serverSelection.js';
 
 export default {
   private: {
@@ -69,7 +70,7 @@ export default {
     startPageClock(this);
     setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
-    if (!this.initialized) { this.initialized = true; this.load(); }
+    if (!this.initialized) { this.initialized = true; enterNetworkPage(this, () => this.load()); }
   },
   onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
   onDestroy() {
