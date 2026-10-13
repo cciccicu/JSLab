@@ -55,24 +55,40 @@ import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
 import { formatError } from '../../../../utils/core/userError.js';
 import { enterNetworkPage } from '../../../../utils/cloud/serverSelection.js';
-
 export default {
   private: {
-    stage: 'choose', files: [], loading: false, initialized: false,
-    busy: false, statusText: '正在读取本地脚本...',
+    stage: 'choose',
+    files: [],
+    loading: false,
+    initialized: false,
+    busy: false,
+    statusText: '正在读取本地脚本...',
     networkStatus: '',
     networkStage: '',
-    selectedName: '', marketName: '', description: '', tags: '', submissionText: '',
-    nowTime: '00:00', pageActive: true
+    selectedName: '',
+    marketName: '',
+    description: '',
+    tags: '',
+    submissionText: '',
+    nowTime: '00:00',
+    pageActive: true
   },
-  onInit() { this.nowTime = getCurrentClock(); },
+  onInit() {
+    this.nowTime = getCurrentClock();
+  },
   onShow() {
     startPageClock(this);
     setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
-    if (!this.initialized) { this.initialized = true; enterNetworkPage(this, () => this.load()); }
+    if (!this.initialized) {
+      this.initialized = true;
+      enterNetworkPage(this, () => this.load());
+    }
   },
-  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
+  onHide() {
+    stopPageClock(this);
+    setNetworkFeedbackVisible(this, false);
+  },
   onDestroy() {
     stopPageClock(this);
     stopNetworkFeedback(this);
@@ -89,11 +105,19 @@ export default {
       this.statusText = files.length ? '' : '本地脚本库为空';
     }).catch(error => {
       if (this.pageActive) this.statusText = formatError(error, '读取本地脚本库');
-    }).then(() => { if (this.pageActive) { this.loading = false; stopNetworkFeedback(this); } });
+    }).then(() => {
+      if (this.pageActive) {
+        this.loading = false;
+        stopNetworkFeedback(this);
+      }
+    });
   },
   selectScript(index) {
     if (this.loading || this.busy || !this.files[index]) return;
-    if (this.files[index].size > 48 * 1024) { showToast('脚本超过市场的 48 KiB 上限'); return; }
+    if (this.files[index].size > 48 * 1024) {
+      showToast('脚本超过市场的 48 KiB 上限');
+      return;
+    }
     vibrate('short');
     this.selectedName = this.files[index].name;
     this.marketName = this.selectedName.replace(/\.js$/i, '').slice(0, 124);
@@ -105,39 +129,74 @@ export default {
   editField(field) {
     if (this.busy || this.stage !== 'details') return;
     const settings = {
-      marketName: { title: '市场名称', message: '填写公开显示的名称', maxLength: 124, required: true },
-      description: { title: '用途说明', message: '说明用途和使用方法', maxLength: 1000, required: true },
-      tags: { title: '标签', message: '用逗号分隔，最多 12 个，每个 40 字', maxLength: 500, required: false }
+      marketName: {
+        title: '市场名称',
+        message: '填写公开显示的名称',
+        maxLength: 124,
+        required: true
+      },
+      description: {
+        title: '用途说明',
+        message: '说明用途和使用方法',
+        maxLength: 1000,
+        required: true
+      },
+      tags: {
+        title: '标签',
+        message: '用逗号分隔，最多 12 个，每个 40 字',
+        maxLength: 500,
+        required: false
+      }
     }[field];
     if (!settings) return;
     vibrate('short');
-    this.$app.$def.openDialog('text', Object.assign({}, settings, { value: this[field], language: 'cn' }), this).then(result => {
+    this.$app.$def.openDialog('text', Object.assign({}, settings, {
+      value: this[field],
+      language: 'cn'
+    }), this).then(result => {
       if (this.pageActive && result.action === 'confirm') {
         this[field] = result.value;
         this.submissionText = '';
       }
-    }).catch(error => { if (this.pageActive) showToast(error.message || '无法打开输入页'); });
+    }).catch(error => {
+      if (this.pageActive) showToast(error.message || '无法打开输入页');
+    });
   },
   submit() {
     if (this.busy || this.stage !== 'details') return;
     const name = this.marketName.trim();
     const description = this.description.trim();
     const tags = this.tags.split(',').map(tag => tag.trim()).filter(Boolean);
-    if (!name) { showToast('请填写市场名称'); return; }
-    if (!description) { showToast('请填写用途说明'); return; }
+    if (!name) {
+      showToast('请填写市场名称');
+      return;
+    }
+    if (!description) {
+      showToast('请填写用途说明');
+      return;
+    }
     if (tags.length > 12 || tags.some(tag => tag.length > 40)) {
-      showToast('最多 12 个标签，每个不超过 40 字'); return;
+      showToast('最多 12 个标签，每个不超过 40 字');
+      return;
     }
     this.busy = true;
     this.$app.$def.openDialog('confirm', {
       title: '提交审核？',
       message: '将 ' + this.selectedName + ' 的当前源码提交为“' + name + '”。审核通过后才会公开。',
-      confirmText: '提交', cancelText: '返回'
+      confirmText: '提交',
+      cancelText: '返回'
     }, this).then(result => {
       if (!this.pageActive) return null;
-      if (result.action !== 'confirm') { this.busy = false; return null; }
+      if (result.action !== 'confirm') {
+        this.busy = false;
+        return null;
+      }
       startNetworkFeedback(this, '正在提交市场审核');
-      return this.$app.$def.getCloudClients().marketClient.submitMarketScript(this.selectedName, { name, description, tags: tags.join(', ') });
+      return this.$app.$def.getCloudClients().marketClient.submitMarketScript(this.selectedName, {
+        name,
+        description,
+        tags: tags.join(', ')
+      });
     }).then(result => {
       if (!this.pageActive || !result) return;
       stopNetworkFeedback(this);
@@ -158,39 +217,204 @@ export default {
     });
   },
   goBack() {
-    if (this.busy) { showToast('正在提交，请稍候'); return; }
+    if (this.busy) {
+      showToast('正在提交，请稍候');
+      return;
+    }
     vibrate('short');
-    if (this.stage === 'details') { this.stage = 'choose'; return; }
+    if (this.stage === 'details') {
+      this.stage = 'choose';
+      return;
+    }
     back();
   },
-  onBackPress() { this.goBack(); return true; },
-  loadingTap() { return false; }
+  onBackPress() {
+    this.goBack();
+    return true;
+  },
+  loadingTap() {
+    return false;
+  }
 };
 </script>
 
 <style>
 @import "../../../../common/styles/network-loading.css";
-.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
-.file-list { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; }
-.file-item { width:324px; height:96px; padding:12px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; }
-.file-name { width:284px; color:#ffffff; font-size:28px; line-height:38px; font-weight:bold; lines:1; text-overflow:ellipsis; }
-.file-hint { width:284px; color:#999999; font-size:19px; line-height:28px; }
-.details { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
-.source-card,.field-card,.note-card { width:324px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
-.source-card,.field-card { height:112px; }
-.field-tall { height:142px; }
-.field-label { width:284px; color:#999999; font-size:19px; line-height:28px; flex-shrink:0; }
-.field-value { width:284px; color:#ffffff; font-size:27px; line-height:36px; font-weight:bold; lines:1; text-overflow:ellipsis; flex-shrink:0; }
-.field-description { font-size:23px; line-height:31px; lines:2; }
-.note-card { padding:18px 20px; }
-.note-text { width:284px; color:#b8b8b8; font-size:20px; line-height:28px; flex-shrink:0; }
-.status-card { position:absolute; left:6px; top:84px; width:324px; padding:20px; border-radius:36px; background-color:#262626; }
-.status-text { width:284px; color:#ffffff; font-size:23px; line-height:32px; }
-.header { position:absolute; left:0px; top:0px; width:336px; height:84px; }
-.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; color:#999999; font-size:24px; font-weight:bold; text-align:center; }
-.heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; color:#ffffff; font-size:32px; font-weight:bold; text-align:center; }
-.btn { position:absolute; top:6px; width:72px; height:72px; }
-.back { left:6px; }
-.confirm { left:258px; }
-.disabled-icon { background-color:#303030; border-radius:36px; }
+
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.file-list {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 480px;
+  padding: 84px 6px 24px;
+}
+
+.file-item {
+  width: 324px;
+  height: 96px;
+  padding: 12px 20px;
+  margin-bottom: 8px;
+  background-color: #262626;
+  border-radius: 36px;
+  flex-direction: column;
+}
+
+.file-name {
+  width: 284px;
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 38px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.file-hint {
+  width: 284px;
+  color: #999999;
+  font-size: 19px;
+  line-height: 28px;
+}
+
+.details {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 480px;
+  padding: 84px 6px 24px;
+  flex-direction: column;
+}
+
+.source-card, .field-card, .note-card {
+  width: 324px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.source-card, .field-card {
+  height: 112px;
+}
+
+.field-tall {
+  height: 142px;
+}
+
+.field-label {
+  width: 284px;
+  color: #999999;
+  font-size: 19px;
+  line-height: 28px;
+  flex-shrink: 0;
+}
+
+.field-value {
+  width: 284px;
+  color: #ffffff;
+  font-size: 27px;
+  line-height: 36px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.field-description {
+  font-size: 23px;
+  line-height: 31px;
+  lines: 2;
+}
+
+.note-card {
+  padding: 18px 20px;
+}
+
+.note-text {
+  width: 284px;
+  color: #b8b8b8;
+  font-size: 20px;
+  line-height: 28px;
+  flex-shrink: 0;
+}
+
+.status-card {
+  position: absolute;
+  left: 6px;
+  top: 84px;
+  width: 324px;
+  padding: 20px;
+  border-radius: 36px;
+  background-color: #262626;
+}
+
+.status-text {
+  width: 284px;
+  color: #ffffff;
+  font-size: 23px;
+  line-height: 32px;
+}
+
+.header {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 84px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  color: #999999;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.heading {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.btn {
+  position: absolute;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.back {
+  left: 6px;
+}
+
+.confirm {
+  left: 258px;
+}
+
+.disabled-icon {
+  background-color: #303030;
+  border-radius: 36px;
+}
 </style>

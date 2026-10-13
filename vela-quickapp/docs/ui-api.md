@@ -137,5 +137,5 @@ ASCII 文本可能多留空白；精确面板推荐 `lines: 1` 或显式多行�
 
 运行契约见 [统一脚本 API](runtime-api.md)，[类型声明](runtime-api.d.ts)与 `ui-api.d.ts` 均无设备运行开销。
 `npm run check:contract` 校验源码、路由、公开方法和性能建议契约；`npm run lint` 与 `npm run release` 验证构建。
-历史性能测试保留在 tests/diagnostics，不能代表手环绘制完成、交互延迟或原生内存。
+历史性能实验已移除；当前回归测试使用 `npm run test:runtime`，桌面验证不能代表手环绘制完成、交互延迟或原生内存。
 本轮使用 [集中实机验收脚本](../diagnostics/unified-runner-check.js) 验证切换、重载与对话框。

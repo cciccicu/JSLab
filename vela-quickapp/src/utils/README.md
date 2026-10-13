@@ -20,7 +20,7 @@
 | `cloud/cloudError.js` | 云服务错误分类与用户提示；页面只需错误文案时不载入传输、配置和文件模块 |
 | `cloud/deviceAccount.js` | 手环设备配对、令牌、账户状态和权益；只调用设备账户接口 |
 | `cloud/deviceAi.js` | 手环 AI 生成请求与运行契约、返回代码校验 |
-| `cloud/marketClient.js` | 市场浏览、下载和发布；本地脚本由文件模块读写，公开读取使用设备市场接口 |
+| `cloud/marketClient.js` | 市场浏览、自己的发布、源码查看、下载、举报和发布；本地脚本由文件模块读写，使用设备市场接口，不注入用户脚本运行环境 |
 | `cloud/marketFilename.js` | 市场脚本另存为的默认文件名生成与本地文件名校验 |
 | `cloud/cloudFilesClient.js` | 手环云空间文件列表、上传、下载和删除；只调用设备文件接口 |
 | `cloud/cloudResponse.js` | 市场与云文件共用的列表格式和源码校验 |

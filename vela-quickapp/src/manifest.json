@@ -132,6 +132,10 @@
         "component": "upload",
         "path": "/tools/market/upload"
       },
+      "pages/tools/market/view": {
+        "component": "view",
+        "path": "/tools/market/view"
+      },
       "pages/tools/money": {
         "component": "money",
         "path": "/tools/money"

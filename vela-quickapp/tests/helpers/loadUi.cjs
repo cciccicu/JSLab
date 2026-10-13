@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '../..');
 function moduleUrl(source) { return 'data:text/javascript;base64,' + Buffer.from(source).toString('base64'); }
-async function loadUi() {
-  const layoutUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/runtime/uiLayout.js'), 'utf8'));
+async function loadUi(layoutSource) {
+  const layoutUrl = moduleUrl(layoutSource || fs.readFileSync(path.join(root, 'src/utils/runtime/uiLayout.js'), 'utf8'));
   const runtime = fs.readFileSync(path.join(root, 'src/utils/runtime/uiRuntime.js'), 'utf8').replace("'./uiLayout.js'", JSON.stringify(layoutUrl));
   const publisher = fs.readFileSync(path.join(root, 'src/utils/runtime/uiPublisher.js'), 'utf8');
   return { ...await import(layoutUrl), ...await import(moduleUrl(runtime)), ...await import(moduleUrl(publisher)) };

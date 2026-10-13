@@ -24,18 +24,17 @@ uiLayout 编译布局并缓存静态描述，uiPublisher 保留稳定拓扑中�
 在 vela-quickapp 目录执行：
 
 ```powershell
-npm run test:ui
-npm run bench:ui:final
+npm run test:runtime
 ```
 
 测试覆盖节点增删重排、稳定身份、失败回滚、回调更新、样式等价、脚本数据与游戏逐帧结果。
-bench:ui:final 使用 tests/fixtures/uiLayout-v5.js 作为冻结基线，比较纯 JS 构造、编译与发布开销。
-历史基准入口 bench:ui、bench:ui:optimized 保留供复现，不是当前设备的性能承诺。
+旧性能实验和桌面 benchmark 已移除。兼容性对照需要的 v5 编译器和旧 2048
+脚本保留在 `tests/fixtures/`，由当前回归测试直接使用，不再依赖独立诊断项目。
 
 ## 设备诊断
 
-[UI 性能诊断项目](../diagnostics/ui-performance-app/README.md) 比较动态字符串与对象样式绑定；
 [运行器验收脚本](../diagnostics/unified-runner-check.js) 检查切换、重载与对话框。
+旧 UI 性能诊断实验源码已移除，本地历史安装包及签名材料保留；这些历史测量不代表当前版本。
 设备连接与部署需要用户明确授权。
 
 Node 基准不包含 Vela 原生绘制、交互延迟或设备内存。诊断的微任务和 timer 边界也不代表

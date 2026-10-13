@@ -136,12 +136,12 @@ export default {
         if (files.some(fileInfo => fileInfo.name === fileName)) {
           throw new Error('文件已存在，不会覆盖');
         }
-        return this.$app.$def.getScriptManager().write(fileName, templateContent);
+        return this.$app.$def.getScriptManager().write(fileName, templateContent, { fallbackToSpace: true });
       })
-      .then(() => {
+      .then((writtenContent) => {
         if (!this.pageActive) return;
         showToast(`文件 ${fileName} 创建成功`);
-        this.$app.$def.openEditor(fileName, templateContent);
+        this.$app.$def.openEditor(fileName, writtenContent);
         replace('editor');
       })
       .catch(error => {

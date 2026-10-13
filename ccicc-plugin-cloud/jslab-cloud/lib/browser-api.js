@@ -44,10 +44,10 @@ function registerBrowserApi(state, services) {
   ctx.routes.frontend.delete('/api/cloud/scripts/:id', ctx.users.requireAuth, ctx.security.csrfProtection, deleteScript);
   ctx.routes.frontend.get('/api/cloud/devices', ctx.users.requireAuth, (req, res) => { const user = currentUser(req); const rows = ctx.db.prepare(`SELECT id,name,last_used_at,created_at,revoked_at FROM ${devices} WHERE user_id=? ORDER BY id DESC`).all(user.id); json(res, 200, { devices: rows }); });
   ctx.routes.frontend.post('/api/cloud/devices/:id/revoke', ctx.users.requireAuth, ctx.security.csrfProtection, (req, res) => { const user = currentUser(req); const result = ctx.db.prepare(`UPDATE ${devices} SET revoked_at=datetime('now') WHERE id=? AND user_id=? AND revoked_at IS NULL`).run(Number(req.params.id), user.id); if (!result.changes) return json(res, 404, { error: 'not_found' }); log(user.id, 'device.revoke', String(req.params.id)); json(res, 200, { id: Number(req.params.id) }); });
-  ctx.routes.frontend.get('/api/cloud/market', market.listMarket);
-  ctx.routes.frontend.get('/api/cloud/market/:id/source', market.getMarketSource);
+  ctx.routes.frontend.get('/api/cloud/market', (req, res) => market.listMarket(req, res));
+  ctx.routes.frontend.get('/api/cloud/market/:id/source', (req, res) => market.getMarketSource(req, res));
   ctx.routes.frontend.post('/api/cloud/market/:id/report', ctx.users.requireAuth,
-    ctx.security.csrfProtection, market.reportMarket);
+    ctx.security.csrfProtection, (req, res) => market.reportMarket(req, res));
   ctx.routes.frontend.post('/api/cloud/market/submit', ctx.users.requireAuth,
     ctx.security.csrfProtection, (req, res) => market.submitMarket(req, res, currentUser(req), true));
 }

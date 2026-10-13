@@ -1,19 +1,32 @@
 <template>
   <div class="page">
     <scroll class="scroll" scroll-y="true">
-      <div if="{{statusText}}" class="status"><text class="status-text">{{statusText}}</text></div>
-      <div for="{{script in visibleScripts}}" tid="id" class="script {{busy ? 'disabled-item' : ''}}" @click="saveAs(script)">
+      <div if="{{statusText}}" class="status">
+
+        <text class="status-text">{{statusText}}</text>
+
+      </div>
+      <div for="{{(index, script) in visibleScripts}}" tid="id" class="script {{selectedScriptIndex === index ? 'script-selected' : ''}} {{busy ? 'disabled-item' : ''}}" @click="selectScript(index)">
         <text class="name {{busy ? 'disabled-text' : ''}}">{{script.name}}</text>
         <text class="description {{busy ? 'disabled-text' : ''}}">{{script.description || '没有说明'}}</text>
         <text class="author {{busy ? 'disabled-text' : ''}}">作者：{{script.authorName || '未知'}}</text>
-        <text class="meta {{busy ? 'disabled-text' : ''}}">点击另存到本地</text>
+        <text class="meta {{busy ? 'disabled-text' : ''}}">{{mine ? script.statusText : '点击选择后操作'}}</text>
       </div>
       <div if="{{shownCount < scripts.length}}" class="item load-more" @click="loadMore">
         <text class="load-more-text">显示更多（{{shownCount}}/{{scripts.length}}）</text>
       </div>
     </scroll>
     <div class="toolbar">
-      <div class="search" @click="search"><text class="search-text">{{query || '搜索 JS 市场'}}</text></div>
+      <div class="search" @click="search">
+
+        <text class="search-text">{{query || '搜索 JS 市场'}}</text>
+
+      </div>
+      <div class="mode" @click="toggleMode">
+
+        <text class="mode-text">{{mine ? '我的发布' : '市场脚本'}}</text>
+
+      </div>
       <img src="/common/images/rerun.png" class="refresh-action {{loading || busy ? 'disabled-icon' : ''}}" @click="load" />
     </div>
     <img static src="/common/images/hd.png" class="header" />
@@ -21,6 +34,9 @@
     <text class="heading">JS 市场</text>
     <img static src="/common/images/back.png" class="back" @click="goBack" />
     <img src="/common/images/upload.png" class="upload {{loading || busy ? 'disabled-icon' : ''}}" @click="upload" />
+    <img if="{{selectedScriptIndex !== -1}}" src="/common/images/more.png" class="action action-view" @click="viewSelected" />
+    <img if="{{selectedScriptIndex !== -1}}" src="/common/images/download.png" class="action action-download" @click="downloadSelected" />
+    <img if="{{selectedScriptIndex !== -1 && !mine}}" src="/common/images/info.png" class="action action-report" @click="reportSelected" />
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
       <div class="network-dialog">
         <text class="network-dialog-title">{{networkStatus}}</text>
@@ -51,6 +67,8 @@ export default {
     initialized: false,
     statusText: '正在加载...',
     query: '',
+    mine: false,
+    selectedScriptIndex: -1,
     nowTime: '00:00',
     pageActive: true
   },
@@ -61,13 +79,20 @@ export default {
     startPageClock(this);
     setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
-    if (!this.initialized) { this.initialized = true; enterNetworkPage(this, () => this.load()); return; }
+    if (!this.initialized) {
+      this.initialized = true;
+      enterNetworkPage(this, () => this.load());
+      return;
+    }
     if (this.$app.$def.marketRefreshNeeded) {
       this.$app.$def.marketRefreshNeeded = false;
       this.load();
     }
   },
-  onHide() { stopPageClock(this); setNetworkFeedbackVisible(this, false); },
+  onHide() {
+    stopPageClock(this);
+    setNetworkFeedbackVisible(this, false);
+  },
   onDestroy() {
     stopPageClock(this);
     stopNetworkFeedback(this);
@@ -81,6 +106,7 @@ export default {
     this.scripts = [];
     this.visibleScripts = [];
     this.shownCount = 0;
+    this.selectedScriptIndex = -1;
   },
   load() {
     if (this.loading || this.busy) return;
@@ -88,25 +114,41 @@ export default {
     this.clearResults();
     this.statusText = '正在加载...';
     startNetworkFeedback(this, '正在读取 JS 市场');
-    this.$app.$def.getCloudClients().marketClient.listMarketScripts(this.query).then(scripts => {
+    this.$app.$def.getCloudClients().marketClient.listMarketScripts(this.query, this.mine).then(scripts => {
       if (!this.pageActive) return;
-      this.scripts = Array.isArray(scripts) ? scripts : [];
+      this.scripts = Array.isArray(scripts) ? scripts.map(script => Object.assign({}, script, {
+        statusText: {
+          pending: '待审核',
+          published: '已发布',
+          rejected: '已拒绝',
+          draft: '草稿'
+        }[script.status] || '状态未知'
+      })) : [];
       this.shownCount = Math.min(PAGE_SIZE, this.scripts.length);
       this.visibleScripts = this.scripts.slice(0, this.shownCount);
-      this.statusText = this.scripts.length === 0 ? '暂无可用脚本' : '';
+      this.statusText = this.scripts.length === 0 ? this.mine ? '暂无自己的发布' : '暂无可用脚本' : '';
     }).catch(error => {
       if (!this.pageActive) return;
       console.error('Failed to load JS market:', error);
       this.clearResults();
       this.statusText = errorMessage(error, '读取 JS 市场') + '，点刷新按钮重试';
     }).then(() => {
-      if (this.pageActive) { this.loading = false; stopNetworkFeedback(this); }
+      if (this.pageActive) {
+        this.loading = false;
+        stopNetworkFeedback(this);
+      }
     });
   },
   loadMore() {
     if (this.loading || this.busy) return;
     this.shownCount = Math.min(this.shownCount + PAGE_SIZE, this.scripts.length);
     this.visibleScripts = this.scripts.slice(0, this.shownCount);
+  },
+  toggleMode() {
+    if (this.loading || this.busy) return;
+    vibrate('short');
+    this.mine = !this.mine;
+    this.load();
   },
   upload() {
     if (this.loading || this.busy) return;
@@ -130,6 +172,60 @@ export default {
       showToast(error.message || "无法打开对话框");
     });
   },
+  selectedScript() {
+    if (this.loading || this.busy || this.selectedScriptIndex === -1) return null;
+    return this.visibleScripts[this.selectedScriptIndex] || null;
+  },
+  selectScript(index) {
+    if (this.loading || this.busy || !this.visibleScripts[index]) return;
+    vibrate('short');
+    this.selectedScriptIndex = this.selectedScriptIndex === index ? -1 : index;
+  },
+  viewSelected() {
+    const script = this.selectedScript();
+    if (!script) return;
+    vibrate('short');
+    push('toolsMarketView', {
+      marketId: String(script.id),
+      mine: this.mine ? '1' : '0'
+    });
+  },
+  downloadSelected() {
+    const script = this.selectedScript();
+    if (!script) return;
+    this.saveAs(script);
+  },
+  reportSelected() {
+    const script = this.selectedScript();
+    if (!script || this.mine || this.busy) return;
+    vibrate('short');
+    this.busy = true;
+    this.$app.$def.openDialog('text', {
+      title: '举报脚本',
+      message: '请说明举报原因',
+      value: '',
+      maxLength: 500,
+      required: true
+    }, this).then(result => {
+      if (!this.pageActive) return;
+      if (result.action !== 'confirm') {
+        this.busy = false;
+        return;
+      }
+      startNetworkFeedback(this, '正在提交举报');
+      return this.$app.$def.getCloudClients().marketClient.reportMarketScript(script.id, result.value);
+    }).then(result => {
+      if (!this.pageActive || !result) return;
+      stopNetworkFeedback(this);
+      this.busy = false;
+      showToast('举报已提交');
+    }).catch(error => {
+      if (!this.pageActive) return;
+      stopNetworkFeedback(this);
+      this.busy = false;
+      showToast(errorMessage(error, '提交举报'));
+    });
+  },
   saveAs(script) {
     if (!script || this.busy || this.loading) return;
     this.busy = true;
@@ -142,19 +238,30 @@ export default {
       required: true
     }, this).then(result => {
       if (!this.pageActive) return;
-      if (result.action !== 'confirm') { this.busy = false; return; }
+      if (result.action !== 'confirm') {
+        this.busy = false;
+        return;
+      }
       let name;
-      try { name = normalizeMarketSaveName(result.value); }
-      catch (error) { this.busy = false; showToast(error.message); return; }
+      try {
+        name = normalizeMarketSaveName(result.value);
+      } catch (error) {
+        this.busy = false;
+        showToast(error.message);
+        return;
+      }
       this.download(script, name, false);
     }).catch(error => {
-      if (this.pageActive) { this.busy = false; showToast(error.message || '无法打开对话框'); }
+      if (this.pageActive) {
+        this.busy = false;
+        showToast(error.message || '无法打开对话框');
+      }
     });
   },
   download(script, name, overwrite) {
     if (!this.pageActive) return;
     startNetworkFeedback(this, overwrite ? '正在覆盖本地脚本' : '正在保存市场脚本');
-    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, name, overwrite).then(saved => {
+    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, name, overwrite, this.mine).then(saved => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
       this.busy = false;
@@ -172,39 +279,301 @@ export default {
         message: '覆盖 ' + name + '？'
       }, this).then(result => {
         if (!this.pageActive) return;
-        if (result.action === 'confirm') { this.download(script, name, true); return; }
+        if (result.action === 'confirm') {
+          this.download(script, name, true);
+          return;
+        }
         this.busy = false;
       }).catch(dialogError => {
-        if (this.pageActive) { this.busy = false; showToast(dialogError.message || '无法打开对话框'); }
+        if (this.pageActive) {
+          this.busy = false;
+          showToast(dialogError.message || '无法打开对话框');
+        }
       });
     });
   },
   goBack() {
+    if (this.busy) {
+      showToast('正在处理，请稍候');
+      return;
+    }
     vibrate('short');
     back();
   },
-  loadingTap() { return false; }
+  onBackPress() {
+    this.goBack();
+    return true;
+  },
+  loadingTap() {
+    return false;
+  }
 };
 </script>
 
 <style>
 @import "../../../common/styles/network-loading.css";
-.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
-.scroll { position:absolute; left:0px; top:164px; width:336px; height:316px; padding:0px 6px 24px; flex-direction:column; }
-.header { position:absolute; left:0px; top:0px; width:336px; height:84px; }
-.back,.upload { position:absolute; top:6px; width:72px; height:72px; }
-.back { left:6px; }.upload { left:258px; }
-.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
-.heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#fff; text-align:center; }
-.toolbar { position:absolute; left:6px; top:84px; width:324px; height:72px; flex-direction:row; justify-content:space-between; }
-.search { width:244px; height:72px; padding:0px 16px; border-radius:36px; background-color:#262626; justify-content:center; }
-.search-text { width:212px; color:rgba(255,255,255,0.6); font-size:24px; line-height:34px; text-overflow:ellipsis; lines:1; }
-.refresh-action { width:72px; height:72px; flex-shrink:0; }
-.item,.status { width:100%; height:112px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
-.script { width:100%; height:144px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; justify-content:space-between; }.name { width:100%; color:#fff; font-size:28px; line-height:34px; font-weight:bold; text-overflow:ellipsis; lines:1; }.description { width:100%; color:rgba(255,255,255,0.6); font-size:19px; line-height:25px; text-overflow:ellipsis; lines:1; }.author { width:100%; color:rgba(255,255,255,0.75); font-size:18px; line-height:24px; text-overflow:ellipsis; lines:1; }.meta { width:100%; color:rgba(255,255,255,0.6); font-size:17px; line-height:22px; text-overflow:ellipsis; lines:1; }
-.status { justify-content:center; }.status-text { width:100%; text-align:center; color:rgba(255,255,255,0.6); font-size:24px; line-height:32px; lines:2; }
-.load-more { justify-content:center; }.load-more-text { width:100%; color:#ffffff; font-size:24px; font-weight:bold; text-align:center; }
-.disabled-item { background-color:#303030; }
-.disabled-text { color:#8c8c8c; }
-.disabled-icon { background-color:#303030; border-radius:36px; }
+
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.scroll {
+  position: absolute;
+  left: 0px;
+  top: 164px;
+  width: 336px;
+  height: 238px;
+  padding: 0px 6px 12px;
+  flex-direction: column;
+}
+
+.header {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 84px;
+}
+
+.back, .upload {
+  position: absolute;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.back {
+  left: 6px;
+}
+
+.upload {
+  left: 258px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  font-size: 24px;
+  font-weight: bold;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
+
+.heading {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-size: 32px;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+}
+
+.toolbar {
+  position: absolute;
+  left: 6px;
+  top: 84px;
+  width: 324px;
+  height: 72px;
+}
+
+.search {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 152px;
+  height: 72px;
+  padding: 0px 14px;
+  border-radius: 36px;
+  background-color: #262626;
+}
+
+.search-text {
+  position: absolute;
+  left: 14px;
+  top: 21px;
+  width: 124px;
+  color: rgba(255,255,255,0.6);
+  font-size: 21px;
+  line-height: 30px;
+  text-overflow: ellipsis;
+  lines: 1;
+}
+
+.mode {
+  position: absolute;
+  left: 164px;
+  top: 0px;
+  width: 88px;
+  height: 72px;
+  padding: 0px 8px;
+  border-radius: 36px;
+  background-color: #262626;
+}
+
+.mode-text {
+  position: absolute;
+  left: 8px;
+  top: 24px;
+  width: 72px;
+  color: #ffffff;
+  font-size: 17px;
+  line-height: 24px;
+  text-align: center;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.refresh-action {
+  position: absolute;
+  left: 252px;
+  top: 0px;
+  width: 72px;
+  height: 72px;
+}
+
+.item, .status {
+  width: 100%;
+  height: 112px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.script {
+  width: 100%;
+  height: 144px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+  justify-content: space-between;
+}
+
+.script-selected {
+  background-color: #0D6EFF;
+}
+
+.name {
+  width: 100%;
+  color: #fff;
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  lines: 1;
+}
+
+.description {
+  width: 100%;
+  color: rgba(255,255,255,0.6);
+  font-size: 19px;
+  line-height: 25px;
+  text-overflow: ellipsis;
+  lines: 1;
+}
+
+.author {
+  width: 100%;
+  color: rgba(255,255,255,0.75);
+  font-size: 18px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  lines: 1;
+}
+
+.meta {
+  width: 100%;
+  color: rgba(255,255,255,0.6);
+  font-size: 17px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  lines: 1;
+}
+
+.action {
+  position: absolute;
+  top: 402px;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background-color: #262626;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-view, .action-download, .action-report {
+  background-color: transparent;
+}
+
+.action-view {
+  left: 6px;
+}
+
+.action-download {
+  left: 90px;
+}
+
+.action-report {
+  left: 174px;
+}
+
+.action-text {
+  width: 72px;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 30px;
+  text-align: center;
+}
+
+.status {
+  justify-content: center;
+}
+
+.status-text {
+  width: 100%;
+  text-align: center;
+  color: rgba(255,255,255,0.6);
+  font-size: 24px;
+  line-height: 32px;
+  lines: 2;
+}
+
+.load-more {
+  justify-content: center;
+}
+
+.load-more-text {
+  width: 100%;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.disabled-item {
+  background-color: #303030;
+}
+
+.disabled-text {
+  color: #8c8c8c;
+}
+
+.disabled-icon {
+  background-color: #303030;
+  border-radius: 36px;
+}
 </style>

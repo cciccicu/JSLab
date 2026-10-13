@@ -5,7 +5,11 @@ function registerDevicePages(ctx, options, view) {
     const code = String(req.query?.code || '').trim().toUpperCase();
     if (!/^[0-9A-F]{8}$/.test(code)) return res.status(400).send('配对码无效或已过期');
     const user = currentUser(req);
-    if (!user) return res.redirect('/login?returnTo=' + encodeURIComponent('/jslab-cloud/pair?code=' + code));
+    if (!user) {
+      const returnTo = req.originalUrl || `/jslab-cloud/pair?code=${encodeURIComponent(code)}`;
+      if (req.session) req.session.returnTo = returnTo;
+      return res.redirect('/auth');
+    }
     const row = ctx.db.prepare(`SELECT device_name,expires_at,user_id,claimed_at,used_at FROM ${pairings} WHERE code_hash=?`).get(hash(code));
     if (!row || row.used_at || row.expires_at <= new Date().toISOString().slice(0, 19).replace('T', ' ')) return page(req, res, '<section class="plugin-page jslab-cloud-page"><div class="alert alert-warning"><h1>配对码已过期</h1><p>请在手环端重新生成配对码。</p></div></section>', '配对码已过期');
     const message = row.user_id === user.id ? '当前账户已确认，请回到手环等待完成配对。' : row.user_id ? '此配对码已被其他账户确认。' : '确认后，手环会自动完成设备配对。';

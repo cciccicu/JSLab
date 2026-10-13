@@ -17,6 +17,7 @@ const ROUTES = {
   settingsCloudFiles: '/settings/cloud/files',
   toolsMarket: '/tools/market',
   toolsMarketUpload: '/tools/market/upload',
+  toolsMarketView: '/tools/market/view',
   toolsMoney: '/tools/money',
   overlayConfirm: '/overlay/confirm',
   overlaySelect: '/overlay/select',

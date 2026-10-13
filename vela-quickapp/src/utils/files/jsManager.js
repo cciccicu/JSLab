@@ -31,9 +31,16 @@ function validateScriptName(name) {
   if (typeof name !== 'string' || !name || name.length > 128) {
     throw new Error('脚本文件名无效');
   }
-  if (!/\.js$/i.test(name) || name.indexOf('..') !== -1 || /[\x00-\x1f\x7f/\\]/.test(name)) {
+
+  if (
+    !/\.js$/i.test(name) ||
+    name === '.' ||
+    name === '..' ||
+    /[\x00-\x1f\x7f/\\]/.test(name)
+  ) {
     throw new Error('只允许不含路径的 .js 文件名');
   }
+
   return name;
 }
 
@@ -170,15 +177,23 @@ function writeScript(name, content, options) {
       }));
     })
     .then(() => new Promise((resolve, reject) => {
-      file.writeText({
+      const writeText = (text) => file.writeText({
         uri: getScriptUri(name),
-        text: safeContent,
+        text,
         success: () => {
           notifyChange({ action: 'write', name });
-          resolve();
+          resolve(text);
         },
-        fail: (data, code) => reject(new Error('Failed to write script: ' + code))
+        fail: (data, code) => {
+          // Some systems reject zero-length files. Retry blank creation once.
+          if (text === '' && options && options.fallbackToSpace) {
+            writeText(' ');
+          } else {
+            reject(new Error('Failed to write script: ' + code));
+          }
+        }
       });
+      writeText(safeContent);
     }));
 }
 

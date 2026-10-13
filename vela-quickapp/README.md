@@ -59,3 +59,34 @@ AstroBox 版本可单独运行 `npm run release:astrobox` 构建，安装包保�
 
 公共模块职责与限制见 [模块说明](src/utils/README.md)，UI 优化原则与本地验证见
 [UI 性能建议](docs/ui-performance.md)。
+
+## 目录导航
+
+| 目录 | 用途 |
+| --- | --- |
+| `src/pages/index/` | 本地脚本首页 |
+| `src/pages/workspace/` | 新建、编辑、AI 生成和统一运行器 |
+| `src/pages/tools/` | JS 市场及其查看、发布页，以及其他工具 |
+| `src/pages/settings/` | 应用、云账户、云文件和编辑器设置；字体、高亮设置位于 `editor/` 下 |
+| `src/pages/overlay/` | 输入、选择和确认对话框 |
+| `src/utils/` | 按领域划分的公共逻辑，职责见模块说明 |
+| `src/components/`、`src/common/`、`src/data/` | 输入法组件、共享资源、内置脚本和帮助资料 |
+| `tests/`、`scripts/`、`docs/` | 本地验证、构建与维护脚本、接口文档 |
+| `samples/`、`market-scripts/` | 独立示例和市场脚本素材 |
+| `diagnostics/` | 统一运行器验收脚本；旧性能实验源码已清理，本地历史产物不参与构建 |
+| `images/`、`output/` | 说明截图和宣传素材，主应用资源放在 `src/common/` |
+| `build/`、`dist/` | 工具链生成的临时内容和安装包 |
+| `release-archive/` | 本地历史产物；发布前需保留的文件放在这里，不能放入 `dist/` |
+
+页面路由以 `src/manifest.json` 为准，命名路由集中在 `src/utils/core/routeManager.js`。
+运行页统一为 `workspace/run/`；不要重建旧的 `run-console/`、`run-ui/` 或编辑器版本目录。
+旧运行页不再保留单独的历史复现测试；当前运行器回归测试直接验证 `workspace/run/`。
+
+页面保留显示状态和交互流程；跨页面服务由 `src/app.ux` 持有，通过 `$app.$def` 访问。
+云管理客户端位于 `utils/cloud/`，用户脚本的注入接口位于 `utils/runtime/`，两者保持分离。
+整理代码时优先使用现有领域目录，不为暂未实现的功能创建空目录，也不在项目内复制源码作为备份。
+
+本地测试统一执行 `npm test`，包含运行契约检查和五组回归测试。单独验证可使用
+`test:core`（配置、对话框、基础服务）、`test:files`（文件、数据、传输校验）、
+`test:editor`（文档、高亮、光标、字体）、`test:cloud`（设备云接口）、
+`test:runtime`（UI 引擎与运行器）。旧脚本兼容性夹具保留在 `tests/fixtures/`。

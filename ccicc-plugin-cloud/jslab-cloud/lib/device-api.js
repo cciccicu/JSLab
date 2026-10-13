@@ -81,8 +81,16 @@ function registerDeviceApi(state, services) {
     if (result.error) return json(res, result.status, { error: result.error });
     return json(res, 200, result);
   });
-  ctx.routes.frontend.get('/api/cloud/device/market', market.listMarket);
-  ctx.routes.frontend.get('/api/cloud/device/market/:id/source', market.getMarketSource);
+  ctx.routes.frontend.get('/api/cloud/device/market', (req, res) => {
+    if (req.query?.mine === '1') return requireDevice(req, res, () => market.listMarket(req, res, deviceUser(req)));
+    return market.listMarket(req, res);
+  });
+  ctx.routes.frontend.get('/api/cloud/device/market/:id/source', (req, res) => {
+    if (req.query?.mine === '1') return requireDevice(req, res, () => market.getMarketSource(req, res, deviceUser(req)));
+    return market.getMarketSource(req, res);
+  });
+  ctx.routes.frontend.post('/api/cloud/device/market/:id/report', requireDevice,
+    (req, res) => market.reportMarket(req, res, deviceUser(req)));
   ctx.routes.frontend.post('/api/cloud/device/market/submit', requireDevice,
     (req, res) => market.submitMarket(req, res, deviceUser(req)));
 }

@@ -380,6 +380,26 @@ test('handset starts, web claims without activation, and handset exchanges pairi
   assert.equal(repeated.statusCode, 400);
 });
 
+test('QR pairing redirects anonymous users to the host auth page and preserves the full return URL', async () => {
+  const fixture = context();
+  try {
+    plugin.boot(fixture.ctx);
+    const start = await invoke(fixture.frontend.registry.get('POST /api/cloud/device/pairing/start'), {
+      body: { name: 'Band Pro' }, query: {}, params: {}, headers: { host: 'local' }
+    });
+    const originalUrl = '/jslab-cloud/pair?code=' + start.body.code;
+    const req = { originalUrl, session: {}, query: { code: start.body.code }, headers: {} };
+    const anonymous = await invoke(fixture.frontend.registry.get('GET /pair'), req);
+    assert.equal(anonymous.redirected, '/auth');
+    assert.equal(req.session.returnTo, originalUrl);
+    const signedIn = await invoke(fixture.frontend.registry.get('GET /pair'), { ...req, user: fixture.user });
+    assert.match(signedIn.body, /确认配对/);
+    assert.ok(signedIn.body.includes(`name="code" value="${start.body.code}"`));
+    const invalid = await invoke(fixture.frontend.registry.get('GET /pair'), { ...req, query: { code: '../bad' } });
+    assert.equal(invalid.statusCode, 400);
+  } finally { fixture.raw.close(); }
+});
+
 test('pairing QR origin is hot reloadable', async () => {
   const fixture = context(); plugin.install(fixture.ctx); fixture.values.pairingPublicOrigin = 'https://ccicc.icu'; plugin.boot(fixture.ctx);
   const start = await invoke(fixture.frontend.registry.get('POST /api/cloud/device/pairing/start'), { body: {}, query: {}, params: {}, headers: { host: 'local' } });
@@ -571,6 +591,85 @@ test('market browsing and downloading are public but saving to cloud space requi
   assert.equal(fixture.raw.prepare('SELECT COUNT(*) AS count FROM cloud_scripts').get().count, 0);
 });
 
+test('market source patterns enter manual review from browser and device submissions', async () => {
+  const sources = ['eval("1 + 1")', 'new Function("return 1")()',
+    'device.getDeviceId(); device.getSerial()', 'const api_key = "example"; const device_token = "example";'];
+  for (const device of [false, true]) {
+    const fixture = context();
+    try {
+      plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
+      const token = device ? await pairDevice(fixture) : null;
+      const route = fixture.frontend.registry.get(device ? 'POST /api/cloud/device/market/submit' : 'POST /api/cloud/market/submit');
+      let marketId;
+      for (const source of sources) {
+        const submitted = await invoke(route, { user: fixture.user,
+          body: { marketId, marketName: 'review.js', marketDescription: 'Review source', source },
+          params: {}, query: {}, headers: device ? { authorization: `Bearer ${token}` } : {} });
+        assert.equal(submitted.statusCode, 200);
+        assert.equal(submitted.body.status, 'pending');
+        marketId = submitted.body.marketId;
+        const row = fixture.raw.prepare('SELECT * FROM cloud_market_scripts WHERE id=?').get(marketId);
+        assert.equal(row.pending_status ? row.pending_source : row.source, source);
+        await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user,
+          body: { status: 'published' }, params: { id: String(marketId) }, query: {}, headers: {} });
+        assert.equal(fixture.raw.prepare('SELECT source FROM cloud_market_scripts WHERE id=?').get(marketId).source, source);
+      }
+    } finally { fixture.raw.close(); }
+  }
+});
+
+test('admin review list opens escaped source with metadata and review actions', async () => {
+  const fixture = context();
+  try {
+    plugin.boot(fixture.ctx);
+    const source = 'console.log("</code><script>alert(1)</script>");\nconsole.log("第二行");';
+    const submitted = await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), {
+      user: fixture.user, body: { marketName: '<b>待审核脚本</b>', marketDescription: '<img src=x onerror=alert(1)>', source },
+      params: {}, query: {}, headers: {}
+    });
+    assert.equal(submitted.statusCode, 200);
+    const id = String(submitted.body.marketId);
+    const request = { user: fixture.user, body: {}, params: { id }, query: {}, headers: {} };
+    const listing = await invoke(fixture.admin.registry.get('GET /'), request);
+    assert.ok(listing.body.includes(`href="/admin/jslab-cloud/scripts/${id}"`));
+    assert.match(listing.body, /查看源码/);
+    const detail = await invoke(fixture.admin.registry.get('GET /scripts/:id'), request);
+    assert.equal(detail.statusCode, 200);
+    assert.match(detail.body, /&lt;b&gt;待审核脚本&lt;\/b&gt;/);
+    assert.match(detail.body, /&lt;img src=x onerror=alert\(1\)&gt;/);
+    assert.match(detail.body, /&lt;\/code&gt;&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+    assert.match(detail.body, /\nconsole\.log\(&quot;第二行&quot;\);/);
+    assert.doesNotMatch(detail.body, /<script>|<img/);
+    assert.match(detail.body, /作者：tester · 待审核/);
+    assert.ok(detail.body.includes(`action="/admin/jslab-cloud/scripts/${id}/review"`));
+    assert.match(detail.body, /name="_csrf" value="csrf"/);
+    assert.match(detail.body, /人工通过/);
+    assert.match(detail.body, /人工拒绝/);
+    await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { ...request, body: { status: 'published' } });
+    const published = await invoke(fixture.admin.registry.get('GET /scripts/:id'), request);
+    assert.match(published.body, /作者：tester · 已发布/);
+    assert.doesNotMatch(published.body, /人工通过|人工拒绝/);
+  } finally { fixture.raw.close(); }
+});
+
+test('admin review detail protects unpublished source and handles missing scripts', async () => {
+  const fixture = context();
+  try {
+    plugin.boot(fixture.ctx);
+    const route = fixture.admin.registry.get('GET /scripts/:id');
+    const request = { body: {}, params: { id: '1' }, query: {}, headers: {} };
+    for (const user of [undefined, { ...fixture.user, role: 'member' }]) {
+      const denied = await invoke(route, { ...request, user });
+      assert.equal(denied.statusCode, 403);
+    }
+    for (const id of ['1', 'invalid', '0', '-1', '999999999999999999999']) {
+      const missing = await invoke(route, { ...request, user: fixture.user, params: { id } });
+      assert.equal(missing.statusCode, 404);
+      assert.equal(missing.body, '未找到市场脚本');
+    }
+  } finally { fixture.raw.close(); }
+});
+
 test('single LLM mode makes the final moderation decision', async () => {
   const originalFetch = global.fetch;
   try {
@@ -580,12 +679,15 @@ test('single LLM mode makes the final moderation decision', async () => {
       fixture.values.llmApiUrl = 'https://review.example/v1/chat/completions';
       fixture.values.llmApiKey = 'review-key';
       fixture.values.llmModel = 'review-model';
-      global.fetch = async () => ({
-        ok: true,
-        async json() { return { choices: [{ message: { content: JSON.stringify({ decision, reason: decision }) } }] }; }
-      });
+      const source = 'eval("1"); new Function("return 1")(); device.getDeviceId(); device.getSerial(); const api_key = "example";';
+      global.fetch = async (_url, options) => {
+        assert.ok(JSON.parse(options.body).messages[1].content.includes(source));
+        return { ok: true,
+          async json() { return { choices: [{ message: { content: JSON.stringify({ decision, reason: decision }) } }] }; }
+        };
+      };
       plugin.boot(fixture.ctx);
-      const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: `${decision}.js`, source: 'console.log(1)' }, params: {}, query: {}, headers: {} });
+      const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: `${decision}.js`, source }, params: {}, query: {}, headers: {} });
       const submitted = await submitMarket(fixture, created);
       assert.equal(submitted.body.status, decision === 'approve' ? 'published' : 'rejected');
       assert.equal(fixture.raw.prepare(`SELECT status FROM cloud_market_scripts WHERE id=?`).get(submitted.body.marketId).status, decision === 'approve' ? 'published' : 'rejected');
@@ -683,6 +785,14 @@ test('rejected LLM review preserves a published update for manual approval', asy
     assert.match(admin.body, /LLM 建议拒绝/);
     assert.match(admin.body, /manual check needed/);
     assert.match(admin.body, />人工通过</);
+    const detail = await invoke(fixture.admin.registry.get('GET /scripts/:id'), { user: fixture.user, body: {}, params: { id: String(published.body.marketId) }, query: {}, headers: {} });
+    assert.match(detail.body, /以下为本次提交的更新内容/);
+    assert.match(detail.body, /updated/);
+    assert.match(detail.body, /LLM 建议拒绝/);
+    assert.match(detail.body, /manual check needed/);
+    assert.match(detail.body, /待审核源码<\/h2><\/div><pre[^>]*><code>console\.log\(&quot;candidate&quot;\)<\/code>/);
+    assert.match(detail.body, /<details><summary>查看当前已发布版本<\/summary><pre[^>]*><code>console\.log\(&quot;original&quot;\)<\/code>/);
+    assert.match(detail.body, /人工通过/);
     await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user, body: { status: 'published' }, params: { id: String(published.body.marketId) }, query: {}, headers: {} });
     const approved = fixture.raw.prepare(`SELECT status,pending_status,source,pending_source FROM cloud_market_scripts WHERE id=?`).get(published.body.marketId);
     assert.equal(approved.status, 'published');
@@ -818,4 +928,60 @@ test('workspace no longer presents version history or conflict workflow', async 
   const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: 'page.js', source: 'console.log(1)' }, params: {}, query: {}, headers: {} });
   const page = await invoke(fixture.frontend.registry.get('GET /workspace/scripts/:id'), { user: fixture.user, body: {}, params: { id: String(created.body.id) }, query: {}, headers: {} });
   assert.match(page.redirected, /workspace\?panel=editor&script=/);
+});
+
+
+test('device publications isolate candidates while legacy public reads retain published snapshots', async () => {
+  const f = context();
+  try {
+    plugin.install(f.ctx); plugin.boot(f.ctx);
+    const token = await pairDevice(f);
+    const request = { body: {}, query: {}, params: {}, headers: { authorization: `Bearer ${token}` } };
+    const submit = body => invoke(f.frontend.registry.get('POST /api/cloud/device/market/submit'), { ...request, body });
+    const created = await submit({ marketName: 'public name', marketDescription: 'public description', marketTags: 'public-tag', source: 'console.log("public")' });
+    const id = String(created.body.marketId);
+    await invoke(f.admin.registry.get('POST /scripts/:id/review'), { user: f.user, body: { status: 'published' }, params: { id }, query: {}, headers: {} });
+    await submit({ marketId: id, marketName: 'candidate name', marketDescription: 'candidate description', marketTags: 'private-tag', source: 'console.log("candidate")' });
+    const pending = await submit({ marketName: 'new pending', marketDescription: 'pending', source: 'console.log(2)' });
+    f.raw.prepare(`INSERT INTO cloud_market_scripts(owner_user_id,name,description,source,hash,checksum,status) VALUES(2,'other pending','other','console.log(3)','h','c','pending')`).run();
+    for (const prefix of ['/api/cloud/market', '/api/cloud/device/market']) {
+      const listed = await invoke(f.frontend.registry.get('GET ' + prefix), { ...request, headers: {} });
+      assert.equal(listed.body.scripts.length, 1);
+      assert.equal(listed.body.scripts[0].name, 'public name');
+      assert.equal(listed.body.scripts[0].description, 'public description');
+      const source = await invoke(f.frontend.registry.get('GET ' + prefix + '/:id/source'), { ...request, params: { id }, headers: {} });
+      assert.equal(source.body.script.source, 'console.log("public")');
+      assert.equal(source.body.script.name, 'public name');
+    }
+    const listRoute = f.frontend.registry.get('GET /api/cloud/device/market');
+    const mine = await invoke(listRoute, { ...request, query: { mine: '1' } });
+    assert.equal(mine.body.scripts.length, 2);
+    assert.equal(mine.body.scripts.find(s => String(s.id) === id).name, 'candidate name');
+    const search = await invoke(listRoute, { ...request, query: { mine: '1', q: 'private-tag' } });
+    assert.equal(search.body.scripts.length, 1);
+    const publicSearch = await invoke(listRoute, { ...request, query: { q: 'public-tag' } });
+    assert.equal(publicSearch.body.scripts.length, 1);
+    const sourceRoute = f.frontend.registry.get('GET /api/cloud/device/market/:id/source');
+    const own = await invoke(sourceRoute, { ...request, params: { id }, query: { mine: '1' } });
+    assert.equal(own.body.script.source, 'console.log("candidate")');
+    assert.equal(own.body.script.status, 'pending');
+    const foreign = await invoke(sourceRoute, { ...request, params: { id: String(Number(pending.body.marketId) + 1) }, query: { mine: '1' } });
+    assert.equal(foreign.statusCode, 404);
+    const hidden = await invoke(sourceRoute, { ...request, params: { id: String(pending.body.marketId) } });
+    assert.equal(hidden.statusCode, 404);
+    for (const [route, params] of [[listRoute, {}], [sourceRoute, { id }]]) {
+      const denied = await invoke(route, { ...request, params, query: { mine: '1' }, headers: {}, user: f.user });
+      assert.equal(denied.statusCode, 401, 'Browser login cannot replace a device bearer token');
+    }
+    const reportRoute = f.frontend.registry.get('POST /api/cloud/device/market/:id/report');
+    const denied = await invoke(reportRoute, { ...request, params: { id }, body: { reason: 'test' }, headers: {}, user: f.user });
+    assert.equal(denied.statusCode, 401);
+    const empty = await invoke(reportRoute, { ...request, params: { id }, body: { reason: '  ' } });
+    assert.equal(empty.statusCode, 400);
+    const reported = await invoke(reportRoute, { ...request, params: { id }, body: { reason: '需要复核' } });
+    assert.equal(reported.body.reported, true);
+    assert.equal(f.raw.prepare('SELECT user_id FROM cloud_market_reports').get().user_id, f.user.id);
+    const browserReport = await invoke(f.frontend.registry.get('POST /api/cloud/market/:id/report'), { ...request, user: f.user, params: { id }, body: { reason: 'browser' } });
+    assert.equal(browserReport.statusCode, 200);
+  } finally { f.raw.close(); }
 });

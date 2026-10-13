@@ -94,8 +94,8 @@ export function handleScriptTransfer(action, payload) {
       if (jsManager.isLocked(payload.name)) return Promise.reject(new Error('文件正在编辑中，请先退出手环编辑器'));
       return jsManager.list().then((files) => {
         if (files.some(file => file.name === payload.name)) throw new Error('文件已存在');
-        return jsManager.write(payload.name, '');
-      }).then(() => ({ name: payload.name, size: 0 }));
+        return jsManager.write(payload.name, '', { fallbackToSpace: true });
+      }).then(content => ({ name: payload.name, size: utf8ByteLength(content) }));
     case 'read':
       return jsManager.read(payload.name).then((content) => {
         const offset = payload.offset == null ? 0 : payload.offset;

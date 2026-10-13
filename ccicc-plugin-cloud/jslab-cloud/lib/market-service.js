@@ -3,16 +3,6 @@ const { scriptFilename } = require('./script-filename');
 
 function createMarketService(state) {
   const { ctx, marketScripts, reviews, reports, json, wantsJson, currentUser, hash, checksum, log, consume, sourceFromBody, validJavaScript, getPositiveInteger, MAX_SOURCE } = state;
-  const marketSourceIssue = (source) => {
-    const checks = [
-      [/\beval\s*\(/, 'dynamic_code'],
-      [/\bFunction\s*\(/, 'dynamic_code'],
-      [/\bdevice\.(?:getDeviceId|getSerial)\s*\(/, 'device_identifier'],
-      [/(?:authorization|bearer|api[_-]?key|device[_-]?token)\s*[:=]\s*['"][^'"]+/i, 'embedded_secret']
-    ];
-    const match = checks.find(([pattern]) => pattern.test(String(source)));
-    return match ? match[1] : null;
-  };
   const marketSnapshot = row => {
     const pending = row.pending_status != null;
     return { status: row.status, pendingStatus: row.pending_status,
@@ -67,8 +57,6 @@ function createMarketService(state) {
     const llmModeration = ctx.config.get('marketModerationMode') === 'llm';
     if (llmModeration && !consume(`market-review:${user.id}`, 6, 60_000)) return json(res, 429, { error: 'rate_limited', message: '提交审核过于频繁，请稍后重试。' });
     const source = sourceFromBody(req.body);
-    const sourceIssue = marketSourceIssue(source);
-    if (sourceIssue) return json(res, 400, { error: 'market_source_rejected', reason: sourceIssue, message: '代码包含市场不允许的内容，请修改后重试。' });
     const marketId = Number(req.body?.marketId || 0);
     const marketName = String(req.body?.marketName || '').trim().slice(0, 124);
     const marketDescription = String(req.body?.marketDescription || '').trim().slice(0, 1000);
@@ -98,25 +86,53 @@ function createMarketService(state) {
     if (browserForm && req.body?._csrf && !wantsJson(req)) return res.redirect('/jslab-cloud/workspace?panel=publications');
     return json(res, 200, { status, marketId: submittedId, review: review && { decision: review.decision, reason: review.reason }, message: '市场脚本已提交审核。' });
   };
-  const listMarket = (req, res) => {
+  const listMarket = (req, res, userOverride) => {
     const query = `%${String(req.query?.q || '').slice(0, 80)}%`;
-    const scripts = ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(query, query).map(({ owner_user_id, ...script }) => {
-      const author = ctx.users.get(owner_user_id);
-      return { ...script, authorName: author?.display_name || author?.username || `用户 ${owner_user_id}` };
+    const mine = req.query?.mine === '1';
+    if (mine && !userOverride) return json(res, 401, { error: 'device_auth_required' });
+    const rows = mine
+      ? ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,status,pending_name,pending_description,pending_tags,pending_status,updated_at FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (COALESCE(pending_name,name) LIKE ? OR COALESCE(pending_description,description) LIKE ? OR COALESCE(pending_tags,tags) LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(userOverride.id, query, query, query)
+      : ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,status,pending_name,pending_description,pending_tags,pending_status,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(query, query, query);
+    const scripts = rows.map((row) => {
+      const author = ctx.users.get(row.owner_user_id);
+      const pending = mine && (row.pending_status === 'pending' || row.pending_status === 'rejected');
+      const name = pending ? row.pending_name || row.name : row.name;
+      const description = pending ? row.pending_description || row.description : row.description;
+      const tags = pending ? row.pending_tags || row.tags : row.tags;
+      return { id: row.id, name, description, tags, updated_at: row.updated_at,
+        status: pending ? row.pending_status : row.status, publishedStatus: row.status,
+        pendingStatus: mine ? row.pending_status : null, authorName: author?.display_name || author?.username || `用户 ${row.owner_user_id}` };
     });
     return json(res, 200, { scripts });
   };
-  const getMarketSource = (req, res) => {
-    const row = ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,source,hash,checksum,updated_at FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
+  const getMarketSource = (req, res, userOverride) => {
+    const mine = req.query?.mine === '1';
+    if (mine && !userOverride) return json(res, 401, { error: 'device_auth_required' });
+    const row = mine
+      ? ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=? AND owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL)`).get(Number(req.params.id), userOverride.id)
+      : ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,source,hash,checksum,updated_at,status,pending_status FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
     if (!row) return json(res, 404, { error: 'not_found' });
-    return json(res, 200, { script: { ...row, filename: scriptFilename(row.name) } });
+    const pending = mine && (row.pending_status === 'pending' || row.pending_status === 'rejected');
+    const source = pending ? row.pending_source : row.source;
+    const name = pending ? row.pending_name || row.name : row.name;
+    const description = pending ? row.pending_description || row.description : row.description;
+    if (typeof source !== 'string') return json(res, 404, { error: 'not_found' });
+    const author = ctx.users.get(row.owner_user_id);
+    return json(res, 200, { script: { id: row.id, owner_user_id: row.owner_user_id, name, description,
+      tags: pending ? row.pending_tags || row.tags : row.tags, source,
+      hash: pending ? row.pending_hash || hash(source) : row.hash,
+      checksum: pending ? row.pending_checksum || checksum(source) : row.checksum,
+      updated_at: row.updated_at, status: pending ? row.pending_status : row.status,
+      authorName: author?.display_name || author?.username || `用户 ${row.owner_user_id}`, filename: scriptFilename(name) } });
   };
-  const reportMarket = (req, res) => {
-    const user = currentUser(req);
+  const reportMarket = (req, res, userOverride) => {
+    const user = userOverride || currentUser(req);
+    if (!user) return json(res, 401, { error: 'auth_required' });
     const reason = String(req.body?.reason || '').trim().slice(0, 500);
     if (!reason) return json(res, 400, { error: 'reason_required' });
     const row = ctx.db.prepare(`SELECT id FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
     if (!row) return json(res, 404, { error: 'not_found' });
+    if (!consume(`market-report:${user.id}:${row.id}`, 3, 60_000)) return json(res, 429, { error: 'rate_limited' });
     ctx.db.prepare(`INSERT INTO ${reports} (script_id,user_id,reason) VALUES (?, ?, ?)`).run(row.id, user.id, reason);
     log(user.id, 'market.report', String(row.id));
     if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`);

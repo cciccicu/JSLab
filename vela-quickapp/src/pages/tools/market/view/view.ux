@@ -1,0 +1,413 @@
+<template>
+  <div class="page">
+    <scroll class="body" scroll-y="true">
+      <div if="{{statusText}}" class="status-card">
+
+        <text class="status-text">{{statusText}}</text>
+
+      </div>
+      <div if="{{script}}" class="source-card">
+        <text class="script-name">{{script.name}}</text>
+        <text class="script-meta">{{script.description || '没有说明'}}</text>
+        <text class="script-meta">作者：{{script.authorName || '未知'}} · {{statusLabel}}</text>
+      </div>
+      <div if="{{script}}" class="code-card">
+
+        <text for="{{chunk in sourceChunks}}" tid="id" class="source">{{chunk.text}}</text>
+
+      </div>
+    </scroll>
+    <img static src="/common/images/hd.png" class="header" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="heading">查看脚本</text>
+    <img static src="/common/images/back.png" class="btn back" @click="goBack" />
+    <img if="{{script}}" src="/common/images/download.png" class="action action-download" @click="download" />
+    <img if="{{script && !isMineView}}" src="/common/images/info.png" class="action action-report" @click="report" />
+    <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
+      <div class="network-dialog">
+        <text class="network-dialog-title">{{networkStatus}}</text>
+        <text class="network-dialog-detail">{{networkStage}}</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { back } from '../../../../utils/core/routeManager.js';
+import { errorMessage } from '../../../../utils/cloud/cloudError.js';
+import { normalizeMarketSaveName, suggestMarketFilename } from '../../../../utils/cloud/marketFilename.js';
+import { startNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../../../utils/core/networkFeedback.js';
+import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
+import { enterNetworkPage } from '../../../../utils/cloud/serverSelection.js';
+export default {
+  protected: {
+    marketId: '',
+    mine: '0'
+  },
+  private: {
+    script: null,
+    sourceChunks: [],
+    statusLabel: '',
+    statusText: '正在读取脚本...',
+    loading: false,
+    busy: false,
+    initialized: false,
+    pageActive: true,
+    networkStatus: '',
+    networkStage: '',
+    nowTime: '00:00',
+    isMineView: false
+  },
+  onInit() {
+    this.nowTime = getCurrentClock();
+    this.isMineView = this.mine === true || this.mine === '1' || this.mine === 'true';
+  },
+  onShow() {
+    startPageClock(this);
+    setNetworkFeedbackVisible(this, true);
+    this.$app.$def.deliverDialog(this);
+    if (!this.initialized) {
+      this.initialized = true;
+      enterNetworkPage(this, () => this.load());
+    }
+  },
+  onHide() {
+    stopPageClock(this);
+    setNetworkFeedbackVisible(this, false);
+  },
+  onDestroy() {
+    stopPageClock(this);
+    stopNetworkFeedback(this);
+    this.pageActive = false;
+    this.$app.$def.cancelOwnedDialog(this);
+  },
+  load() {
+    const id = Number(this.marketId);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      this.statusText = '脚本编号无效';
+      return;
+    }
+    this.loading = true;
+    this.statusText = '正在读取脚本...';
+    startNetworkFeedback(this, '正在读取市场脚本');
+    this.$app.$def.getCloudClients().marketClient.getMarketScript(id, this.isMineView).then(script => {
+      if (!this.pageActive) return;
+      this.sourceChunks = this.chunkSource(script.source);
+      this.statusLabel = {
+        pending: '待审核',
+        published: '已发布',
+        rejected: '已拒绝',
+        draft: '草稿'
+      }[script.status] || '已发布';
+      this.script = {
+        id: script.id,
+        name: script.name,
+        description: script.description,
+        authorName: script.authorName
+      };
+      this.statusText = '';
+    }).catch(error => {
+      if (!this.pageActive) return;
+      this.script = null;
+      this.sourceChunks = [];
+      this.statusText = errorMessage(error, '读取市场脚本');
+    }).then(() => {
+      if (!this.pageActive) return;
+      this.loading = false;
+      stopNetworkFeedback(this);
+    });
+  },
+  chunkSource(source) {
+    const chunks = [];
+    let start = 0;
+    let lineCount = 0;
+    for (let index = 0; index < source.length; index++) {
+      const isLineEnd = source.charCodeAt(index) === 10;
+      if (isLineEnd) lineCount++;
+      if (lineCount === 16 || index - start >= 511) {
+        chunks.push({ id: String(start), text: source.slice(start, index + 1) });
+        start = index + 1;
+        lineCount = 0;
+      }
+    }
+    if (start < source.length) chunks.push({ id: String(start), text: source.slice(start) });
+    return chunks;
+  },
+  download() {
+    if (!this.script || this.loading || this.busy) return;
+    this.busy = true;
+    vibrate('short');
+    this.$app.$def.openDialog('text', {
+      title: '下载脚本',
+      message: '输入本地文件名，可省略 .js',
+      value: suggestMarketFilename(this.script.name),
+      maxLength: 128,
+      required: true
+    }, this).then(result => {
+      if (!this.pageActive) return;
+      if (result.action !== 'confirm') {
+        this.busy = false;
+        return;
+      }
+      let name;
+      try {
+        name = normalizeMarketSaveName(result.value);
+      } catch (error) {
+        this.busy = false;
+        showToast(error.message);
+        return;
+      }
+      this.save(name, false);
+    }).catch(error => {
+      if (this.pageActive) {
+        this.busy = false;
+        showToast(error.message || '无法打开对话框');
+      }
+    });
+  },
+  save(name, overwrite) {
+    if (!this.script || !this.pageActive) return;
+    startNetworkFeedback(this, overwrite ? '正在覆盖本地脚本' : '正在下载市场脚本');
+    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(this.script.id, name, overwrite, this.isMineView).then(saved => {
+      if (!this.pageActive) return;
+      stopNetworkFeedback(this);
+      this.busy = false;
+      showToast((overwrite ? '已覆盖 ' : '已下载 ') + saved.name);
+    }).catch(error => {
+      if (!this.pageActive) return;
+      stopNetworkFeedback(this);
+      if (error.message !== 'file_exists' || overwrite) {
+        this.busy = false;
+        showToast(errorMessage(error, '下载市场脚本'));
+        return;
+      }
+      this.$app.$def.openDialog('confirm', {
+        title: '本地文件已存在',
+        message: '覆盖 ' + name + '？'
+      }, this).then(result => {
+        if (!this.pageActive) return;
+        if (result.action === 'confirm') {
+          this.save(name, true);
+          return;
+        }
+        this.busy = false;
+      }).catch(dialogError => {
+        if (this.pageActive) {
+          this.busy = false;
+          showToast(dialogError.message || '无法打开对话框');
+        }
+      });
+    });
+  },
+  report() {
+    if (!this.script || this.loading || this.busy || this.isMineView) return;
+    this.busy = true;
+    vibrate('short');
+    this.$app.$def.openDialog('text', {
+      title: '举报脚本',
+      message: '请说明举报原因',
+      value: '',
+      maxLength: 500,
+      required: true
+    }, this).then(result => {
+      if (!this.pageActive) return;
+      if (result.action !== 'confirm') {
+        this.busy = false;
+        return;
+      }
+      startNetworkFeedback(this, '正在提交举报');
+      return this.$app.$def.getCloudClients().marketClient.reportMarketScript(this.script.id, result.value);
+    }).then(result => {
+      if (!this.pageActive || !result) return;
+      stopNetworkFeedback(this);
+      this.busy = false;
+      showToast('举报已提交');
+    }).catch(error => {
+      if (this.pageActive) {
+        stopNetworkFeedback(this);
+        this.busy = false;
+        showToast(errorMessage(error, '提交举报'));
+      }
+    });
+  },
+  goBack() {
+    if (this.busy) {
+      showToast('正在处理，请稍候');
+      return;
+    }
+    vibrate('short');
+    back();
+  },
+  onBackPress() {
+    this.goBack();
+    return true;
+  },
+  loadingTap() {
+    return false;
+  }
+};
+</script>
+
+<style>
+@import "../../../../common/styles/network-loading.css";
+
+@font-face {
+  font-family: 'JSLabActive';
+  src: url('/common/fonts/active.ttf');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.body {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 480px;
+  padding: 84px 6px 84px;
+  flex-direction: column;
+}
+
+.status-card, .source-card, .code-card {
+  width: 324px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.status-card {
+  min-height: 112px;
+  justify-content: center;
+}
+
+.status-text {
+  width: 284px;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 31px;
+  text-align: center;
+  lines: 5;
+}
+
+.source-card {
+  min-height: 128px;
+}
+
+.script-name {
+  width: 284px;
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.script-meta {
+  width: 284px;
+  color: rgba(255,255,255,0.65);
+  font-size: 18px;
+  line-height: 26px;
+  lines: 2;
+  text-overflow: ellipsis;
+}
+
+.code-card {
+  padding: 18px 20px;
+}
+
+.source {
+  flex-shrink: 0;
+  width: 284px;
+  color: #ffffff;
+  font-size: 17px;
+  line-height: 23px;
+  font-family: 'JSLabActive';
+  lines: -1;
+}
+
+.header {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 84px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  font-size: 24px;
+  font-weight: bold;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
+
+.heading {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-size: 32px;
+  font-weight: bold;
+  color: #ffffff;
+  text-align: center;
+}
+
+.btn {
+  position: absolute;
+  top: 6px;
+  width: 72px;
+  height: 72px;
+}
+
+.back {
+  left: 6px;
+}
+
+.action {
+  position: absolute;
+  top: 402px;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background-color: #262626;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-download, .action-report {
+  background-color: transparent;
+}
+
+.action-download {
+  left: 174px;
+}
+
+.action-report {
+  left: 258px;
+}
+
+.action-text {
+  width: 72px;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 30px;
+  text-align: center;
+}
+</style>
