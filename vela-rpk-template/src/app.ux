@@ -1,0 +1,24 @@
+<script>
+import { createScriptStorage } from './utils/files/scriptData.js';
+import { openDialog, getDialog, settleDialog, deliverDialog, cancelOwnedDialog, closeOwnedDialog, dialogDestroyed } from './utils/core/dialogState.js';
+let payload = null;
+export default {
+  onDestroy() { payload = null; },
+  loadPayload() {
+    // The cloud packer fills this JSON string in memory, without recompiling
+    // scripts or relying on firmware-specific file.readText resource support.
+    return Promise.resolve().then(() => {
+      if (!payload) payload = JSON.parse('__JSLAB_PAYLOAD_JSON__');
+      return payload;
+    });
+  },
+  getScriptStorage(name) { return createScriptStorage(name); },
+  openDialog(type, options, owner) { return openDialog(type, options, owner); },
+  getDialog(type, id) { return getDialog(type, id); },
+  settleDialog(data, action, value) { return settleDialog(data, action, value); },
+  deliverDialog(owner) { return deliverDialog(owner); },
+  cancelOwnedDialog(owner) { return cancelOwnedDialog(owner); },
+  closeOwnedDialog(owner) { return closeOwnedDialog(owner); },
+  dialogDestroyed(data) { return dialogDestroyed(data); }
+};
+</script>

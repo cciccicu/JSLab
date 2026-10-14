@@ -34,9 +34,9 @@
     <text class="heading">JS 市场</text>
     <img static src="/common/images/back.png" class="back" @click="goBack" />
     <img src="/common/images/upload.png" class="upload {{loading || busy ? 'disabled-icon' : ''}}" @click="upload" />
-    <img if="{{selectedScriptIndex !== -1}}" src="/common/images/more.png" class="action action-view" @click="viewSelected" />
+    <img if="{{selectedScriptIndex !== -1}}" src="/common/images/market-view.png" class="action action-view" @click="viewSelected" />
     <img if="{{selectedScriptIndex !== -1}}" src="/common/images/download.png" class="action action-download" @click="downloadSelected" />
-    <img if="{{selectedScriptIndex !== -1 && !mine}}" src="/common/images/info.png" class="action action-report" @click="reportSelected" />
+    <img if="{{selectedScriptIndex !== -1 && !mine}}" src="/common/images/market-report.png" class="action action-report" @click="reportSelected" />
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
       <div class="network-dialog">
         <text class="network-dialog-title">{{networkStatus}}</text>
@@ -529,14 +529,6 @@ export default {
 
 .action-report {
   left: 174px;
-}
-
-.action-text {
-  width: 72px;
-  color: #ffffff;
-  font-size: 22px;
-  line-height: 30px;
-  text-align: center;
 }
 
 .status {

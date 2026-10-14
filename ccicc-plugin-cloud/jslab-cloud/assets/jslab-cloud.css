@@ -12,6 +12,11 @@
   overflow-wrap: anywhere;
 }
 
+/* SSR content-flow spacing must not offset a fixed Bootstrap modal. */
+.jslab-cloud-modal.modal {
+  margin: 0;
+}
+
 .jslab-cloud-page :where(.card, .card-body, .table-responsive, .plugin-page-header > div, .plugin-actions, .plugin-actions > form),
 .jslab-cloud-admin :where(.card, .card-body, .table-responsive, form),
 .jslab-cloud-modal :where(.modal-dialog, .modal-content, .modal-body, .table-responsive, form) {
@@ -307,6 +312,11 @@
   line-height: 1.45;
 }
 
+.jslab-cloud-review-feedback {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .jslab-cloud-market-byline {
   color: var(--app-text-muted);
   font-size: var(--app-font-size-sm);
@@ -404,6 +414,7 @@
 }
 
 .jslab-cloud-modal [data-cloud-editor-modal] > .plugin-actions,
+.jslab-cloud-modal [data-cloud-rpk-form] > .plugin-actions,
 .jslab-cloud-modal [data-cloud-publish-form] > .btn[type="submit"] {
   position: sticky;
   bottom: calc(-1 * var(--ui-card-padding, var(--app-space-6)));
@@ -413,6 +424,45 @@
   padding-block: var(--app-space-3);
   background: var(--app-bg-elevated);
   box-shadow: 0 calc(-1 * var(--app-space-4)) var(--app-space-4) var(--app-bg-elevated);
+}
+
+/* The host's mobile grid needs an explicit dialog height for a long form. */
+@media (max-width: 860px) {
+  .jslab-cloud-modal .modal-dialog {
+    height: calc(100dvh - var(--ui-header-height));
+    max-height: calc(100dvh - var(--ui-header-height));
+  }
+
+  .jslab-cloud-modal .modal-content {
+    height: 100%;
+    max-height: 100%;
+  }
+
+  .jslab-cloud-modal .modal-body {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .jslab-cloud-modal [data-cloud-rpk-form] .form-check {
+    display: flex;
+    align-items: center;
+    gap: var(--app-space-2);
+    min-height: 44px;
+    padding-left: 0;
+  }
+
+  .jslab-cloud-modal [data-cloud-rpk-form] .form-check-input {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  .jslab-cloud-modal [data-cloud-rpk-form] .form-check-label {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-height: 44px;
+    cursor: pointer;
+  }
 }
 
 .jslab-cloud-modal .modal-body .jslab-cloud-code {

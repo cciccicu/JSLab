@@ -1,0 +1,120 @@
+<template>
+  <div class="page">
+    <scroll class="scroll" scroll-y="true" bounces="true">
+      <div class="app-card">
+        <image src="{{icon}}" class="logo" />
+        <div class="app-text-group">
+          <text class="app-name">{{name}}</text>
+          <text class="app-version">版本 {{version}}</text>
+        </div>
+      </div>
+      <text class="section-title">应用信息</text>
+      <div class="info-card">
+        <text class="card-label">作者</text>
+        <text class="card-value">{{author}}</text>
+      </div>
+      <div class="info-card">
+        <text class="card-label">包名</text>
+        <text class="small-value">{{packageName}}</text>
+        <text class="card-description">版本代码 {{versionCode}}</text>
+      </div>
+      <div class="info-card">
+        <text class="card-label">脚本</text>
+        <text class="small-value">{{scriptName}}</text>
+      </div>
+      <text class="section-title">运行选项</text>
+      <div class="info-card">
+        <text class="option-text">{{consoleLabel}}</text>
+        <text class="option-text">{{headerLabel}}</text>
+      </div>
+      <text class="section-title">由 JSLab 提供支持</text>
+      <div class="info-card promo-card">
+        <text class="promo-brand">JSLab Cloud</text>
+        <text class="promo-title">由 JSLab Cloud 生成</text>
+        <text class="card-description">从云空间到独立快应用，让你的脚本随身可用。</text>
+      </div>
+      <div class="info-card promo-card">
+        <text class="promo-brand">JSLab 脚本引擎</text>
+        <text class="promo-title">使用 JSLab 脚本引擎运行</text>
+        <text class="card-description">用 JavaScript 构建界面，让手腕上的创意成为日常工具。</text>
+      </div>
+      <div class="qrcode-card">
+        <text class="card-title centered">发现更多脚本</text>
+        <text class="card-description centered">扫码访问 JSLab Cloud</text>
+        <qrcode value="https://ccicc.icu/jslab-cloud" class="cloud-qrcode"></qrcode>
+        <text class="site-address">ccicc.icu/jslab-cloud</text>
+      </div>
+    </scroll>
+    <image static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="time-text">{{nowTime}}</text>
+    <text class="title-text">关于</text>
+    <image static src="/common/images/back.png" class="back-button" @click="goBack" />
+  </div>
+</template>
+<script>
+import app from '@system.app';
+import router from '@system.router';
+import { vibrate } from '../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../utils/core/time.js';
+const owners = new WeakMap();
+export default {
+  private: {
+    nowTime:'00:00', name:'独立应用', version:'', icon:'/common/logo.png',
+    author:'未填写', packageName:'', versionCode:'', scriptName:'',
+    consoleLabel:'', headerLabel:''
+  },
+  onInit() {
+    owners.set(this, true);
+    this.updateTime();
+    const info = app.getInfo();
+    this.name = info.name;
+    this.version = info.versionName;
+    this.packageName = info.packageName;
+    this.versionCode = String(info.versionCode);
+    this.icon = info.icon || '/common/logo.png';
+    this.$app.$def.loadPayload().then(data => {
+      if (!owners.has(this)) return;
+      this.name = data.appName;
+      this.version = data.versionName;
+      this.author = data.author || '未填写';
+      this.scriptName = data.name;
+      this.consoleLabel = data.options.disableConsole ? '日志输出：已关闭' : '日志输出：已开启';
+      this.headerLabel = data.options.hideTopBar ? '运行顶栏：已隐藏' : '运行顶栏：已显示';
+    }, () => {});
+  },
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
+  onDestroy() { owners.delete(this); stopPageClock(this); },
+  updateTime() { this.nowTime = getCurrentClock(); },
+  goBack() { vibrate('short'); router.back(); },
+  onBackPress() { this.goBack(); return true; }
+};
+</script>
+<style>
+.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; flex-direction:column; padding:84px 6px 24px; }
+.app-card { width:324px; min-height:128px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:row; flex-shrink:0; align-items:center; }
+.logo { width:76px; height:76px; flex-shrink:0; }
+.app-text-group { width:194px; margin-left:14px; flex-direction:column; flex-shrink:0; }
+.app-name { width:194px; font-size:32px; line-height:40px; font-weight:bold; color:#ffffff; lines:2; text-overflow:ellipsis; flex-shrink:0; }
+.app-version { width:194px; margin-top:4px; font-size:22px; line-height:30px; color:rgba(255,255,255,0.6); lines:-1; flex-shrink:0; }
+.section-title { width:324px; margin:10px 0px 4px; font-size:21px; line-height:29px; font-weight:bold; color:rgba(255,255,255,0.6); flex-shrink:0; }
+.info-card { width:324px; min-height:96px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; justify-content:center; }
+.card-label { width:284px; font-size:20px; line-height:28px; color:rgba(255,255,255,0.6); flex-shrink:0; }
+.card-value, .card-title { width:284px; font-size:27px; line-height:35px; font-weight:bold; color:#ffffff; lines:-1; flex-shrink:0; }
+.card-value { margin-top:3px; }
+.small-value { width:284px; margin-top:3px; font-size:22px; line-height:30px; color:#ffffff; lines:-1; flex-shrink:0; }
+.card-description { width:284px; margin-top:3px; font-size:20px; line-height:28px; color:rgba(255,255,255,0.6); lines:-1; flex-shrink:0; }
+.option-text { width:284px; font-size:22px; line-height:32px; color:#ffffff; flex-shrink:0; }
+.promo-card { padding:20px; }
+.promo-brand { width:284px; margin-bottom:8px; font-size:29px; line-height:37px; font-weight:bold; color:#ff5b5b; flex-shrink:0; }
+.promo-title { width:284px; font-size:23px; line-height:31px; font-weight:bold; color:#ffffff; lines:-1; flex-shrink:0; }
+.qrcode-card { width:324px; padding:20px; margin:0px 0px 16px; background-color:#262626; border-radius:36px; align-items:center; flex-direction:column; flex-shrink:0; }
+.centered { text-align:center; }
+.cloud-qrcode { width:184px; height:184px; margin-top:16px; color:#000000; background-color:#ffffff; flex-shrink:0; }
+.site-address { width:284px; margin-top:12px; font-size:20px; line-height:28px; color:rgba(255,255,255,0.6); text-align:center; flex-shrink:0; }
+.topbar-bg { position:absolute; left:0px; top:0px; width:336px; height:84px; }
+.back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
+.title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
+</style>

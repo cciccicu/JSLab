@@ -1,0 +1,86 @@
+<template>
+  <div class="page">
+    <list class="choices" bounces="true">
+      <list-item type="note" class="choices-note" if="{{error || dialog.message || dialog.multiple || rows.length === 0}}">
+        <text show="{{error || dialog.message || rows.length === 0}}" class="choice-message {{error ? 'error' : ''}}">{{error || dialog.message || '暂无可选项'}}</text>
+        <text show="{{dialog.multiple}}" class="selected-count">已选 {{selectedCount}} 项</text>
+      </list-item>
+      <list-item for="{{item in rows}}" tid="id" type="choice" class="item {{item.description ? 'item-described' : ''}} {{item.selected ? 'item-selected' : ''}} {{item.disabled ? 'item-disabled' : ''}}" @click="onSelect(item.index)">
+        <div class="item-copy">
+          <text class="label {{item.disabled ? 'disabled' : ''}}">{{item.label}}</text>
+          <text show="{{item.description}}" class="description {{item.disabled ? 'disabled' : ''}}">{{item.description}}</text>
+        </div>
+        <img show="{{item.selected}}" src="/common/images/check.png" class="check-icon" />
+      </list-item>
+    </list>
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-text" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+    <img static src="/common/images/conform.png" class="btn btn-confirm" @click="onConfirm" />
+  </div>
+</template>
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+const buffers=new WeakMap();
+export default {
+  protected: { dialogId: '' },
+  private: { dialog:{id:'',type:'' ,title:'',message:'',confirmText:'确认',cancelText:'取消',secondaryText:''}, nowTime:'00:00', error:'', closing:false, invalid:false,rows:[], selectedCount:0 },
+  onInit() {
+    const data=this.$app.$def.getDialog('select', this.dialogId);
+    if (!data) { this.invalid=true; return; }
+    const display=Object.assign({},data); delete display.value; delete display.items; this.dialog=display;
+    const selected=data.multiple ? data.value.slice() : data.value === undefined ? [] : [data.value];
+    buffers.set(this,{items:data.items,selected});
+    this.rows=data.items.map((item,index) => ({id:item.id,index,label:item.label,description:item.description,disabled:item.disabled,selected:selected.indexOf(item.value)>=0}));
+    this.selectedCount=selected.length;
+    if (data.items.filter(item => !item.disabled).length < data.minSelected) this.error='没有足够的可用选项';
+    this.nowTime=getCurrentClock();
+  },
+  onReady() {
+    if (this.invalid) {
+      // Release only the request that opened this page, before native return.
+      this.$app.$def.dialogDestroyed({ id:this.dialogId });
+      this.closing=true; back();
+    }
+  },
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this); this.$app.$def.dialogDestroyed(this.dialog); buffers.delete(this); },
+  close(action,value) {
+    if (this.closing || this.invalid) return;
+    this.closing=true; vibrate('short');
+    this.$app.$def.settleDialog(this.dialog,action,value); back();
+  },
+  onCancel() { this.close('cancel',null); },
+  onBackPress() { this.onCancel(); return true; },
+  onSelect(index) {
+    if (this.closing || this.invalid) return;
+    const item=buffers.get(this).items[index]; if (!item || item.disabled) return;
+    const b=buffers.get(this), found=b.selected.indexOf(item.value); vibrate('short'); this.error='';
+    if (!this.dialog.multiple) {
+      if (found >= 0) return;
+      const previous=b.items.findIndex(item => item.value === b.selected[0]);
+      if (previous >= 0) this.rows[previous].selected=false;
+      b.selected=[item.value]; this.rows[index].selected=true;
+    } else if (found >= 0) { b.selected.splice(found,1); this.rows[index].selected=false; }
+    else { if (b.selected.length >= this.dialog.maxSelected) { this.error='最多选择 '+this.dialog.maxSelected+' 项'; return; } b.selected.push(item.value); this.rows[index].selected=true; }
+    this.selectedCount=b.selected.length;
+  },
+  onConfirm() {
+    if (this.closing || this.invalid) return;
+    const selected=buffers.get(this).selected;
+    if (selected.length < this.dialog.minSelected) { this.error='至少选择 '+this.dialog.minSelected+' 项'; return; }
+    if (selected.length > this.dialog.maxSelected) { this.error='最多选择 '+this.dialog.maxSelected+' 项'; return; }
+    this.close('confirm',this.dialog.multiple ? buffers.get(this).items.filter(item => selected.indexOf(item.value)>=0).map(item => item.value) : selected[0]);
+  }
+
+};
+</script>
+<style>
+@import "../../../common/styles/dialog.css";
+</style>

@@ -15,7 +15,7 @@ const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
   invalid_pairing_code: '配对码格式错误、已使用或已经过期',
   invalid_ai_request: 'AI 请求缺少模式、需求说明或脚本内容',
   ai_not_configured: '云服务尚未配置 AI 模型',
-  ai_credit_insufficient: 'AI 余额不足，请在网页端充值',
+  ai_credit_insufficient: 'JSLab 额度不足，请在网页端充值',
   ai_provider_unavailable: '上游 AI 服务拒绝请求或暂时不可达',
   ai_invalid_response: 'AI 服务返回的内容缺少可用脚本代码',
   invalid_market_script: '市场脚本响应缺少名称或源代码',

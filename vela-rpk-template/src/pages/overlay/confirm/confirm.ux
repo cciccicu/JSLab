@@ -1,0 +1,53 @@
+<template>
+  <div class="page">
+    <scroll class="body" scroll-y="true" bounces="true"><text class="message">{{dialog.message}}</text></scroll>
+    <div class="actions {{dialog.secondaryText ? 'actions-three' : ''}} {{dialog.type === 'alert' ? 'actions-single' : ''}}">
+      <div if="{{dialog.type !== 'alert'}}" class="action {{dialog.secondaryText ? 'action-compact' : ''}}" @click="onCancel"><text class="action-text {{dialog.secondaryText ? 'action-text-compact' : ''}}">{{dialog.cancelText}}</text></div>
+      <div if="{{dialog.secondaryText}}" class="action action-compact" @click="onSecondary"><text class="action-text action-text-compact">{{dialog.secondaryText}}</text></div>
+      <div class="action primary {{dialog.secondaryText ? 'action-compact' : ''}}" @click="onConfirm"><text class="action-text {{dialog.secondaryText ? 'action-text-compact' : ''}}">{{dialog.confirmText}}</text></div>
+    </div>
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-text" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+  </div>
+</template>
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+export default {
+  protected: { dialogId: '' },
+  private: { dialog:{id:'',type:'' ,title:'',message:'',confirmText:'确认',cancelText:'取消',secondaryText:''}, nowTime:'00:00', error:'', closing:false, invalid:false, },
+  onInit() {
+    const data=this.$app.$def.getDialog('confirm', this.dialogId);
+    if (!data) { this.invalid=true; return; }
+    this.dialog=data;
+    this.nowTime=getCurrentClock();
+  },
+  onReady() {
+    if (this.invalid) {
+      // Release only the request that opened this page, before native return.
+      this.$app.$def.dialogDestroyed({ id:this.dialogId });
+      this.closing=true; back();
+    }
+  },
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this); this.$app.$def.dialogDestroyed(this.dialog);  },
+  close(action,value) {
+    if (this.closing || this.invalid) return;
+    this.closing=true; vibrate('short');
+    this.$app.$def.settleDialog(this.dialog,action,value); back();
+  },
+  onCancel() { this.close('cancel',null); },
+  onBackPress() { this.onCancel(); return true; },
+  onConfirm() { this.close('confirm',null); },
+  onSecondary() { if (this.dialog.secondaryText) this.close('secondary',null); }
+};
+</script>
+<style>
+@import "../../../common/styles/dialog.css";
+</style>

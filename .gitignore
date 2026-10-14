@@ -17,6 +17,7 @@ sign/
 *.abp
 *.face
 *.zip
+!/ccicc-plugin-cloud/jslab-cloud/rpk-template/template.zip
 __pycache__/
 *.py[cod]
 .pytest_cache/

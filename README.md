@@ -31,6 +31,7 @@ JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编�
 | 编辑体验 | 当前编辑器支持字号、语法高亮和高亮阈值；大文件或高亮关闭时自动采用低节点文本渲染 |
 | 电脑协作 | AstroBox 插件支持脚本和字体的浏览、新建、编辑、上传、下载、重命名与删除，并提供分块传输和断线恢复 |
 | 云端工作区 | 云空间按网盘模型保存当前文件；仅在用户主动操作时上传或下载，不执行自动同步 |
+| 独立快应用 | 网页云空间脚本可打包为独立 Vela RPK，支持图标、签名和打包选项，每次成功扣除 ¥0.10 JSLab 额度 |
 | JS 市场 | 浏览详情、查看作者、下载源码、保存到云空间；从云空间发布时自动填充代码，其余市场信息仍由用户填写 |
 | 设备与账户 | 手环发起配对，网页输入配对码或扫描二维码确认；支持激活、充值、AI 代码生成和 Token 计费 |
 | 表盘协作 | JSLab Helper Lua 表盘显示时间与动画，并从快应用端发起字体安装和表盘存活检测 |
@@ -55,6 +56,7 @@ JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编�
 ```text
 JSLab/
 ├─ vela-quickapp/          手环端 Vela 快应用（.rpk）
+├─ vela-rpk-template/      独立脚本快应用的预编译引擎模板
 ├─ astrobox-plugin-sync/   AstroBox 同步插件（.abp）
 ├─ ccicc-plugin-cloud/     ccicc.icu 云端插件与开发 Kit（.zip）
 ├─ vela-luawatchface/      JSLab Helper Lua 表盘（.face）
@@ -69,7 +71,9 @@ flowchart LR
     Face["JSLab Helper<br/>Lua 表盘"] -.后台服务与字体检测.- Watch
 ```
 
-四个项目各自维护构建系统和运行时边界。详细的所有权关系与交付产物见[项目架构](docs/architecture.md)。
+四个主要项目各自维护构建系统和运行时边界。`vela-rpk-template` 从手环端同步脚本引擎，
+在开发时编译一次，云端使用其静态模板完成内存打包与签名，详见[模板说明](vela-rpk-template/README.md)。
+详细的所有权关系与交付产物见[项目架构](docs/architecture.md)。
 
 ## 快速开始
 

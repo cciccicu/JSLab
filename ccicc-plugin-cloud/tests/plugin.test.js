@@ -697,6 +697,48 @@ test('single LLM mode makes the final moderation decision', async () => {
   }
 });
 
+test('browser rejection reasons survive reloads, stay private and match the submitted snapshot', async () => {
+  const fixture = context();
+  const originalFetch = global.fetch;
+  try {
+    plugin.install(fixture.ctx);
+    fixture.values.marketModerationMode = 'llm';
+    fixture.values.llmApiUrl = 'https://review.example/v1/chat/completions';
+    fixture.values.llmApiKey = 'review-key';
+    fixture.values.llmModel = 'review-model';
+    const reason = '请说明读取设备标识的用途。\n<script>alert("review")</script>';
+    global.fetch = async () => ({ok:true,async json(){return {choices:[{message:{content:JSON.stringify({decision:'reject',reason})}}]};}});
+    plugin.boot(fixture.ctx);
+    const request = {user:fixture.user,headers:{accept:'application/json'},params:{},query:{},body:{marketName:'rejected.js',marketDescription:'original',marketTags:'',source:'console.log(1)'}};
+    const submitted = await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), request);
+    assert.equal(submitted.body.status,'rejected');assert.equal(submitted.body.review.reason,reason);
+    const mine = await invoke(fixture.frontend.registry.get('GET /workspace/market'), {...request,query:{tab:'mine'}});
+    assert.match(mine.body,/AI 审核拒绝原因/);assert.match(mine.body,/请说明读取设备标识的用途/);
+    assert.match(mine.body,/&lt;script&gt;/);assert.doesNotMatch(mine.body,/<script>alert/);
+    assert.match(mine.body,/data-cloud-review-feedback/);
+    const id = String(submitted.body.marketId);
+    const manage = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/manage'), {...request,params:{id}});
+    assert.equal(manage.body.review.reason,reason);
+    const stranger = {...fixture.user,id:2,role:'member'};
+    assert.equal((await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/manage'), {...request,user:stranger,params:{id}})).statusCode,404);
+    for (const user of [stranger,null]) {
+      const publicPage = await invoke(fixture.frontend.registry.get('GET /workspace/market'), {...request,user,query:{}});
+      assert.doesNotMatch(publicPage.body,/请说明读取设备标识的用途/);
+    }
+    fixture.raw.prepare("UPDATE cloud_market_scripts SET status='published' WHERE id=?").run(id);
+    await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), {...request,body:{...request.body,marketId:id,marketDescription:'updated',source:'console.log(2)'}});
+    const update = await invoke(fixture.frontend.registry.get('GET /workspace/market'), {...request,query:{tab:'mine'}});
+    assert.match(update.body,/AI 审核拒绝原因/);
+    const legacyRead = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), {...request,params:{id},query:{}});
+    assert.equal(legacyRead.body.script.source,'console.log(1)');assert.equal('review' in legacyRead.body.script,false);
+    fixture.raw.prepare("UPDATE cloud_market_scripts SET pending_description='different candidate' WHERE id=?").run(id);
+    const changed = await invoke(fixture.frontend.registry.get('GET /workspace/market'), {...request,query:{tab:'mine'}});
+    assert.doesNotMatch(changed.body,/请说明读取设备标识的用途/);assert.match(changed.body,/未记录具体原因/);
+    const recheck = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/manage'), {...request,params:{id}});
+    assert.equal(recheck.body.review,null);
+  } finally { global.fetch = originalFetch; fixture.raw.close(); }
+});
+
 test('single LLM mode rate limits review submissions per user', async () => {
   const originalFetch = global.fetch;
   try {

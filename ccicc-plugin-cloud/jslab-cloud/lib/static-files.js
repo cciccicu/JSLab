@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 function assetVersion(ctx) {
   const hash = crypto.createHash('sha256');
   const root = ctx.rootDir || path.resolve(__dirname, '..');
-  for (const name of ['jslab-cloud.css', 'jslab-cloud.js']) hash.update(fs.readFileSync(path.join(root, 'assets', name)));
+  for (const name of ['jslab-cloud.css', 'jslab-cloud.js', 'jslab-rpk.js']) hash.update(fs.readFileSync(path.join(root, 'assets', name)));
   return encodeURIComponent(`${ctx.manifest.version}-${hash.digest('hex').slice(0, 16)}`);
 }
 

@@ -4,13 +4,17 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "npm run check:docs && node --test ../tests/*.test.js",
+    "test": "npm run check:docs && npm run check:rpk-template && node --test ../tests/*.test.js",
+    "check:rpk-template": "node ../scripts/check-rpk-template.cjs",
     "sync:docs": "node ../scripts/sync-docs.cjs",
     "check:docs": "node ../scripts/sync-docs.cjs --check",
-    "prepack": "npm run sync:docs",
+    "prepack": "npm run sync:docs && npm run check:rpk-template",
     "pack": "node ../development-kit/tools/pack-plugin.mjs"
   },
   "dependencies": {
-    "markdown-it": "^14.3.2"
+    "markdown-it": "^14.3.2",
+    "jszip": "3.10.1",
+    "jsrsasign": "11.1.3",
+    "pngjs": "7.0.0"
   }
 }

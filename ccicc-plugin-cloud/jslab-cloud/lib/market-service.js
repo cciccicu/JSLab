@@ -15,6 +15,7 @@ function createMarketService(state) {
     return Object.keys(snapshot).every(key => current[key] === snapshot[key]);
   };
   const reviewContentHash = snapshot => hash(JSON.stringify([snapshot.name, snapshot.description, snapshot.tags, snapshot.hash]));
+  const getMarketReview = row => ctx.db.prepare(`SELECT decision,reason FROM ${reviews} WHERE script_id=? AND content_hash=? ORDER BY id DESC LIMIT 1`).get(row.id, reviewContentHash(marketSnapshot(row))) || null;
   const applyMarketDecision = (marketId, decision, snapshot) => ctx.db.transaction(() => {
     const row = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(marketId);
     if (!row) return null;
@@ -138,7 +139,7 @@ function createMarketService(state) {
     if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`);
     return json(res, 200, { reported: true, message: '举报已提交。' });
   };
-  return { marketSnapshot, reviewContentHash, applyMarketDecision, submitMarket, listMarket, getMarketSource, reportMarket };
+  return { marketSnapshot, reviewContentHash, getMarketReview, applyMarketDecision, submitMarket, listMarket, getMarketSource, reportMarket };
 }
 
 module.exports = { createMarketService };

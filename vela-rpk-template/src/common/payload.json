@@ -1,0 +1,1 @@
+{"name":"example.js","appName":"示例应用","author":"JSLab","versionName":"1.0.0","options":{"disableConsole":false,"hideTopBar":false},"code":"ui.setTitle('示例应用'); ui.render([ui.heading('独立快应用'), ui.text('使用 JSLab 脚本引擎运行')]); ui.show();"}

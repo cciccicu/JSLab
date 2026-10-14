@@ -23,6 +23,11 @@ function ensurePersistentState(ctx) {
     ctx.config.register({ key: 'aiRequestTimeoutMs', displayName: '代码生成 AI：请求超时（毫秒）', description: '有效范围 1-300000，默认 90000。', valueType: 'number', defaultValue: 90_000, hotReload: true });
     const t = (name) => ctx.db.table(name);
     ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS ${t('rpk_builds')} (
+        user_id INTEGER NOT NULL, request_id TEXT NOT NULL, request_hash TEXT NOT NULL,
+        charged_cents INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY(user_id,request_id)
+      );
       CREATE TABLE IF NOT EXISTS ${t('scripts')} (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL,
         source TEXT NOT NULL, hash TEXT NOT NULL, checksum TEXT NOT NULL,

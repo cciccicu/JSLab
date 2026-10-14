@@ -177,7 +177,7 @@ export default {
         if (!this.pageActive || checkId !== this.accountCheckId) return;
         this.activationPending = false;
         this.activated = entitlement.cloudEnabled;
-        this.activationText = entitlement.cloudEnabled ? '已激活，AI 余额 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
+        this.activationText = entitlement.cloudEnabled ? '已激活，JSLab 额度 ¥' + (entitlement.aiCreditCents / 100).toFixed(2) : '未激活，请在网页端兑换激活码';
       }).catch(error => {
         if (!this.pageActive || checkId !== this.accountCheckId) return;
         this.activationPending = false;

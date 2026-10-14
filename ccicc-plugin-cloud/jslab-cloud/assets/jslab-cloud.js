@@ -89,6 +89,13 @@
     });
   }
 
+  function showReviewFeedback(form, reason) {
+    var feedback = form.querySelector('[data-cloud-review-feedback]');
+    if (!feedback) return;
+    feedback.textContent = reason ? 'AI 审核拒绝原因：' + reason : '';
+    feedback.classList.toggle('d-none', !reason);
+  }
+
   async function refreshCsrf(form) {
     var response;
     try {
@@ -178,11 +185,18 @@
         responseError.cloudResponse = true;
         throw responseError;
       }
+      if (form.matches('[data-cloud-publish-form]') && result.status === 'rejected') {
+        form.dataset.marketId = result.marketId;
+        showReviewFeedback(form, result.review && result.review.reason && result.review.reason.trim() || '未记录具体原因，请修改后重新提交或联系管理员。');
+        showToast('审核未通过，请查看拒绝原因并修改后重新提交。', true);
+        return;
+      }
       showToast(result.message || '操作已完成。', false);
       if (result.removeRow) form.closest('[data-cloud-row]')?.remove();
       if (result.removeCard) form.closest('.jslab-cloud-market-item')?.remove();
       if (form.matches('[data-cloud-editor-modal]')) result.reload = true;
       if (form.matches('[data-cloud-publish-form]')) {
+        showReviewFeedback(form, '');
         var publishModal = form.closest('.modal');
         if (publishModal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(publishModal).hide();
         form.reset();
@@ -235,6 +249,7 @@
       if (newPublishForm) {
         newPublishForm.reset();
         newPublishForm.dataset.marketId = '';
+        showReviewFeedback(newPublishForm, '');
       }
     }
     var publishButton = event.target.closest('[data-cloud-publish]');
@@ -244,6 +259,7 @@
       var sourceScript = document.querySelector('[data-cloud-script="' + publishButton.getAttribute('data-cloud-publish') + '"]');
       if (!publishForm || !publishModal || !sourceScript || !window.bootstrap) return;
       publishForm.reset();
+      showReviewFeedback(publishForm, '');
       publishForm.querySelector('[name="source"]').value = sourceScript.dataset.source || '';
       window.bootstrap.Modal.getOrCreateInstance(publishModal).show();
     }
@@ -257,6 +273,7 @@
         if (!result.script) throw new Error('读取待编辑的市场脚本：成功响应中缺少 script 字段。');
         editForm.reset();
         editForm.dataset.marketId = result.script.id;
+        showReviewFeedback(editForm, result.review && result.review.reason && result.review.reason.trim() || '');
         editForm.querySelector('[name="marketName"]').value = result.script.name || '';
         editForm.querySelector('[name="marketDescription"]').value = result.script.description || '';
         editForm.querySelector('[name="marketTags"]').value = Array.isArray(result.script.tags) ? result.script.tags.join(', ') : String(result.script.tags || '').replace(/[\[\]"]+/g, '');
@@ -302,6 +319,7 @@
           if (!result.script) throw new Error('读取待发布的云空间文件：成功响应中缺少 script 字段。');
           publishForm.reset();
           publishForm.dataset.marketId = '';
+          showReviewFeedback(publishForm, '');
           publishForm.querySelector('[name="source"]').value = result.source || '';
           window.bootstrap.Modal.getOrCreateInstance(publishElement).show();
         }).catch(function (error) { showToast(error && error.message ? error.message : '读取待发布的云空间文件：浏览器没有返回错误详情。', true); });

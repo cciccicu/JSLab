@@ -1,7 +1,7 @@
 const { scriptFilename } = require('./script-filename');
 
 function registerMarketPages(ctx, options, view) {
-  const { scripts, marketScripts, currentUser, escapeHtml, writeScript, hash, log } = options;
+  const { scripts, marketScripts, currentUser, escapeHtml, writeScript, hash, log, getMarketReview } = options;
   const { csrf, escAttr, page, button, isAjax, json, modal, statusBadge, marketForm } = view;
   ctx.routes.frontend.get('/workspace/market', (req, res) => {
     const query = String(req.query?.q || '').trim().slice(0, 80);
@@ -9,19 +9,22 @@ function registerMarketPages(ctx, options, view) {
     const like = `%${query}%`;
     const user = currentUser(req);
     const rows = tab === 'mine'
-      ? ctx.db.prepare(`SELECT id,name,description,status,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(user.id, like, like, like)
+      ? ctx.db.prepare(`SELECT id,name,description,tags,hash,status,pending_name,pending_description,pending_tags,pending_hash,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (COALESCE(pending_name,name) LIKE ? OR COALESCE(pending_description,description) LIKE ? OR COALESCE(pending_tags,tags) LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(user.id, like, like, like)
       : ctx.db.prepare(`SELECT id,name,description,status,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(like, like, like);
     const items = rows.map((row) => {
       const author = ctx.users.get(row.owner_user_id);
       const authorName = author?.display_name || author?.username || `用户 ${row.owner_user_id}`;
       const effective = row.pending_status === 'pending' || row.pending_status === 'rejected' ? row.pending_status : row.status;
+      const review = tab === 'mine' && effective === 'rejected' ? getMarketReview(row) : null;
+      const rejection = tab === 'mine' && effective === 'rejected'
+        ? `<div class="alert alert-danger jslab-cloud-review-feedback mb-0"><strong>${review?.decision === 'reject' ? 'AI 审核拒绝原因' : '审核拒绝原因'}</strong><p class="mb-0">${escapeHtml(review?.decision === 'reject' && review.reason?.trim() || '未记录具体原因，请修改后重新提交或联系管理员。')}</p></div>` : '';
       const manage = user && row.owner_user_id === user.id ? `<button class="btn btn-sm btn-outline-secondary" type="button" data-cloud-market-edit="${row.id}">编辑</button><form method="post" action="/jslab-cloud/workspace/market/${row.id}/delete" data-cloud-ajax><input type="hidden" name="_csrf" value="${csrf(req)}"><input type="hidden" name="ajax" value="1"><button class="btn btn-sm btn-outline-danger" type="submit" data-confirm="确定删除此市场脚本吗？">删除</button></form>` : '';
       const adminDelete = user?.role === 'admin' && row.owner_user_id !== user.id ? `<form method="post" action="/jslab-cloud/workspace/market/${row.id}/delete" data-cloud-ajax><input type="hidden" name="_csrf" value="${csrf(req)}"><input type="hidden" name="ajax" value="1"><button class="btn btn-sm btn-outline-danger" type="submit" data-confirm="确定删除此市场脚本吗？">删除</button></form>` : '';
       const view = row.status === 'published' ? `<a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}">查看详情</a>` : '';
       const download = row.status === 'published' ? `<a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}/download">下载</a>` : '';
       const save = tab === 'market' && user ? `<form method="post" action="/jslab-cloud/workspace/market/${row.id}/save" data-cloud-ajax><input type="hidden" name="_csrf" value="${csrf(req)}"><input type="hidden" name="ajax" value="1"><button class="btn btn-sm btn-outline-primary" type="submit">保存到云空间</button></form>` : '';
       const title = row.status === 'published' ? `<a href="/jslab-cloud/workspace/market/${row.id}">${escapeHtml(row.name)}</a>` : escapeHtml(row.name);
-      return `<article class="card jslab-cloud-market-item"><div class="card-body"><div class="jslab-cloud-market-content"><div class="jslab-cloud-market-title"><h2 class="h5">${title}</h2>${tab === 'mine' ? statusBadge(effective) : ''}</div><p class="jslab-cloud-market-description">${escapeHtml(row.description || '作者未提供说明。')}</p><p class="jslab-cloud-market-byline">作者：<a href="/jslab-cloud/workspace/authors/${row.owner_user_id}">${escapeHtml(authorName)}</a></p></div><div class="plugin-actions jslab-cloud-market-actions">${view}${save}${download}${manage}${adminDelete}</div></div></article>`;
+      return `<article class="card jslab-cloud-market-item"><div class="card-body"><div class="jslab-cloud-market-content"><div class="jslab-cloud-market-title"><h2 class="h5">${title}</h2>${tab === 'mine' ? statusBadge(effective) : ''}</div><p class="jslab-cloud-market-description">${escapeHtml(row.description || '作者未提供说明。')}</p><p class="jslab-cloud-market-byline">作者：<a href="/jslab-cloud/workspace/authors/${row.owner_user_id}">${escapeHtml(authorName)}</a></p>${rejection}</div><div class="plugin-actions jslab-cloud-market-actions">${view}${save}${download}${manage}${adminDelete}</div></div></article>`;
     }).join('');
     const mineHref = `/jslab-cloud/workspace/market?tab=mine${query ? `&q=${encodeURIComponent(query)}` : ''}`;
     const marketHref = `/jslab-cloud/workspace/market${query ? `?q=${encodeURIComponent(query)}` : ''}`;
@@ -32,10 +35,11 @@ function registerMarketPages(ctx, options, view) {
 
   ctx.routes.frontend.get('/api/cloud/market/:id/manage', ctx.users.requireAuth, (req, res) => {
     const user = currentUser(req);
-    const row = ctx.db.prepare(`SELECT id,name,description,tags,source,status,pending_status,pending_name,pending_description,pending_tags,pending_source,owner_user_id FROM ${marketScripts} WHERE id=? AND (owner_user_id=? OR ?='admin')`).get(Number(req.params.id), user.id, user.role);
+    const row = ctx.db.prepare(`SELECT id,name,description,tags,source,hash,status,pending_status,pending_name,pending_description,pending_tags,pending_source,pending_hash,owner_user_id FROM ${marketScripts} WHERE id=? AND (owner_user_id=? OR ?='admin')`).get(Number(req.params.id), user.id, user.role);
     if (!row) return json(res, 404, { error: 'not_found' });
     const pending = row.pending_status === 'pending' || row.pending_status === 'rejected';
-    json(res, 200, { script: { id: row.id, name: pending ? row.pending_name || row.name : row.name, description: pending ? row.pending_description || row.description : row.description, tags: pending ? row.pending_tags || row.tags : row.tags, source: pending ? row.pending_source || row.source : row.source } });
+    const review = (pending ? row.pending_status : row.status) === 'rejected' ? getMarketReview(row) : null;
+    json(res, 200, { review: review?.decision === 'reject' ? review : null, script: { id: row.id, name: pending ? row.pending_name || row.name : row.name, description: pending ? row.pending_description || row.description : row.description, tags: pending ? row.pending_tags || row.tags : row.tags, source: pending ? row.pending_source || row.source : row.source } });
   });
 
   ctx.routes.frontend.get('/workspace/publications', ctx.users.requireAuth, (req, res) => {

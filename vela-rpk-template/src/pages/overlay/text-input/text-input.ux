@@ -1,0 +1,81 @@
+<import name="input-method" src="../../../components/InputMethod/InputMethod.ux"></import>
+<template>
+  <div class="page">
+    <div class="input-card">
+      <text class="note {{error ? 'error' : ''}}">{{error || dialog.message || dialog.placeholder}}</text>
+      <div class="input-field"><text class="input-value">{{displayValue}}</text></div>
+      <div class="edit-actions">
+        <text class="edit-key" @click="move(-1)">‹</text>
+        <text class="count">{{count}} / {{dialog.maxLength}}</text>
+        <text class="edit-key" @click="move(1)">›</text>
+        <text class="edit-key" @click="clear">清空</text>
+      </div>
+    </div>
+    <input-method hide="{{false}}" initial-language="{{dialog.language}}" maxlength="5" vibratemode="short" @delete="onDelete" @complete="onComplete"></input-method>
+    <img static src="/common/images/hd.png" class="topbar-bg" />
+    <text class="time-text">{{nowTime}}</text>
+    <text if="{{dialog.title.length <= 5}}" class="title-text">{{dialog.title}}</text>
+    <marquee if="{{dialog.title.length > 5}}" class="title-text" scrollamount="4" loop="-1">{{dialog.title}}</marquee>
+    <img static src="/common/images/back.png" class="btn btn-back" @click="onCancel" />
+    <img static src="/common/images/conform.png" class="btn btn-confirm" @click="onConfirm" />
+  </div>
+</template>
+<script>
+import { back } from '../../../utils/core/routeManager.js';
+import { vibrate } from '../../../utils/core/uiFeedback.js';
+import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
+const buffers=new WeakMap();
+export default {
+  protected: { dialogId: '' },
+  private: { dialog:{id:'',type:'' ,title:'',message:'',confirmText:'确认',cancelText:'取消',secondaryText:''}, nowTime:'00:00', error:'', closing:false, invalid:false,displayValue:'', count:0 },
+  onInit() {
+    const data=this.$app.$def.getDialog('text', this.dialogId);
+    if (!data) { this.invalid=true; return; }
+    const display=Object.assign({},data); delete display.value; this.dialog=display;
+    buffers.set(this,{value:data.value,cursor:data.value.length}); this.refreshDisplay();
+    this.nowTime=getCurrentClock();
+  },
+  onReady() {
+    if (this.invalid) {
+      // Release only the request that opened this page, before native return.
+      this.$app.$def.dialogDestroyed({ id:this.dialogId });
+      this.closing=true; back();
+    }
+  },
+  onShow() { startPageClock(this); },
+  onHide() { stopPageClock(this); },
+  onDestroy() {
+    stopPageClock(this); this.$app.$def.dialogDestroyed(this.dialog); buffers.delete(this); },
+  close(action,value) {
+    if (this.closing || this.invalid) return;
+    this.closing=true; vibrate('short');
+    this.$app.$def.settleDialog(this.dialog,action,value); back();
+  },
+  onCancel() { this.close('cancel',null); },
+  onBackPress() { this.onCancel(); return true; },
+  refreshDisplay() {
+    const b=buffers.get(this); const start=Math.max(0,b.cursor-12), end=Math.min(b.value.length,start+24);
+    this.count=b.value.length;
+    this.displayValue=(start ? '…' : '')+b.value.slice(start,b.cursor)+'|'+b.value.slice(b.cursor,end)+(end < b.value.length ? '…' : '');
+  },
+  move(delta) { const b=buffers.get(this); b.cursor=Math.max(0,Math.min(b.value.length,b.cursor+delta)); this.refreshDisplay(); },
+  clear() { const b=buffers.get(this); b.value=''; b.cursor=0; this.error=''; this.refreshDisplay(); },
+  onComplete(event) {
+    const content=String(event && event.detail && event.detail.content || ''); if (!content) return;
+    const b=buffers.get(this);
+    if (b.value.length+content.length > this.dialog.maxLength) { this.error='已达到最大长度'; return; }
+    b.value=b.value.slice(0,b.cursor)+content+b.value.slice(b.cursor); b.cursor+=content.length;
+    this.error=''; this.refreshDisplay();
+  },
+  onDelete() { const b=buffers.get(this); if (!b.cursor) return; b.value=b.value.slice(0,b.cursor-1)+b.value.slice(b.cursor); b.cursor-=1; this.error=''; this.refreshDisplay(); },
+  onConfirm() {
+    const value=buffers.get(this).value;
+    if ((this.dialog.required && !value.length) || value.length < this.dialog.minLength) { this.error='至少输入 '+Math.max(this.dialog.required ? 1 : 0,this.dialog.minLength)+' 字符'; return; }
+    this.close('confirm',value);
+  }
+
+};
+</script>
+<style>
+@import "../../../common/styles/dialog.css";
+</style>

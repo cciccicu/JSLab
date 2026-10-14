@@ -181,7 +181,7 @@ export default {
     }).catch(error => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
-      if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');else if (error && error.message === 'ai_credit_insufficient') showToast('AI 余额不足，请在网页端充值');else showToast(errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
+      if (error && error.message === 'activation_required') showToast('请先在网页端激活 AI 功能');else if (error && error.message === 'ai_credit_insufficient') showToast('JSLab 额度不足，请在网页端充值');else showToast(errorMessage(error, this.mode === 'rewrite' ? 'AI 改写当前脚本' : 'AI 生成新脚本'));
     }).then(() => {
       if (this.pageActive) this.busy = false;
     });

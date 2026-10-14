@@ -10,6 +10,7 @@ const { createCloudFiles } = require('./lib/cloud-files');
 const { registerBrowserApi } = require('./lib/browser-api');
 const { registerDeviceApi } = require('./lib/device-api');
 const { registerAdminPages } = require('./lib/admin-pages');
+const { registerRpkApi } = require('./lib/rpk-service');
 
 const escapeHtml = (value) => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const formatCredit = (cents) => (Math.max(0, Number(cents) || 0) / 100).toFixed(2);
@@ -37,6 +38,7 @@ module.exports = {
     const services = { activation, ai, market, cloudFiles };
 
     registerBrowserApi(state, services);
+    registerRpkApi(state);
     registerDeviceApi(state, services);
     registerBrowserPages(ctx, {
       assetsVersion, scripts: state.scripts, marketScripts: state.marketScripts,
@@ -44,13 +46,14 @@ module.exports = {
       currentUser: state.currentUser, escapeHtml, formatCredit,
       writeScript: (req, res) => cloudFiles.writeScript(req, res, state.currentUser(req), true),
       deleteScript: (req, res) => cloudFiles.deleteScript(req, res, state.currentUser(req), true),
-      redeemActivationCode: activation.redeemActivationCode, hash: state.hash, log: state.log
+      redeemActivationCode: activation.redeemActivationCode, hash: state.hash, log: state.log,
+      getMarketReview: market.getMarketReview
     });
     registerAdminPages({ ...state, assetsVersion, escapeHtml, formatCredit }, services);
   },
 
   uninstall(ctx, { purgeData }) {
-    if (purgeData) ['ai_reservations','ai_usage','activation_codes','user_entitlements','market_reports','moderation_reviews','audit_log','pairing_codes','devices','market_scripts','scripts']
+    if (purgeData) ['rpk_builds','ai_reservations','ai_usage','activation_codes','user_entitlements','market_reports','moderation_reviews','audit_log','pairing_codes','devices','market_scripts','scripts']
       .forEach((name) => ctx.db.exec(`DROP TABLE IF EXISTS ${ctx.db.table(name)}`));
   }
 };

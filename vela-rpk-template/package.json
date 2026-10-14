@@ -1,0 +1,13 @@
+{
+  "name": "jslab-rpk-template",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "npm run check:runtime && node --test tests/*.test.cjs",
+    "sync:runtime": "node scripts/sync-runtime.cjs",
+    "check:runtime": "node scripts/sync-runtime.cjs --check",
+    "build": "node scripts/build.cjs",
+    "export:template": "node scripts/export-template.cjs"
+  },
+  "devDependencies": { "aiot-toolkit": "2.0.5" }
+}

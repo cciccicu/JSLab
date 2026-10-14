@@ -3,6 +3,7 @@
 本仓库包含多个相互独立的交付项目。请在对应的项目目录中工作，不要混用不同项目的构建产物或运行时协议。
 
 - `vela-quickapp/AGENTS.md` 规定 Vela JS 快应用的开发要求。
+- `vela-rpk-template/AGENTS.md` 规定独立脚本 RPK 引擎模板的同步、构建和导出要求；云端每次打包不得运行完整工具链或创建用户脚本临时文件。
 - `astrobox-plugin-sync/` 是 AstroBox WASI 插件；请遵循其 WIT 协议和 `manifest.json`。
 - `ccicc-plugin-cloud/` 包含 ccicc.icu JSLab Cloud 插件及其开发 Kit。只有创建其他插件时才使用该 Kit。
 - `vela-luawatchface/` 是本仓库中的 Lua 表盘项目。其设备部署脚本需要用户明确授权。
