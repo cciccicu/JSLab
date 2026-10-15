@@ -19,7 +19,7 @@ test("cloudClients", async () => {
       .replace("import fetch from '@system.fetch';", 'const fetch = globalThis.__cloudFetch;')
       .replace("import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;')
       .replace("import { cleanDetail, createNativeError } from '../core/userError.js';", 'const { cleanDetail, createNativeError } = globalThis.__cloudUserError;')
-      .replace("import { IS_COMMUNITY_EDITION } from '../core/edition.js';", 'const IS_COMMUNITY_EDITION = globalThis.__cloudCommunityEdition;');
+      .replace("import { IS_COMMUNITY_EDITION } from '../core/buildConfig.js';", 'const IS_COMMUNITY_EDITION = globalThis.__cloudCommunityEdition;');
     globalThis.__cloudFetch = harness.fetch;
     globalThis.__cloudConfig = harness.config;
     globalThis.__cloudJsManager = harness.jsManager;
@@ -145,7 +145,7 @@ test("cloudClients", async () => {
       set(key, value) { pageConfigValues[key] = value; return Promise.resolve(true); }
     };
     const selectionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'serverSelection.js'), 'utf8')
-      .replace("import { IS_COMMUNITY_EDITION } from '../core/edition.js';", 'const IS_COMMUNITY_EDITION = true;')
+      .replace("import { IS_COMMUNITY_EDITION } from '../core/buildConfig.js';", 'const IS_COMMUNITY_EDITION = true;')
       .replace("import { back } from '../core/routeManager.js';", 'const back = () => {};')
       .replace("import { showToast } from '../core/uiFeedback.js';", 'const showToast = () => {};');
     const selection = await import('data:text/javascript;base64,' + Buffer.from(selectionSource).toString('base64'));

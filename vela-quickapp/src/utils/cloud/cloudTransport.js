@@ -1,7 +1,7 @@
 import fetch from '@system.fetch';
 import configManager from '../core/configManager.js';
 import { cleanDetail, createNativeError } from '../core/userError.js';
-import { IS_COMMUNITY_EDITION } from '../core/edition.js';
+import { IS_COMMUNITY_EDITION } from '../core/buildConfig.js';
 
 // app.ux binds its single Interconnect sender for all cloud clients.
 let cloudProxyRequest = null;

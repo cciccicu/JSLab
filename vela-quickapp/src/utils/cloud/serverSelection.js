@@ -1,4 +1,4 @@
-import { IS_COMMUNITY_EDITION } from '../core/edition.js';
+import { IS_COMMUNITY_EDITION } from '../core/buildConfig.js';
 import { back } from '../core/routeManager.js';
 import { showToast } from '../core/uiFeedback.js';
 

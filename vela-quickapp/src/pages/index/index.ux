@@ -49,7 +49,6 @@ import { utf8ByteLength } from '../../utils/files/textEncoding.js';
 import { errorMessage } from '../../utils/cloud/cloudError.js';
 import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible, stopNetworkFeedback } from '../../utils/core/networkFeedback.js';
 import { formatError } from '../../utils/core/userError.js';
-import { IS_ASTROBOX_EDITION, showAstroBoxRestriction } from '../../utils/core/edition.js';
 import { chooseServer } from '../../utils/cloud/serverSelection.js';
 export default {
   private: {
@@ -134,10 +133,6 @@ export default {
   },
   routerTo(page) {
     vibrate('short');
-    if (IS_ASTROBOX_EDITION && page === 'settingsCloudFiles') {
-      showAstroBoxRestriction(this).catch(error => console.error('无法显示版本说明:', error));
-      return;
-    }
     push(page);
   },
   runSelected() { this.openSelected('run'); },
@@ -169,10 +164,6 @@ export default {
   uploadSelected() {
     if (this.cloudBusy || this.fileActionBusy || this.selectedFileIndex === -1 || !this.fileList[this.selectedFileIndex]) return;
     vibrate('short');
-    if (IS_ASTROBOX_EDITION) {
-      showAstroBoxRestriction(this).catch(error => console.error('无法显示版本说明:', error));
-      return;
-    }
     chooseServer(this).then(selected => {
       if (selected && this.pageActive) this.uploadSelectedToCloud();
     }).catch(error => showToast(error && error.message ? error.message : '无法选择服务器'));
