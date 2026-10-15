@@ -5,7 +5,7 @@ export function isNetworkError(error) {
 }
 
 const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
-  not_paired: '本机尚未保存云设备令牌，请先完成配对',
+  not_paired: '请先前往“设置 > 云账户”登录并配对设备',
   device_auth_required: '设备令牌未被云服务认可，请重新配对',
   auth_required: '网页账户尚未登录',
   activation_required: '云空间尚未激活，请先在网页端兑换激活码',

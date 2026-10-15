@@ -17,9 +17,10 @@ function copy(relative) {
     for (const name of fs.readdirSync(from)) copy(path.join(relative, name));
   } else write(relative, fs.readFileSync(from));
 }
+// Keep the RPK-specific black code-sheet icon with its JSLab badge; do not copy the regular app logo here.
 for (const relative of ['utils/runtime', 'utils/files/scriptData.js', 'utils/core/dialogState.js',
   'utils/core/routeManager.js', 'utils/core/runtimeCompat.js', 'utils/core/uiFeedback.js', 'utils/core/time.js',
-  'pages/overlay', 'components/InputMethod', 'common/styles/dialog.css', 'common/logo.png',
+  'pages/overlay', 'components/InputMethod', 'common/styles/dialog.css',
   ...['hd','back','conform','check','info'].map(name => 'common/images/' + name + '.png')]) copy(relative);
 let run = fs.readFileSync(path.join(source, 'pages/workspace/run/run.ux'), 'utf8').replace(/\r\n/g, '\n');
 function change(before, after) {

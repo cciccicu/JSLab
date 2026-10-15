@@ -2,7 +2,7 @@
   "format": 1,
   "toolkit": "2.0.5",
   "runtimeContract": "jslab-unified-open-ui",
-  "sha256": "9ba78486c6a9f07e03a33cde612c1628e47465c0a26021d6428ea03c8c2b8523",
+  "sha256": "4ddcdb5290e683085dc577340b2c64155407d35f3d6650ef2161f96c03d58510",
   "sources": {
     "app.ux": "17a98b3fc417e1c7b65c0b93326e96976373902ab48fba241b14fb04cbac160e",
     "common/images/back.png": "bd2d2a28380262856493dfebc33430372755d58c568675dcc731dc28ef8ea75d",
@@ -10,7 +10,7 @@
     "common/images/conform.png": "b9f11f099fab51687d00015ebd6bca8c7492c34d0148d27d14001aaab49f8e34",
     "common/images/hd.png": "9f6c83e3b5a21a53f6b97a545b90b1e00d28b1267cd1d9a0980fdfed1795f711",
     "common/images/info.png": "f782c362ed1bfd4edabe9c5f103d68f4f8ff861fd12f02e28f2c19a91e8981e6",
-    "common/logo.png": "e1ce40ecb777e1a20aefc3426ab2154a38f9559eb9ff26302a60203fa0cc7f05",
+    "common/logo.png": "156e46501b8308405b585e6838734fe1d2f7ac662fc57d30f7917f0a612c52ba",
     "common/payload.json": "6f3662794ddc2f9d39a9a29ce2b3981e9bc288e0f40c4c643161e7295848f922",
     "common/styles/dialog.css": "d478c80d850d65a2419ab671d260db118db369b4ba54ded10575bf4e94b2cc65",
     "components/InputMethod/assets/dic.js": "767db7079ac9375fb9694904c7922c8bc008ac464589b50ce789fea3d47691ec",

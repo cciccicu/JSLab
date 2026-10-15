@@ -11,7 +11,7 @@ function rpkForm(req,user,view) {
       ${field('versionName','版本号','1.0.0','maxlength="32" required')}
       ${field('versionCode','versionCode','1','type="number" min="1" max="2147483647" step="1" required')}
       ${field('author','作者',user.display_name || user.username,'maxlength="80" required')}
-      <div class="col-md-6"><label class="form-label" for="rpk-icon">图标（可选）</label><input id="rpk-icon" class="form-control" type="file" name="icon" accept="image/png"><div class="form-text">PNG，最大 32 KiB、512×512；留空使用 JSLab 图标。</div></div>
+      <div class="col-md-6"><label class="form-label" for="rpk-icon">图标（可选）</label><input id="rpk-icon" class="form-control" type="file" name="icon" accept="image/png"><div class="form-text">PNG，最大 32 KiB、512×512；留空使用 JSLab 脚本生成图标。</div></div>
     </div>
     <fieldset class="mt-3"><legend class="h6">打包选项</legend>
       <div class="form-check"><input class="form-check-input" id="rpk-console" name="disableConsole" type="checkbox"><label class="form-check-label" for="rpk-console">禁用 console 日志输出</label></div>

@@ -33,6 +33,29 @@ export function normalizeTransport(value) {
   return value === 'interconnect' ? 'interconnect' : 'fetch';
 }
 
+function requiresDeviceAuth(path, method) {
+  // Keep this client-side gate aligned with the requireDevice routes in the cloud plugin.
+  const requestPath = String(path || '');
+  const queryIndex = requestPath.indexOf('?');
+  const pathname = queryIndex === -1 ? requestPath : requestPath.slice(0, queryIndex);
+  const query = queryIndex === -1 ? '' : requestPath.slice(queryIndex + 1);
+  const verb = String(method || 'GET').toUpperCase();
+  const mine = /(?:^|&)mine=1(?:&|$)/.test(query);
+
+  if (pathname === '/api/cloud/device/scripts') return verb === 'GET' || verb === 'POST';
+  if (/^\/api\/cloud\/device\/scripts\/[^/]+$/.test(pathname)) {
+    return verb === 'GET' || verb === 'PUT' || verb === 'DELETE';
+  }
+  if (pathname === '/api/cloud/device/revoke') return verb === 'POST';
+  if (pathname === '/api/cloud/device/entitlements') return verb === 'GET';
+  if (pathname === '/api/cloud/device/ai/generate') return verb === 'POST';
+  if (pathname === '/api/cloud/device/market') return verb === 'GET' && mine;
+  if (/^\/api\/cloud\/device\/market\/[^/]+\/source$/.test(pathname)) return verb === 'GET' && mine;
+  if (/^\/api\/cloud\/device\/market\/[^/]+\/(?:report|delete)$/.test(pathname)) return verb === 'POST';
+  if (pathname === '/api/cloud/device/market/submit') return verb === 'POST';
+  return false;
+}
+
 function normalizeNetworkError(error) {
   const message = String(error && error.message ? error.message : error || '');
   if (message === 'cloud_proxy_unavailable' || message === 'cloud_proxy_disconnected' || message === 'cloud_proxy_timeout') return error;
@@ -63,6 +86,8 @@ export function request(path, options) {
     configManager.get('cloud.transport', ''),
     IS_COMMUNITY_EDITION ? configManager.get('cloud.communityServerChosen', false) : Promise.resolve(true)
   ]).then((values) => {
+    const hasDeviceToken = typeof values[1] === 'string' && values[1].trim().length > 0;
+    if (requiresDeviceAuth(path, settings.method) && !hasDeviceToken) throw new Error('not_paired');
     if (!values[3]) throw new Error('server_not_selected');
     const headers = { 'Content-Type': 'application/json' };
     if (values[1]) headers.Authorization = 'Bearer ' + values[1];
