@@ -58,7 +58,15 @@ function createMarketService(state) {
     const llmModeration = ctx.config.get('marketModerationMode') === 'llm';
     if (llmModeration && !consume(`market-review:${user.id}`, 6, 60_000)) return json(res, 429, { error: 'rate_limited', message: '提交审核过于频繁，请稍后重试。' });
     const source = sourceFromBody(req.body);
-    const marketId = Number(req.body?.marketId || 0);
+    const rawMarketId = req.body?.marketId;
+    const hasMarketId = rawMarketId != null && !(typeof rawMarketId === 'string' && !rawMarketId.trim());
+    if (hasMarketId && typeof rawMarketId !== 'string' && typeof rawMarketId !== 'number') {
+      return json(res, 400, { error: 'invalid_market_id', message: '市场脚本 ID 无效。' });
+    }
+    const marketId = hasMarketId ? Number(rawMarketId) : 0;
+    if (!Number.isSafeInteger(marketId) || marketId < 0) {
+      return json(res, 400, { error: 'invalid_market_id', message: '市场脚本 ID 无效。' });
+    }
     const marketName = String(req.body?.marketName || '').trim().slice(0, 124);
     const marketDescription = String(req.body?.marketDescription || '').trim().slice(0, 1000);
     if (!marketName) return json(res, 400, { error: 'name_required', message: '请填写市场名称。' });
@@ -126,6 +134,20 @@ function createMarketService(state) {
       updated_at: row.updated_at, status: pending ? row.pending_status : row.status,
       authorName: author?.display_name || author?.username || `用户 ${row.owner_user_id}`, filename: scriptFilename(name) } });
   };
+  const deleteMarket = (req, res, userOverride) => {
+    if (!userOverride) return json(res, 401, { error: 'device_auth_required' });
+    const marketId = Number(req.params?.id);
+    if (!Number.isSafeInteger(marketId) || marketId <= 0) return json(res, 404, { error: 'not_found' });
+    const deleted = ctx.db.transaction(() => {
+      const row = ctx.db.prepare(`SELECT id FROM ${marketScripts} WHERE id=? AND owner_user_id=?`).get(marketId, userOverride.id);
+      if (!row) return false;
+      ctx.db.prepare(`DELETE FROM ${marketScripts} WHERE id=?`).run(row.id);
+      return true;
+    })();
+    if (!deleted) return json(res, 404, { error: 'not_found', message: '市场脚本不存在或无权删除。' });
+    log(userOverride.id, 'market.delete', String(marketId));
+    return json(res, 200, { deleted: true, marketId });
+  };
   const reportMarket = (req, res, userOverride) => {
     const user = userOverride || currentUser(req);
     if (!user) return json(res, 401, { error: 'auth_required' });
@@ -139,7 +161,7 @@ function createMarketService(state) {
     if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`);
     return json(res, 200, { reported: true, message: '举报已提交。' });
   };
-  return { marketSnapshot, reviewContentHash, getMarketReview, applyMarketDecision, submitMarket, listMarket, getMarketSource, reportMarket };
+  return { marketSnapshot, reviewContentHash, getMarketReview, applyMarketDecision, submitMarket, listMarket, getMarketSource, deleteMarket, reportMarket };
 }
 
 module.exports = { createMarketService };

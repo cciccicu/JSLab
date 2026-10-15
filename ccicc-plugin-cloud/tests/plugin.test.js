@@ -348,6 +348,18 @@ async function submitMarket(fixture, created, overrides = {}) {
   return invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), { user: fixture.user, body: { marketName: cloud.body.script.name, marketDescription: 'description', marketTags: '', source: cloud.body.source, ...overrides }, params: {}, query: {}, headers: {} });
 }
 
+async function reviewMarket(fixture, id, status) {
+  const params = { id: String(id) };
+  const detail = await invoke(fixture.admin.registry.get('GET /scripts/:id'), {
+    user: fixture.user, body: {}, params, query: {}, headers: {}
+  });
+  const match = detail.body.match(/name="review_snapshot" value="([A-Za-z0-9+/=]+)"/);
+  assert.ok(match, 'admin review form should include the reviewed snapshot');
+  return invoke(fixture.admin.registry.get('POST /scripts/:id/review'), {
+    user: fixture.user, body: { status, review_snapshot: match[1] }, params, query: {}, headers: {}
+  });
+}
+
 test('installs idempotently and registers one navigation item per surface', () => {
   const fixture = context();
   plugin.install(fixture.ctx); plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
@@ -432,14 +444,14 @@ test('market publication is an independent snapshot', async () => {
   const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: 'market.js', source: 'console.log("published")' }, params: {}, query: {}, headers: {} });
   const submitted = await submitMarket(fixture, created);
   assert.equal(submitted.body.status, 'pending');
-  await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user, body: { status: 'published' }, params: { id: String(submitted.body.marketId) }, query: {}, headers: {} });
+  await reviewMarket(fixture, submitted.body.marketId, 'published');
   await invoke(fixture.frontend.registry.get('POST /workspace/scripts/:id/save'), { user: fixture.user, body: { name: 'market.js', source: 'console.log("changed")' }, params: { id: String(created.body.id) }, query: {}, headers: {} });
   const resubmitted = await submitMarket(fixture, created);
   assert.equal(resubmitted.body.status, 'pending');
   assert.notEqual(resubmitted.body.marketId, submitted.body.marketId);
   const market = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), { params: { id: String(submitted.body.marketId) }, query: {}, headers: {} });
   assert.equal(market.body.script.source, 'console.log("published")');
-  await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user, body: { status: 'rejected' }, params: { id: String(resubmitted.body.marketId) }, query: {}, headers: {} });
+  await reviewMarket(fixture, resubmitted.body.marketId, 'rejected');
   const stillPublished = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), { params: { id: String(submitted.body.marketId) }, query: {}, headers: {} });
   assert.equal(stillPublished.body.script.source, 'console.log("published")');
   const cloudColumns = fixture.raw.prepare(`PRAGMA table_info(cloud_scripts)`).all().map((column) => column.name);
@@ -565,9 +577,7 @@ test('market browsing and downloading are public but saving to cloud space requi
   });
   assert.equal(submitted.statusCode, 200);
   const id = String(submitted.body.marketId);
-  await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), {
-    user: fixture.user, body: { status: 'published' }, params: { id }, query: {}, headers: {}
-  });
+  await reviewMarket(fixture, id, 'published');
   const listed = await invoke(fixture.frontend.registry.get('GET /api/cloud/market'), { query: {}, params: {}, headers: {} });
   assert.equal(listed.statusCode, 200);
   assert.equal(listed.body.scripts[0].id, submitted.body.marketId);
@@ -610,8 +620,7 @@ test('market source patterns enter manual review from browser and device submiss
         marketId = submitted.body.marketId;
         const row = fixture.raw.prepare('SELECT * FROM cloud_market_scripts WHERE id=?').get(marketId);
         assert.equal(row.pending_status ? row.pending_source : row.source, source);
-        await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user,
-          body: { status: 'published' }, params: { id: String(marketId) }, query: {}, headers: {} });
+        await reviewMarket(fixture, marketId, 'published');
         assert.equal(fixture.raw.prepare('SELECT source FROM cloud_market_scripts WHERE id=?').get(marketId).source, source);
       }
     } finally { fixture.raw.close(); }
@@ -645,7 +654,7 @@ test('admin review list opens escaped source with metadata and review actions', 
     assert.match(detail.body, /name="_csrf" value="csrf"/);
     assert.match(detail.body, /人工通过/);
     assert.match(detail.body, /人工拒绝/);
-    await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { ...request, body: { status: 'published' } });
+    await reviewMarket(fixture, id, 'published');
     const published = await invoke(fixture.admin.registry.get('GET /scripts/:id'), request);
     assert.match(published.body, /作者：tester · 已发布/);
     assert.doesNotMatch(published.body, /人工通过|人工拒绝/);
@@ -795,7 +804,7 @@ test('rejected LLM review preserves a published update for manual approval', asy
     const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture); plugin.boot(fixture.ctx);
     const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: 'reviewed.js', source: 'console.log("original")' }, params: {}, query: {}, headers: {} });
     const published = await submitMarket(fixture, created, { marketDescription: 'original' });
-    await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user, body: { status: 'published' }, params: { id: String(published.body.marketId) }, query: {}, headers: {} });
+    await reviewMarket(fixture, published.body.marketId, 'published');
 
     fixture.values.marketModerationMode = 'llm';
     fixture.values.llmApiUrl = 'https://review.example/v1/chat/completions';
@@ -835,7 +844,7 @@ test('rejected LLM review preserves a published update for manual approval', asy
     assert.match(detail.body, /待审核源码<\/h2><\/div><pre[^>]*><code>console\.log\(&quot;candidate&quot;\)<\/code>/);
     assert.match(detail.body, /<details><summary>查看当前已发布版本<\/summary><pre[^>]*><code>console\.log\(&quot;original&quot;\)<\/code>/);
     assert.match(detail.body, /人工通过/);
-    await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user, body: { status: 'published' }, params: { id: String(published.body.marketId) }, query: {}, headers: {} });
+    await reviewMarket(fixture, published.body.marketId, 'published');
     const approved = fixture.raw.prepare(`SELECT status,pending_status,source,pending_source FROM cloud_market_scripts WHERE id=?`).get(published.body.marketId);
     assert.equal(approved.status, 'published');
     assert.equal(approved.pending_status, null);
@@ -850,7 +859,7 @@ test('published market snapshot remains manageable after its cloud file is delet
   const fixture = context(); plugin.install(fixture.ctx); enableCloud(fixture); plugin.boot(fixture.ctx);
   const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: 'standalone.js', source: 'console.log(1)' }, params: {}, query: {}, headers: {} });
   const submitted = await submitMarket(fixture, created);
-  await invoke(fixture.admin.registry.get('POST /scripts/:id/review'), { user: fixture.user, body: { status: 'published' }, params: { id: String(submitted.body.marketId) }, query: {}, headers: {} });
+  await reviewMarket(fixture, submitted.body.marketId, 'published');
   await invoke(fixture.frontend.registry.get('DELETE /api/cloud/scripts/:id'), { user: fixture.user, body: {}, params: { id: String(created.body.id) }, query: {}, headers: {} });
   const page = await invoke(fixture.frontend.registry.get('GET /workspace/publications'), { user: fixture.user, body: {}, params: {}, query: {}, headers: {} });
   assert.equal(page.redirected, '/jslab-cloud/workspace/market?tab=mine');
@@ -982,7 +991,7 @@ test('device publications isolate candidates while legacy public reads retain pu
     const submit = body => invoke(f.frontend.registry.get('POST /api/cloud/device/market/submit'), { ...request, body });
     const created = await submit({ marketName: 'public name', marketDescription: 'public description', marketTags: 'public-tag', source: 'console.log("public")' });
     const id = String(created.body.marketId);
-    await invoke(f.admin.registry.get('POST /scripts/:id/review'), { user: f.user, body: { status: 'published' }, params: { id }, query: {}, headers: {} });
+    await reviewMarket(f, id, 'published');
     await submit({ marketId: id, marketName: 'candidate name', marketDescription: 'candidate description', marketTags: 'private-tag', source: 'console.log("candidate")' });
     const pending = await submit({ marketName: 'new pending', marketDescription: 'pending', source: 'console.log(2)' });
     f.raw.prepare(`INSERT INTO cloud_market_scripts(owner_user_id,name,description,source,hash,checksum,status) VALUES(2,'other pending','other','console.log(3)','h','c','pending')`).run();

@@ -15,19 +15,19 @@
         <text class="field-value">{{selectedName}}</text>
       </div>
       <div class="field-card" @click="editField('marketName')">
-        <text class="field-label">市场名称 · 必填</text>
+        <text class="field-label">{{replacingMarket ? '市场名称 · 保持不变' : '市场名称 · 必填'}}</text>
         <text class="field-value">{{marketName || '点击填写名称'}}</text>
       </div>
       <div class="field-card field-tall" @click="editField('description')">
-        <text class="field-label">用途说明 · 必填</text>
+        <text class="field-label">{{replacingMarket ? '用途说明 · 保持不变' : '用途说明 · 必填'}}</text>
         <text class="field-value field-description">{{description || '点击填写用途和使用方法'}}</text>
       </div>
       <div class="field-card" @click="editField('tags')">
-        <text class="field-label">标签 · 可选</text>
+        <text class="field-label">{{replacingMarket ? '标签 · 保持不变' : '标签 · 可选'}}</text>
         <text class="field-value">{{tags || '用逗号分隔，最多 12 个'}}</text>
       </div>
       <div class="note-card">
-        <text class="note-text">提交时读取本地脚本的当前源码。审核通过后，市场用户才能看到。</text>
+        <text class="note-text">{{replacingMarket ? '将替换当前市场脚本的源码，名称、说明和标签保持不变；审核通过后更新公开版本。' : '提交时读取本地脚本的当前源码。审核通过后，市场用户才能看到。'}}</text>
       </div>
       <div if="{{submissionText}}" class="note-card">
         <text class="note-text">{{submissionText}}</text>
@@ -35,7 +35,7 @@
     </scroll>
     <img static src="/common/images/hd.png" class="header" />
     <text class="time-text">{{nowTime}}</text>
-    <text class="heading">发布市场</text>
+    <text class="heading">{{replacingMarket ? '重新上传' : '发布市场'}}</text>
     <img static src="/common/images/back.png" class="btn back" @click="goBack" />
     <img if="{{stage === 'details'}}" src="/common/images/conform.png" class="btn confirm {{busy ? 'disabled-icon' : ''}}" @click="submit" />
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
@@ -56,12 +56,19 @@ import { getCurrentClock, startPageClock, stopPageClock } from '../../../../util
 import { formatError } from '../../../../utils/core/userError.js';
 import { enterNetworkPage } from '../../../../utils/cloud/serverSelection.js';
 export default {
+  protected: {
+    marketId: '',
+    marketTitle: '',
+    marketDescription: '',
+    marketTags: ''
+  },
   private: {
     stage: 'choose',
     files: [],
     loading: false,
     initialized: false,
     busy: false,
+    replacingMarket: false,
     statusText: '正在读取本地脚本...',
     networkStatus: '',
     networkStage: '',
@@ -75,6 +82,13 @@ export default {
   },
   onInit() {
     this.nowTime = getCurrentClock();
+    const marketId = Number(this.marketId);
+    this.replacingMarket = Number.isSafeInteger(marketId) && marketId > 0;
+    if (this.replacingMarket) {
+      this.marketName = String(this.marketTitle || '');
+      this.description = String(this.marketDescription || '');
+      this.tags = this.normalizeMarketTags(this.marketTags);
+    }
   },
   onShow() {
     startPageClock(this);
@@ -120,14 +134,32 @@ export default {
     }
     vibrate('short');
     this.selectedName = this.files[index].name;
-    this.marketName = this.selectedName.replace(/\.js$/i, '').slice(0, 124);
-    this.description = '';
-    this.tags = '';
+    if (this.replacingMarket) {
+      this.marketName = String(this.marketTitle || '');
+      this.description = String(this.marketDescription || '');
+      this.tags = this.normalizeMarketTags(this.marketTags);
+    } else {
+      this.marketName = this.selectedName.replace(/\.js$/i, '').slice(0, 124);
+      this.description = '';
+      this.tags = '';
+    }
     this.submissionText = '';
     this.stage = 'details';
   },
+  normalizeMarketTags(value) {
+    let tags = value;
+    if (typeof tags === 'string') {
+      try {
+        const parsed = JSON.parse(tags);
+        if (Array.isArray(parsed)) tags = parsed;
+      } catch (error) {
+        tags = value;
+      }
+    }
+    return Array.isArray(tags) ? tags.join(', ') : String(tags || '');
+  },
   editField(field) {
-    if (this.busy || this.stage !== 'details') return;
+    if (this.busy || this.replacingMarket || this.stage !== 'details') return;
     const settings = {
       marketName: {
         title: '市场名称',
@@ -181,9 +213,11 @@ export default {
     }
     this.busy = true;
     this.$app.$def.openDialog('confirm', {
-      title: '提交审核？',
-      message: '将 ' + this.selectedName + ' 的当前源码提交为“' + name + '”。审核通过后才会公开。',
-      confirmText: '提交',
+      title: this.replacingMarket ? '确认重新上传？' : '提交审核？',
+      message: this.replacingMarket
+        ? '将用 ' + this.selectedName + ' 替换“' + name + '”的市场源码并重新提交审核。审核通过后会更新公开版本。'
+        : '将 ' + this.selectedName + ' 的当前源码提交为“' + name + '”。审核通过后才会公开。',
+      confirmText: this.replacingMarket ? '重新上传' : '提交',
       cancelText: '返回'
     }, this).then(result => {
       if (!this.pageActive) return null;
@@ -192,11 +226,13 @@ export default {
         return null;
       }
       startNetworkFeedback(this, '正在提交市场审核');
-      return this.$app.$def.getCloudClients().marketClient.submitMarketScript(this.selectedName, {
+      const metadata = {
         name,
         description,
         tags: tags.join(', ')
-      });
+      };
+      if (this.replacingMarket) metadata.marketId = Number(this.marketId);
+      return this.$app.$def.getCloudClients().marketClient.submitMarketScript(this.selectedName, metadata);
     }).then(result => {
       if (!this.pageActive || !result) return;
       stopNetworkFeedback(this);
@@ -206,7 +242,9 @@ export default {
         return;
       }
       this.$app.$def.marketRefreshNeeded = true;
-      showToast(result.status === 'published' ? '已发布到 JS 市场' : '已提交市场审核');
+      showToast(this.replacingMarket
+        ? '已重新提交审核'
+        : result.status === 'published' ? '已发布到 JS 市场' : '已提交市场审核');
       back();
     }).catch(error => {
       if (!this.pageActive) return;

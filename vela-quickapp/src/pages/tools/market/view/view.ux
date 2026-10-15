@@ -22,7 +22,7 @@
     <text class="heading">查看脚本</text>
     <img static src="/common/images/back.png" class="btn back" @click="goBack" />
     <img if="{{script}}" src="/common/images/download.png" class="action action-download" @click="download" />
-    <img if="{{script && !isMineView}}" src="/common/images/info.png" class="action action-report" @click="report" />
+    <img if="{{script && !isMineView}}" src="/common/images/market-report.png" class="action action-report" @click="report" />
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
       <div class="network-dialog">
         <text class="network-dialog-title">{{networkStatus}}</text>

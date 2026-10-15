@@ -91,6 +91,8 @@ function registerDeviceApi(state, services) {
   });
   ctx.routes.frontend.post('/api/cloud/device/market/:id/report', requireDevice,
     (req, res) => market.reportMarket(req, res, deviceUser(req)));
+  ctx.routes.frontend.post('/api/cloud/device/market/:id/delete', requireDevice,
+    (req, res) => market.deleteMarket(req, res, deviceUser(req)));
   ctx.routes.frontend.post('/api/cloud/device/market/submit', requireDevice,
     (req, res) => market.submitMarket(req, res, deviceUser(req)));
 }

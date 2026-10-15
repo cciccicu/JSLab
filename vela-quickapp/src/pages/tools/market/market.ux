@@ -34,9 +34,13 @@
     <text class="heading">JS 市场</text>
     <img static src="/common/images/back.png" class="back" @click="goBack" />
     <img src="/common/images/upload.png" class="upload {{loading || busy ? 'disabled-icon' : ''}}" @click="upload" />
-    <img if="{{selectedScriptIndex !== -1}}" src="/common/images/market-view.png" class="action action-view" @click="viewSelected" />
-    <img if="{{selectedScriptIndex !== -1}}" src="/common/images/download.png" class="action action-download" @click="downloadSelected" />
-    <img if="{{selectedScriptIndex !== -1 && !mine}}" src="/common/images/market-report.png" class="action action-report" @click="reportSelected" />
+    <div if="{{selectedScriptIndex !== -1}}" class="actions">
+      <img src="/common/images/market-view.png" class="action" @click="viewSelected" />
+      <img src="/common/images/download.png" class="action" @click="downloadSelected" />
+      <img if="{{mine}}" src="/common/images/delete.png" class="action" @click="deleteSelected" />
+      <img if="{{mine}}" src="/common/images/upload.png" class="action" @click="reuploadSelected" />
+      <img if="{{!mine}}" src="/common/images/market-report.png" class="action" @click="reportSelected" />
+    </div>
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
       <div class="network-dialog">
         <text class="network-dialog-title">{{networkStatus}}</text>
@@ -194,6 +198,48 @@ export default {
     const script = this.selectedScript();
     if (!script) return;
     this.saveAs(script);
+  },
+  deleteSelected() {
+    const script = this.selectedScript();
+    if (!script || !this.mine || this.busy) return;
+    vibrate('short');
+    this.busy = true;
+    this.$app.$def.openDialog('confirm', {
+      title: '删除市场脚本',
+      message: '确认删除“' + script.name + '”？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消'
+    }, this).then(result => {
+      if (!this.pageActive) return null;
+      if (result.action !== 'confirm') {
+        this.busy = false;
+        return null;
+      }
+      startNetworkFeedback(this, '正在删除市场脚本');
+      return this.$app.$def.getCloudClients().marketClient.deleteMarketScript(script.id);
+    }).then(result => {
+      if (!this.pageActive || !result) return;
+      stopNetworkFeedback(this);
+      this.busy = false;
+      showToast('市场脚本已删除');
+      this.load();
+    }).catch(error => {
+      if (!this.pageActive) return;
+      stopNetworkFeedback(this);
+      this.busy = false;
+      showToast(errorMessage(error, '删除市场脚本'));
+    });
+  },
+  reuploadSelected() {
+    const script = this.selectedScript();
+    if (!script || !this.mine) return;
+    vibrate('short');
+    push('toolsMarketUpload', {
+      marketId: String(script.id),
+      marketTitle: script.name,
+      marketDescription: script.description || '',
+      marketTags: script.tags || ''
+    });
   },
   reportSelected() {
     const script = this.selectedScript();
@@ -504,31 +550,22 @@ export default {
   lines: 1;
 }
 
-.action {
+.actions {
   position: absolute;
+  left: 6px;
   top: 402px;
+  width: 324px;
+  height: 72px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.action {
   width: 72px;
   height: 72px;
   border-radius: 36px;
-  background-color: #262626;
-  justify-content: center;
-  align-items: center;
-}
-
-.action-view, .action-download, .action-report {
   background-color: transparent;
-}
-
-.action-view {
-  left: 6px;
-}
-
-.action-download {
-  left: 90px;
-}
-
-.action-report {
-  left: 174px;
 }
 
 .status {

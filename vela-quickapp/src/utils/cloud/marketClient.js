@@ -33,15 +33,26 @@ function reportMarketScript(id, reason) {
   });
 }
 
+function deleteMarketScript(id) {
+  return request('/api/cloud/device/market/' + encodeURIComponent(id) + '/delete', {
+    method: 'POST'
+  });
+}
+
 function submitMarketScript(localName, metadata) {
   const details = metadata || {};
+  const body = {
+    marketName: String(details.name || '').trim(),
+    marketDescription: String(details.description || '').trim(),
+    marketTags: String(details.tags || '').trim()
+  };
+  if (details.marketId != null) {
+    const marketId = Number(details.marketId);
+    if (!Number.isSafeInteger(marketId) || marketId <= 0) return Promise.reject(new Error('invalid_market_id'));
+    body.marketId = marketId;
+  }
   return jsManager.read(localName).then(source => request('/api/cloud/device/market/submit', {
-    method: 'POST', timeoutMs: MODERATION_TIMEOUT_MS, body: {
-      marketName: String(details.name || '').trim(),
-      marketDescription: String(details.description || '').trim(),
-      marketTags: String(details.tags || '').trim(),
-      source
-    }
+    method: 'POST', timeoutMs: MODERATION_TIMEOUT_MS, body: Object.assign({}, body, { source })
   }));
 }
 
@@ -56,4 +67,4 @@ function downloadMarketScript(id, name, overwrite, mine) {
   });
 }
 
-export default { listMarketScripts, getMarketScript, reportMarketScript, submitMarketScript, downloadMarketScript };
+export default { listMarketScripts, getMarketScript, reportMarketScript, deleteMarketScript, submitMarketScript, downloadMarketScript };
