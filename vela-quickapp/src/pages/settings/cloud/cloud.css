@@ -1,0 +1,23 @@
+@import "../../../common/styles/network-loading.css";
+.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
+.header { position:absolute; left:0px; top:0px; width:336px; height:84px; }
+.back { position:absolute; left:6px; top:6px; width:72px; height:72px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
+.heading { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
+.item { width:100%; height:112px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
+.status-item { justify-content:space-between; }
+.item-title { width:100%; font-size:28px; line-height:36px; color:#ffffff; font-weight:bold; text-overflow:ellipsis; lines:1; }
+.item-description { width:100%; font-size:20px; line-height:28px; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:2; }
+.action { justify-content:center; }
+.danger { background-color:#542020; }
+.disabled-item { background-color:#303030; }
+.error-item { background-color:#542020; justify-content:center; }
+.pairing-card { width:100%; min-height:270px; padding:12px 20px; margin-bottom:8px; border-radius:24px; background-color:#ffffff; align-items:center; flex-direction:column; flex-shrink:0; }
+.pairing-qr { width:150px; height:150px; color:#000000; background-color:#ffffff; }
+.pairing-code { margin-top:6px; font-size:30px; line-height:36px; color:#000000; font-weight:bold; letter-spacing:2px; }
+.pairing-status { width:100%; margin-top:4px; font-size:20px; line-height:28px; color:#333333; text-align:center; }
+.pairing-cancel { width:100%; height:60px; margin-top:4px; justify-content:center; align-items:center; }
+.pairing-cancel-text { font-size:24px; line-height:32px; color:#b42318; font-weight:bold; text-align:center; }
+.action-text { width:100%; font-size:28px; line-height:36px; color:#ffffff; font-weight:bold; text-align:center; }
+.disabled-text { color:#8c8c8c; }

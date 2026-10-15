@@ -1,0 +1,101 @@
+.page {
+  position: absolute;
+  left: 0px;
+  bottom: 0px;
+  width: 432px;
+  height: 255px;
+  background-color: #000000;
+  overflow: hidden;
+}
+.keyboard-panel { width: 432px; height: 255px; background-color: #000000; }
+.keyboard-background { position: absolute; left: 0px; top: 0px; width: 432px; height: 255px; background-color: #000000; }
+.keyboard-body { position: absolute; left: 30px; top: 66px; width: 372px; height: 159px; }
+.letter-rows { left: 0px; flex-direction: column; }
+.letter-row { height: 50px; }
+.row-2 { margin-left: 32px; margin-top: 3px; }
+.row-3 { margin-left: 0px; margin-top: 3px; }
+.letter-row-spacer { width: 64px; height: 50px; }
+.letter-key {
+  width: 60px; height: 50px; margin-right: 4px; border-radius: 30px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 30px; font-weight: bold; text-align: center;
+}
+.key-image { width: 60px; height: 50px; object-fit:contain; }
+.shift-key {
+  position: relative; width: 60px; height: 50px; margin-right: 4px;
+  border-radius: 30px; border: 3px solid rgba(255,255,255,0.06);
+  background-color: #262626; justify-content: center; align-items: center;
+}
+.shift-key-on { background-color: #0d6eff; }
+.shift-key-locked { background-color: #0d6eff; border-color: #ffffff; }
+.shift-glyph { width: 48px; height: 38px; object-fit:contain; }
+.shift-lock-dot {
+  position: absolute; left: 27px; bottom: 3px; width: 6px; height: 6px;
+  border-radius: 3px; background-color: #ffffff;
+}
+.numeric-pad { position: absolute; left: 30px; top: 66px; width: 372px; height: 159px; flex-direction: column; }
+.numeric-row { width: 372px; height: 50px; margin-bottom: 3px; justify-content: center; }
+.number-digit-group { width: 212px; height: 46px; justify-content: space-between; }
+.number-extra-group { width: 140px; height: 46px; margin-left: 12px; justify-content: space-between; }
+.number-key {
+  width: 68px; height: 46px; border-radius: 26px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 28px; font-weight: bold; text-align: center;
+}
+.keyboard-page-scroll { position: absolute; left: 30px; top: 66px; width: 372px; height: 159px; }
+.symbol-content { width: 1028px; height: 159px; flex-direction: row; flex-shrink: 0; }
+.symbol-section { width: 616px; height: 159px; flex-direction: column; flex-shrink: 0; }
+.symbol-section-cn { width: 406px; margin-left: 6px; }
+.keyboard-section-heading { width: 100%; height: 24px; color: rgba(255,255,255,0.55); font-size: 17px; font-weight: bold; text-align: left; padding-left: 8px; flex-shrink: 0; }
+.symbol-row { height: 42px; margin-bottom: 2px; flex-shrink: 0; }
+.symbol-key {
+  width: 52px; height: 42px; margin-right: 4px; border-radius: 26px; flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 25px; font-weight: bold; text-align: center;
+}
+.snippet-content { width: 1340px; height: 159px; flex-direction: column; flex-shrink: 0; }
+.snippet-row { height: 50px; margin-bottom: 3px; flex-shrink: 0; }
+.snippet-key { height: 46px; margin-right: 6px; border-radius: 26px; border: 3px solid rgba(255,255,255,0.06); background-color: #262626; color: #ffffff; font-size: 18px; font-weight: bold; text-align: center; flex-shrink: 0; }
+.action-row-cn { position: absolute; left: 30px; top: 3px; width: 372px; height: 60px; flex-direction: row; }
+.action-row-five { position: absolute; left: 30px; top: 3px; width: 372px; height: 60px; flex-direction: row; }
+.candidate-bar { width: 240px; height: 60px; margin-left: 6px; border: 3px solid #333333; border-radius: 30px; background-color: #262626; }
+.candidate-scroll { position: absolute; left: 0px; width: 206px; height: 42px; }
+.candidate-content { position: absolute; left: 0px; height: 42px; padding-left: 12px; padding-right: 8px; }
+.candidate { height: 42px; padding-right: 10px; color: #ffffff; font-size: 28px; text-align: center; }
+.candidate-expand { position: absolute; right: 2px; top: 14px; width: 32px; height: 21px; }
+.delete-button-spaced { width: 60px; height: 60px; margin-left: 6px; }
+.toolbar-delete { width: 60px; height: 60px; margin-left: 0px; }
+.state-button {
+  width: 58px; height: 60px; margin-right: 4px; border-radius: 24px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
+}
+.state-button-compact { font-size: 20px; }
+.state-button-active { background-color: #0d6eff; border-color: rgba(255,255,255,0.24); }
+.mode-button-cn {
+  width: 60px; height: 60px; margin-right: 0px; border-radius: 30px;
+  border: 3px solid rgba(255,255,255,0.24); background-color: #0d6eff;
+  color: #ffffff; font-size: 28px; font-weight: bold; text-align: center;
+}
+.symbol-mode-cn { font-size: 20px; }
+.state-menu {
+  position: absolute; left: 30px; top: 66px; width: 372px; height: 68px;
+  padding-top: 4px; border-radius: 34px; background-color: #000000;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.menu-button, .menu-button-last {
+  width: 60px; height: 60px; border-radius: 30px;
+  border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
+  color: #ffffff; font-size: 22px; font-weight: bold; text-align: center;
+}
+.menu-button { margin-right: 0px; }
+.menu-button-active { background-color: #0d6eff; border-color: rgba(255,255,255,0.24); }
+.menu-symbol-cn { font-size: 20px; }
+.candidate-overlay { position: absolute; left: 0px; top: 0px; width: 432px; height: 225px; background-color: #000000; justify-content: center; flex-direction: column; align-items: center; }
+.candidate-list { width: 372px; height: 170px; padding: 0px 10px; border: 3px solid rgba(255,255,255,0.06); border-radius: 30px; background-color: #262626; }
+.candidate-list-view { width: 100%; height: 100%; }
+.candidate-row { height: 50px; }
+.candidate-cell { height: 50px; flex: 1; }
+.candidate-button { width: 52px; height: 52px; border-radius: 0px; background-color: rgba(38,38,38,0); color: #ffffff; font-size: 28px; text-align: center; }
+.candidate-collapse { width: 372px; height: 50px; margin-top: 5px; object-fit:contain; }

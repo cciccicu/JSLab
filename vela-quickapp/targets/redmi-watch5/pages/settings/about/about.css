@@ -1,0 +1,67 @@
+.page {
+    width: 432px;
+    height: 514px;
+    background-color: #000000;
+    overflow: hidden;
+  }
+  .scroll { position: absolute; left: 0px; top: 0px; width: 432px; height: 514px; flex-direction: column; padding: 112px 18px 36px; }
+  .app-card {
+    width: 396px;
+    height: 128px;
+    padding: 14px 20px;
+    margin-bottom: 8px;
+    border-radius: 36px;
+    background-color: #262626;
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  .app-text-group {
+    width: 266px;
+    margin-left: 14px;
+    flex-direction: column;
+  }
+  .app-name {
+    width: 266px;
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: bold;
+    color: #ffffff;
+  }
+  .app-version {
+    width: 266px;
+    margin-top: 4px;
+    font-size: 22px;
+    line-height: 30px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .logo {
+    width: 76px;
+    height: 76px;
+  }
+  .section-title { width: 396px; margin: 10px 0px 4px; font-size: 21px; line-height: 29px; font-weight: bold; color: rgba(255,255,255,0.6); flex-shrink: 0; }
+  .info-card { width: 396px; min-height: 96px; padding: 14px 20px; margin-bottom: 8px; border-radius: 36px; background-color: #262626; flex-direction: column; flex-shrink: 0; justify-content: center; }
+  .card-title { width: 356px; font-size: 27px; line-height: 35px; font-weight: bold; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+  .card-description { width: 356px; margin-top: 3px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.6); lines: -1; }
+  .resource-card { min-height: 142px; }
+  .resource-text { width: 356px; font-size: 20px; line-height: 32px; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+  .qrcode-card {
+    width: 396px;
+    height: 300px;
+    padding: 18px 20px;
+    margin-bottom: 8px;
+    background-color: #262626;
+    border-radius: 36px;
+    align-items: center;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .centered { text-align: center; }
+  .feedback-qrcode { width: 220px; height: 220px; margin-top: 12px; color: #000000; background-color: #ffffff; }
+  .license-card { width: 396px; min-height: 120px; padding: 16px 20px; margin: 2px 0px 16px; border-radius: 36px; background-color: #262626; flex-direction: column; flex-shrink: 0; align-items: center; justify-content: center; }
+  .license-text { width: 356px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.65); text-align: center; }
+  .joke-text { width: 356px; margin-top: 7px; font-size: 28px; line-height: 36px; font-weight: bold; color: #ff5b5b; text-align: center; }
+  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 432px; height: 112px; }
+  .back-button { position: absolute; left: 30px; top: 30px; width: 72px; height: 72px; }
+  .time-text { position: absolute; left: 108px; top: 16px; width: 216px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
+  .title-text { position: absolute; left: 108px; top: 48px; width: 216px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }

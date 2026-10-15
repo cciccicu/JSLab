@@ -18,6 +18,7 @@ sign/
 *.face
 *.zip
 !/ccicc-plugin-cloud/jslab-cloud/rpk-template/template.zip
+!/ccicc-plugin-cloud/jslab-cloud/rpk-template/redmi-watch5/template.zip
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -1,0 +1,17 @@
+@import "../../../common/styles/network-loading.css";
+.page { width:336px; height:480px; background-color:#000000; overflow:hidden; }
+.scroll { position:absolute; left:0px; top:0px; width:336px; height:480px; padding:84px 6px 24px; flex-direction:column; }
+.item { width:324px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; flex-shrink:0; justify-content:space-between; }
+.status-item { background-color:#1f3045; }
+.prompt-item { height:136px; }
+.item-title { width:284px; font-size:28px; line-height:36px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }
+.item-description { width:284px; font-size:20px; line-height:28px; color:rgba(255,255,255,0.68); text-overflow:ellipsis; lines:2; }
+.action { justify-content:center; }
+.primary { background-color:#0D6EFF; }
+.disabled-item { background-color:#303030; }
+.action-text { width:284px; font-size:28px; line-height:36px; font-weight:bold; color:#ffffff; text-align:center; lines:2; text-overflow:ellipsis; }
+.disabled-text { color:#8c8c8c; }
+.topbar { position:absolute; left:0px; top:0px; width:336px; height:84px; }
+.back-button { position:absolute; left:6px; top:6px; width:72px; height:72px; }
+.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
+.title-text { position:absolute; left:78px; top:35px; width:180px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }

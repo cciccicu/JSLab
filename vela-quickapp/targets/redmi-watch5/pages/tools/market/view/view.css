@@ -1,0 +1,160 @@
+@import "../../../../common/styles/network-loading.css";
+
+@font-face {
+  font-family: 'JSLabActive';
+  src: url('/common/fonts/active.ttf');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.page {
+  width: 432px;
+  height: 514px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.body {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 432px;
+  height: 514px;
+  padding: 112px 18px 110px;
+  flex-direction: column;
+}
+
+.status-card, .source-card, .code-card {
+  width: 396px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.status-card {
+  min-height: 112px;
+  justify-content: center;
+}
+
+.status-text {
+  width: 356px;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 31px;
+  text-align: center;
+  lines: 5;
+}
+
+.source-card {
+  min-height: 128px;
+}
+
+.script-name {
+  width: 356px;
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.script-meta {
+  width: 356px;
+  color: rgba(255,255,255,0.65);
+  font-size: 18px;
+  line-height: 26px;
+  lines: 2;
+  text-overflow: ellipsis;
+}
+
+.code-card {
+  padding: 18px 20px;
+}
+
+.source {
+  flex-shrink: 0;
+  width: 356px;
+  color: #ffffff;
+  font-size: 17px;
+  line-height: 23px;
+  font-family: 'JSLabActive';
+  lines: -1;
+}
+
+.header {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 432px;
+  height: 112px;
+}
+
+.time-text {
+  position: absolute;
+  left: 108px;
+  top: 16px;
+  width: 216px;
+  line-height: 32px;
+  font-size: 24px;
+  font-weight: bold;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
+
+.heading {
+  position: absolute;
+  left: 108px;
+  top: 48px;
+  width: 216px;
+  line-height: 42px;
+  font-size: 32px;
+  font-weight: bold;
+  color: #ffffff;
+  text-align: center;
+}
+
+.btn {
+  position: absolute;
+  top: 30px;
+  width: 72px;
+  height: 72px;
+}
+
+.back {
+  left: 30px;
+}
+
+.action {
+  position: absolute;
+  top: 412px;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background-color: #262626;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-download, .action-report {
+  background-color: transparent;
+}
+
+.action-download {
+  left: 230px;
+}
+
+.action-report {
+  left: 330px;
+}
+
+.action-text {
+  width: 72px;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 30px;
+  text-align: center;
+}

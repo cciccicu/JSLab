@@ -1,0 +1,99 @@
+.page {
+  width: 336px;
+  height: 480px;
+  background-color: #000000;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 84px;
+  overflow: hidden;
+}
+
+/* 顶部 */
+.header-img {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 336px;
+  height: 84px;
+}
+
+.btn {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+}
+
+.disabled-icon {
+  background-color: #303030;
+  border-radius: 36px;
+}
+
+.time-text {
+  position: absolute;
+  left: 78px;
+  top: 7px;
+  width: 180px;
+  line-height: 32px;
+  font-weight: bold;
+  font-size: 24px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
+
+.title-text {
+  position: absolute;
+  left: 78px;
+  top: 35px;
+  width: 180px;
+  line-height: 42px;
+  font-weight: bold;
+  font-size: 32px;
+  color: white;
+  text-align: center;
+}
+
+/* 创建流程字段 */
+.field-group {
+  width: 324px;
+  margin-bottom: 10px;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.label {
+  width: 324px;
+  height: 30px;
+  font-size: 22px;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.input-box {
+  width: 324px;
+  height: 56px;
+  background-color: #262626;
+  border-radius: 36px;
+  padding: 0 20px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.input-text {
+  width: 284px;
+  font-size: 24px;
+  color: white;
+}
+
+.picker {
+  width: 324px;
+  height: 56px;
+  background-color: #262626;
+  border-radius: 36px;
+  padding: 0 20px;
+}
+
+
+.header-left { left:6px; top:6px; }
+
+.header-right { left:258px; top:6px; }

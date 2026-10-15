@@ -1,7 +1,7 @@
 # AGENTS.md - Vela JS 应用开发指南
 
 > 本文档基于 [Xiaomi Vela JS 应用开发文档](./VelaDocs/docs/zh/guide/) 整理，专为智能可穿戴设备应用开发设计。
-> **固定适配尺寸：width: 336px; height: 480px**（小米手环 Pro 分辨率）
+> **默认设备：336×480 / designWidth 336（小米手环 Pro）；REDMI Watch 5：432×514 / designWidth 432，编译期选择。**
 > 文档检索工具：./VelaDocs/search.py，用法：python search.py "Vela OS"
 
 ---
@@ -11,6 +11,8 @@
 **Vela JS 应用使用专有的 UX 语法，而非标准 HTML 或 EJS 等模板引擎。** 虽然语法可能与 HTML 相似，但 Vela 拥有自己的组件系统、渲染引擎和开发范式。
 
 ### 版本号约定
+
+设备布局约定：`src/` 的 CSS 和 `utils/core/screen.js` 保留手环默认布局；`targets/redmi-watch5/` 保存独立手表布局，由 `scripts/build-target.cjs` 在隔离副本中编译选择。不要使用运行时响应式缩放代替独立布局。共享模板修改需检查两套 CSS，固定位置不要写在内联样式。运行 `npm run check:devices` 检查设备样式及圆角边界，详见 `docs/device-targets.md`。
 
 Vela 允许同版本覆盖安装。除非用户明确要求提升版本号，否则修改、测试和重新打包时保持现有的
 `versionName`、`versionCode`、`package.json` 和 `package-lock.json` 版本号，不要自动递增。
@@ -409,7 +411,7 @@ vibrator.vibrate({
 
 ### 样式规范
 4. **仅支持 Flex 布局**：Vela 样式系统仅支持 Flex 布局，不支持 Grid/Float 等
-5. **固定尺寸**：designWidth 配置为 336，所有尺寸基于此基准
+5. **固定设备坐标**：默认 designWidth 为 336；Watch 5 目标为 432。按目标维护静态 CSS 和布局参数，不整体缩放字号与按钮。
 6. **角度单位**：角度相关的 CSS 属性必须书写单位，如 `total-angle: 360deg`
 
 本项目的 toolkit 2.0.5 会忽略 `<style src="…">` 的 src，编译成功也可能产生空样式。
@@ -768,6 +770,6 @@ i18n/
 - 请始终参考 [官方中文文档](./VelaDocs/docs/zh/guide/) 获取最新的组件 API 和语法规范
 - Vela JS 应用专为可穿戴设备及 IoT 场景设计
 - 框架提供跨硬件平台的统一 API 与组件支持，简化多端开发流程
-- **固定尺寸配置已优化性能，无需额外适配工作**
+- **不同设备通过编译期选择独立布局，必须分别验证构建和交互边界。**
 
 > 官方文档地址：[./VelaDocs/docs/zh/](./VelaDocs/docs/zh/)

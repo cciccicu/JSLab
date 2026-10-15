@@ -19,8 +19,8 @@ function copy(relative) {
 }
 // Keep the RPK-specific black code-sheet icon with its JSLab badge; do not copy the regular app logo here.
 for (const relative of ['utils/runtime', 'utils/files/scriptData.js', 'utils/core/dialogState.js',
-  'utils/core/routeManager.js', 'utils/core/runtimeCompat.js', 'utils/core/uiFeedback.js', 'utils/core/time.js',
-  'pages/overlay', 'components/InputMethod', 'common/styles/dialog.css',
+  'utils/core/routeManager.js', 'utils/core/runtimeCompat.js', 'utils/core/uiFeedback.js', 'utils/core/time.js', 'utils/core/screen.js',
+  'pages/overlay', 'components/InputMethod', 'common/styles/dialog.css', 'pages/workspace/run/run.css',
   ...['hd','back','conform','check','info'].map(name => 'common/images/' + name + '.png')]) copy(relative);
 let run = fs.readFileSync(path.join(source, 'pages/workspace/run/run.ux'), 'utf8').replace(/\r\n/g, '\n');
 function change(before, after) {
@@ -40,7 +40,7 @@ change("header:true, uiTitle:'脚本'", "header:!start.options.hideTopBar, uiTit
 change("header:value => { if (state.header === value)", "header:value => { value=value && !state.start.options.hideTopBar; if (state.header === value)");
 change("state.logs = createConsoleBuffer(() => this.queueLogs());", `state.logs = createConsoleBuffer(() => this.queueLogs());
     if (start.options.disableConsole) Object.keys(state.logs.console).forEach(key => { state.logs.console[key]=() => {}; });
-    this.showTopBar=state.header; this.contentTopPadding=state.header ? 84 : 12;`);
+    this.showTopBar=state.header; this.contentTopPadding=state.header ? SCREEN.header : SCREEN.topInset;`);
 run = run.replaceAll('state.start.name.slice(0,80)', 'state.start.appName.slice(0,80)');
 change('state.session.setVisible(false); this.view=\'console\'; this.showTopBar=true;', "state.session.setVisible(false); this.view='console'; this.showTopBar=!state.start.options.hideTopBar;");
 change("else back();", "else app.terminate();");
@@ -55,7 +55,7 @@ change("state && state.active && state.visible && this.view === 'console'", "sta
 change("onBack() { vibrate('short'); if (this.view === 'ui') this.showConsole(); else this.navigate('exit'); },", "onBack() { vibrate('short'); const state=runs.get(this); if (!state || !state.session) app.terminate(); else if (this.view === 'ui') this.showConsole(); else this.navigate('exit'); },\n  showAbout() { router.push({uri:'/about'}); },");
 change('static src="/common/images/rerun.png" class="btn btn-right-top" @click="reload"', 'static src="/common/images/info.png" class="btn btn-right-top" @click="showAbout"');
 run = run.replaceAll('<img ', '<image ');
-change('class="console-content" scroll-y="true"', 'class="console-content" style="{{ { top: showTopBar ? \'84px\' : \'12px\', height: showTopBar ? \'396px\' : \'468px\' } }}" scroll-y="true"');
+change('class="console-content" scroll-y="true"', 'class="console-content" style="{{ { top: \'\' + (showTopBar ? screen.header : screen.topInset) + \'px\', height: \'\' + (screen.height - (showTopBar ? screen.header : screen.topInset)) + \'px\' } }}" scroll-y="true"');
 write('pages/workspace/run/run.ux', run);
 const manifest = JSON.parse(fs.readFileSync(path.join(source, 'manifest.json'), 'utf8'));
 manifest.package='icu.ccicc.jslab.template'; manifest.name='JSLab 模板'; manifest.versionName='1.0.0'; manifest.versionCode=1;

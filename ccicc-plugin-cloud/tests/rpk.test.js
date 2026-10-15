@@ -63,6 +63,25 @@ test('generated signing ZIP contains a reusable matching RSA key and certificate
   assert.throws(()=>validateSigning({privateKey:other.privateKey,certificate:keys.certificate}),/匹配/);
   assert.throws(()=>validateSigning({privateKey:keys.privateKey}),/同时上传/);
 });
+
+test('device templates stay separate and legacy Band Pro retries preserve hashes and billing',async()=>{
+  assert.deepEqual(validateOptions(defaults),validateOptions({...defaults,target:'bandpro'}));
+  for(const target of ['../redmi-watch5','unknown',null,{}])assert.throws(()=>validateOptions({...defaults,target}),/目标设备/);
+  const builder=createRpkBuilder();
+  for(const [target,width]of [['redmi-watch5',432],['bandpro',336],['redmi-watch5',432]]) {
+    const buffer=await builder({name:'legacy.js',source:"ui.render(ui.text('旧脚本'));"},validateOptions({...defaults,target}),keys);
+    verifySignature(buffer,keys.certificate);
+    const zip=await JSZip.loadAsync(buffer);
+    assert.equal(JSON.parse(await zip.file('manifest.json').async('string')).config.designWidth,width);
+    assert.equal(JSON.parse(await zip.file('common/payload.json').async('string')).code,"ui.render(ui.text('旧脚本'));");
+  }
+  const f=fixture();
+  const first=await f.request({});assert.equal(first.statusCode,200);assert.equal(f.balance(),10);
+  const legacyRetry=await f.request({target:'bandpro'});assert.equal(legacyRetry.statusCode,200);assert.equal(legacyRetry.body.chargedCents,0);assert.equal(f.balance(),10);
+  const conflict=await f.request({target:'redmi-watch5'});assert.equal(conflict.statusCode,409);assert.equal(f.balance(),10);
+  const watch=await f.request({target:'redmi-watch5',requestId:'watch-request-1234567890'});assert.equal(watch.statusCode,200);assert.match(watch.body.filename,/\.redmi-watch5\.rpk$/);assert.equal(f.balance(),0);
+  const retry=await f.request({target:'redmi-watch5',requestId:'watch-request-1234567890'});assert.equal(retry.statusCode,200);assert.equal(retry.body.chargedCents,0);assert.equal(f.balance(),0);
+});
 test('RPK contains changed manifests and static source, with valid nested signatures and resource digests',async()=>{
   const source="ui.render(() => { ui.text('旧脚本'); }); ui.show(); console.log('</script>\\n');";
   const builder=createRpkBuilder();

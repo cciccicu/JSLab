@@ -1,0 +1,59 @@
+.page {
+  width: 432px;
+  height: 514px;
+  background-color: #000000;
+  overflow: hidden;
+  }
+
+  .scroll {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  height: 514px;
+  width: 432px;
+  flex-direction: column;
+  padding: 112px 18px 36px;
+  }
+
+  .item {
+  width: 100%;
+  height: 112px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  background-color: #262626;
+  border-radius: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  }
+
+  .item-content {
+  height: 100%;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  }
+
+  .itemtext {
+  font-size: 32px;
+  line-height: 40px;
+  width: 100%;
+  font-weight: bold;
+  color: white;
+  text-overflow: ellipsis;
+  lines: 1;
+  }
+
+  .itemtext2 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.6);
+  text-overflow: ellipsis;
+  lines: 1;
+  }
+
+  .topbar-bg { position: absolute; left: 0px; top: 0px; width: 432px; height: 112px; }
+  .back-button { position: absolute; left: 30px; top: 30px; width: 72px; height: 72px; }
+  .time-text { position: absolute; left: 108px; top: 16px; width: 216px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
+  .title-text { position: absolute; left: 108px; top: 48px; width: 216px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }

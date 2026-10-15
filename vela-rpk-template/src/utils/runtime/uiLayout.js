@@ -1,3 +1,5 @@
+import { SCREEN } from '../core/screen.js';
+
 // Layout groups are JS-only. Only painted leaves/backgrounds reach the ViewModel.
 // Guidance for watch-sized screens, not limits enforced by the compiler.
 export const UI_PERFORMANCE_GUIDE = { declarations: 40, paintedNodes: 160, depth: 4, qrcodes: 2 };
@@ -375,9 +377,9 @@ export function compileUi(source, top, previous, cache) {
   let y = top;
   roots.forEach((raw, i) => {
     if (raw == null || raw === false) return;
-    const box = measure(raw, 324, String(i));
-    emit(box, 6, y);
+    const box = measure(raw, SCREEN.contentWidth, String(i));
+    emit(box, SCREEN.side, y);
     y += box.h + 10;
   });
-  return { nodes, handlers, height: Math.max(480, Math.ceil(y + 14)), end: y, count, cache: nextCache };
+  return { nodes, handlers, height: Math.max(SCREEN.height, Math.ceil(y + SCREEN.bottom)), end: y, count, cache: nextCache };
 }

@@ -9,7 +9,7 @@
 		scroll-y="true"
 		bounces="true"
 		@scroll="onCodeScroll"
-		style="position:absolute;top:0px;left:0px;height:480px;width:100%;flex-direction: column;padding: 0px 6px;"
+
 	  >
 		<div class="code-top-spacer"></div>
 		<div class="code-document" @click="onCodeClick" style="width: {{codeWidth}}px; height: {{codeHeight}}px;">
@@ -23,7 +23,7 @@
 		  <div else class="code-lines"></div>
 		  <div if="{{showCursor && !initialHighlightPending}}" class="code-cursor" style="left: {{cursorX}}px; top: {{cursorY}}px; width: {{fontSize/6}}px; height: {{cursorHeight}}px;"></div>
 		</div>
-		<div class="code-bottom-spacer" style="height: {{hideInputMethod ? 78 : 255}}px;"></div>
+		<div class="code-bottom-spacer" style="height: {{hideInputMethod ? footerSpacer : keyboardSpacer}}px;"></div>
 	  </scroll>
 
 		<!-- 第三方输入法 -->
@@ -45,18 +45,18 @@
 		</div>
 
 		<!-- 底部工具栏 -->
-		<img if="{{!hideToolbar}}" class="btn {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/save.png" style="left: 6px;top: 402px;" @click="save" />
-		<img if="{{!hideToolbar}}" class="btn {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/run.png" style="left: 90px;top: 402px;" @click="run" />
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/move.png" style="left: 174px;top: 402px;" @click="toggleCursorControls" />
-		<img if="{{!hideToolbar}}" class="btn" src="/common/images/edit.png" style="left: 258px;top: 402px;" @click="toggleKeyboard" />
+		<img if="{{!hideToolbar}}" class="footer-left btn {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/save.png" @click="save" />
+		<img if="{{!hideToolbar}}" class="footer-second btn {{saveInProgress ? 'disabled-icon' : ''}}" src="/common/images/run.png" @click="run" />
+		<img if="{{!hideToolbar}}" class="footer-third btn" src="/common/images/move.png" @click="toggleCursorControls" />
+		<img if="{{!hideToolbar}}" class="footer-right btn" src="/common/images/edit.png" @click="toggleKeyboard" />
 
 		<!-- 顶栏 -->
 		<img static src="/common/images/hd.png" class="topbar-bg" />
 		<text class="time-text">{{nowTime}}</text>
 		<text class="title-text">编辑脚本</text>
-		<img static class="btn" src="/common/images/back.png" @click="goBack" style="left: 6px;top: 6px;" />
-		<img static if="{{hideInputMethod}}" class="btn" src="/common/images/more.png" @click="openEditorMenu" style="left: 258px;top: 6px;" />
-		<img static if="{{!hideInputMethod}}" class="btn" src="/common/images/down.png" @click="toggleKeyboard" style="left: 258px;top: 6px;" />
+		<img static class="header-left btn" src="/common/images/back.png" @click="goBack" />
+		<img static if="{{hideInputMethod}}" class="header-right btn" src="/common/images/more.png" @click="openEditorMenu" />
+		<img static if="{{!hideInputMethod}}" class="header-right btn" src="/common/images/down.png" @click="toggleKeyboard" />
 		<div if="{{showEditorMenu}}" class="editor-menu-dismiss" @click="closeEditorMenu"></div>
 		<div if="{{showEditorMenu}}" class="editor-menu-card">
 			<text class="editor-menu-item" @click="handleEditorMenu('ai')">AI 生成</text>
@@ -80,15 +80,16 @@ import { getLineHeight } from '../../../utils/editor/codeEditor.js';
 import { createCodeDocument, deleteCodeBackward, insertCodeText, moveCodeCursor, moveCodeCursorToPoint } from '../../../utils/editor/codeDocument.js';
 import { DEFAULT_FONT_SIZE, DEFAULT_HIGHLIGHT_ENABLED, DEFAULT_HIGHLIGHT_CHAR_THRESHOLD, DEFAULT_HIGHLIGHT_LINE_THRESHOLD, normalizeFontSize, normalizeHighlightCharThreshold, normalizeHighlightLineThreshold } from '../../../utils/editor/editorPreferences.js';
 import { formatError } from '../../../utils/core/userError.js';
-const CODE_VIEWPORT_HEIGHT = 300;
+import { SCREEN } from '../../../utils/core/screen.js';
+const CODE_VIEWPORT_HEIGHT = SCREEN.codeViewport;
 const INITIAL_HIGHLIGHT_DELAY = 32;
-const CODE_TOP_SPACER_HEIGHT = 84;
-const KEYBOARD_TOP = 225;
-const CARET_VISIBLE_WIDTH = 280;
-const CODE_SCROLL_WIDTH = 336;
-const CODE_SCROLL_HEIGHT = 480;
-const CODE_HORIZONTAL_PADDING = 12;
-const KEYBOARD_BOTTOM_SPACER_HEIGHT = 255;
+const CODE_TOP_SPACER_HEIGHT = SCREEN.header;
+const KEYBOARD_TOP = SCREEN.height - SCREEN.keyboard;
+const CARET_VISIBLE_WIDTH = SCREEN.caretWidth;
+const CODE_SCROLL_WIDTH = SCREEN.width;
+const CODE_SCROLL_HEIGHT = SCREEN.height;
+const CODE_HORIZONTAL_PADDING = SCREEN.codePadding;
+const KEYBOARD_BOTTOM_SPACER_HEIGHT = SCREEN.keyboard;
 const editorScrollPositions = new WeakMap();
 const editorStates = new WeakMap();
 function editorSource(state) {
@@ -124,7 +125,9 @@ export default {
     fontFamily: 'JSLabActive',
     fontProfile: DEFAULT_FONT_PROFILE,
     fontSize: DEFAULT_FONT_SIZE,
-    codeWidth: 336,
+    codeWidth: SCREEN.width,
+    footerSpacer: SCREEN.footer,
+    keyboardSpacer: SCREEN.keyboard,
     // 光标状态
     showCursor: true,
     cursorX: 0,
@@ -212,7 +215,7 @@ export default {
     this.savedSource = editor.before + editor.after;
     this.codeLines = [];
     this.plainCodeText = '';
-    this.codeWidth = 336;
+    this.codeWidth = SCREEN.width;
     this.codeHeight = CODE_VIEWPORT_HEIGHT;
     this.codeTextHeight = getLineHeight(this.fontProfile, this.fontSize);
   },
@@ -653,7 +656,7 @@ export default {
     if (this.cursorX < position.left + 8) left = Math.max(0, this.cursorX - 16);
     else if (this.cursorX > position.left + CARET_VISIBLE_WIDTH) left = Math.max(0, this.cursorX - CARET_VISIBLE_WIDTH);
     if (this.cursorY < position.top + 8) top = Math.max(0, this.cursorY - 20);
-    else if (this.cursorY + this.cursorHeight > position.top + visibleHeight - 8) top = Math.max(0, this.cursorY - 70);
+    else if (this.cursorY + this.cursorHeight > position.top + visibleHeight - 8) top = Math.max(0, this.cursorY - SCREEN.caretTail);
     left = Math.min(left, maxLeft);
     top = Math.min(top, maxTop);
     if (left === position.left && top === position.top) return null;
@@ -726,145 +729,5 @@ export default {
 </script>
 
 <style>
-	@font-face {
-		font-family: 'JSLabActive';
-		src: url('/common/fonts/active.ttf');
-		font-weight: normal;
-		font-style: normal;
-	}
-	.page {
-		width: 336px;
-		height: 480px;
-		background-color: #000000;
-		position: relative;
-		overflow: hidden;
-	}
-
-	.code {
-    	color: #ffffff;
-		flex-shrink: 0;
-  	}
-
-	.code-plain-text {
-		width: 100%;
-		flex-shrink: 0;
-		text-overflow: clip;
-	}
-
-	.code-lines {
-		width: 100%;
-		flex-direction: column;
-		flex-shrink: 0;
-	}
-
-	.code-line {
-		width: 100%;
-		flex-shrink: 0;
-		overflow: hidden;
-	}
-
-	.code-line-text {
-		width: 100%;
-		flex-shrink: 0;
-		text-overflow: clip;
-		lines: 1;
-	}
-
-	.rendering-status {
-		width: 324px;
-		height: 48px;
-		line-height: 48px;
-		color: rgba(255,255,255,0.6);
-		font-size: 20px;
-		text-align: center;
-		flex-shrink: 0;
-	}
-
-	.code-top-spacer {
-		height: 84px;
-		flex-shrink: 0;
-	}
-
-	.code-document {
-		position: relative;
-		flex-direction: column;
-		flex-shrink: 0;
-	}
-
-	.code-cursor {
-		position: absolute;
-		background-color: #ffffff;
-	}
-
-	.code-bottom-spacer {
-		height: 78px;
-		flex-shrink: 0;
-	}
-
-	.btn {
-		position: absolute;
-		width: 72px;
-		height: 72px;
-	}
-
-	.disabled-icon {
-		background-color: #303030;
-		border-radius: 36px;
-	}
-
-	.topbar-bg {
-		position: absolute;
-		left: 0px;
-		top: 0px;
-		width: 336px;
-		height: 84px;
-	}
-
-	.time-text {
-		position: absolute;
-		left: 78px;
-		top: 7px;
-		width: 180px;
-		line-height: 32px;
-		font-weight: bold;
-		font-size: 24px;
-		color: rgba(255,255,255,0.6);
-		text-align: center;
-	}
-
-	.title-text {
-		position: absolute;
-		left: 78px;
-		top: 35px;
-		width: 180px;
-		line-height: 42px;
-		font-weight: bold;
-		font-size: 32px;
-		color: white;
-		text-align: center;
-	}
-
-	.cursormove {
-		position: absolute;
-		left: 6px;
-		top: 300px;
-		width: 324px;
-		height: 90px;
-		border-radius: 36px;
-		background-color: #333;
-		flex-direction: row;
-		justify-content: space-around;
-		align-items: center;
-	}
-
-	.cursor-btn {
-		width: 72px;
-		height: 72px;
-	}
-
-	.editor-menu-dismiss { position:absolute; left:0px; top:84px; width:336px; height:396px; background-color:rgba(0,0,0,0.58); }
-	.editor-menu-card { position:absolute; left:70px; top:84px; width:260px; height:364px; padding:8px 12px; border-radius:28px; background-color:#262626; flex-direction:column; }
-	.editor-menu-item { width:236px; height:58px; line-height:58px; border-bottom-width:2px; border-bottom-color:#3d3d3d; color:#ffffff; font-size:22px; font-weight:bold; text-align:left; padding-left:18px; }
-	.editor-menu-last { border-bottom-width:0px; }
-
+@import "./editor.css";
 </style>

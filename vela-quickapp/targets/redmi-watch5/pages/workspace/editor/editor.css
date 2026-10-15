@@ -1,0 +1,155 @@
+@font-face {
+    font-family: 'JSLabActive';
+    src: url('/common/fonts/active.ttf');
+    font-weight: normal;
+    font-style: normal;
+  }
+  .page {
+    width: 432px;
+    height: 514px;
+    background-color: #000000;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .code {
+      color: #ffffff;
+    flex-shrink: 0;
+    }
+
+  .code-plain-text {
+    width: 100%;
+    flex-shrink: 0;
+    text-overflow: clip;
+  }
+
+  .code-lines {
+    width: 100%;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .code-line {
+    width: 100%;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .code-line-text {
+    width: 100%;
+    flex-shrink: 0;
+    text-overflow: clip;
+    lines: 1;
+  }
+
+  .rendering-status {
+    width: 396px;
+    height: 48px;
+    line-height: 48px;
+    color: rgba(255,255,255,0.6);
+    font-size: 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .code-top-spacer {
+    height: 112px;
+    flex-shrink: 0;
+  }
+
+  .code-document {
+    position: relative;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .code-cursor {
+    position: absolute;
+    background-color: #ffffff;
+  }
+
+  .code-bottom-spacer {
+    height: 110px;
+    flex-shrink: 0;
+  }
+
+  .btn {
+    position: absolute;
+    width: 72px;
+    height: 72px;
+  }
+
+  .disabled-icon {
+    background-color: #303030;
+    border-radius: 36px;
+  }
+
+  .topbar-bg {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 432px;
+    height: 112px;
+  }
+
+  .time-text {
+    position: absolute;
+    left: 108px;
+    top: 16px;
+    width: 216px;
+    line-height: 32px;
+    font-weight: bold;
+    font-size: 24px;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+  }
+
+  .title-text {
+    position: absolute;
+    left: 108px;
+    top: 48px;
+    width: 216px;
+    line-height: 42px;
+    font-weight: bold;
+    font-size: 32px;
+    color: white;
+    text-align: center;
+  }
+
+  .cursormove {
+    position: absolute;
+    left: 30px;
+    top: 312px;
+    width: 372px;
+    height: 90px;
+    border-radius: 36px;
+    background-color: #333;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .cursor-btn {
+    width: 72px;
+    height: 72px;
+  }
+
+  .editor-menu-dismiss { position:absolute; left:0px; top:112px; width:432px; height:402px; background-color:rgba(0,0,0,0.58); }
+  .editor-menu-card { position:absolute; left:70px; top:112px; width:332px; height:364px; padding:8px 12px; border-radius:28px; background-color:#262626; flex-direction:column; }
+  .editor-menu-item { width:308px; height:58px; line-height:58px; border-bottom-width:2px; border-bottom-color:#3d3d3d; color:#ffffff; font-size:22px; font-weight:bold; text-align:left; padding-left:18px; }
+  .editor-menu-last { border-bottom-width:0px; }
+
+
+.footer-left { left:30px; top:412px; }
+
+.footer-second { left:130px; top:412px; }
+
+.footer-third { left:230px; top:412px; }
+
+.footer-right { left:330px; top:412px; }
+
+.header-left { left:30px; top:30px; }
+
+.header-right { left:330px; top:30px; }
+
+.scroll { position:absolute; top:0px; left:0px; height:514px; width:100%; flex-direction:column; padding:0px 30px; }

@@ -68,7 +68,7 @@ function registerRpkApi(state, dependencies={}) {
         })();
         if (settlement==='insufficient') return {status:402,body:{error:'jslab_credit_insufficient',message:'JSLab 额度不足，未扣费。'}};
         if (settlement==='conflict') return {status:409,body:{error:'rpk_request_conflict'}};
-        return {status:200,body:{filename:options.packageName+'.'+options.versionName+'.rpk',rpkBase64:buffer.toString('base64'),signing:null,chargedCents:settlement==='charged' ? PRICE_CENTS : 0,remainingCreditCents:entitlementFor(user.id).ai_credit_cents}};
+        return {status:200,body:{filename:options.packageName+'.'+options.versionName+(options.target==='redmi-watch5' ? '.redmi-watch5' : '')+'.rpk',rpkBase64:buffer.toString('base64'),signing:null,chargedCents:settlement==='charged' ? PRICE_CENTS : 0,remainingCreditCents:entitlementFor(user.id).ai_credit_cents}};
       } catch(error) {
         return {status:error.code==='invalid_rpk_request' ? 400 : 503,body:{error:error.code==='invalid_rpk_request' ? error.code : 'rpk_build_failed',message:error.code==='invalid_rpk_request' ? error.message : 'RPK 生成失败，未扣费。请稍后重试。'}};
       }

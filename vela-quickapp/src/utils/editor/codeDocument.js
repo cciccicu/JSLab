@@ -72,7 +72,7 @@ export function createCodeDocument(source, fontProfile, fontSize, cursorOffset =
     maxLineWidth: -1,
     maxWidthCount: 0,
     widthRemainder: null,
-    width: 336,
+    width: 0,
     preferredX: null,
     cursor: { offset: clamp(cursorOffset, code.length), line: 0, column: 0,
       wideCount: 0, x: 0, y: 0, height: getLineHeight(fontProfile, fontSize) }

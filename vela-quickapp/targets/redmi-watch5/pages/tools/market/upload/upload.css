@@ -1,0 +1,178 @@
+@import "../../../../common/styles/network-loading.css";
+
+.page {
+  width: 432px;
+  height: 514px;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.file-list {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 432px;
+  height: 514px;
+  padding: 112px 18px 36px;
+}
+
+.file-item {
+  width: 396px;
+  height: 96px;
+  padding: 12px 20px;
+  margin-bottom: 8px;
+  background-color: #262626;
+  border-radius: 36px;
+  flex-direction: column;
+}
+
+.file-name {
+  width: 356px;
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 38px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.file-hint {
+  width: 356px;
+  color: #999999;
+  font-size: 19px;
+  line-height: 28px;
+}
+
+.details {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 432px;
+  height: 514px;
+  padding: 112px 18px 36px;
+  flex-direction: column;
+}
+
+.source-card, .field-card, .note-card {
+  width: 396px;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 36px;
+  background-color: #262626;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.source-card, .field-card {
+  height: 112px;
+}
+
+.field-tall {
+  height: 142px;
+}
+
+.field-label {
+  width: 356px;
+  color: #999999;
+  font-size: 19px;
+  line-height: 28px;
+  flex-shrink: 0;
+}
+
+.field-value {
+  width: 356px;
+  color: #ffffff;
+  font-size: 27px;
+  line-height: 36px;
+  font-weight: bold;
+  lines: 1;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.field-description {
+  font-size: 23px;
+  line-height: 31px;
+  lines: 2;
+}
+
+.note-card {
+  padding: 18px 20px;
+}
+
+.note-text {
+  width: 356px;
+  color: #b8b8b8;
+  font-size: 20px;
+  line-height: 28px;
+  flex-shrink: 0;
+}
+
+.status-card {
+  position: absolute;
+  left: 18px;
+  top: 112px;
+  width: 396px;
+  padding: 20px;
+  border-radius: 36px;
+  background-color: #262626;
+}
+
+.status-text {
+  width: 356px;
+  color: #ffffff;
+  font-size: 23px;
+  line-height: 32px;
+}
+
+.header {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 432px;
+  height: 112px;
+}
+
+.time-text {
+  position: absolute;
+  left: 108px;
+  top: 16px;
+  width: 216px;
+  line-height: 32px;
+  color: #999999;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.heading {
+  position: absolute;
+  left: 108px;
+  top: 48px;
+  width: 216px;
+  line-height: 42px;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.btn {
+  position: absolute;
+  top: 30px;
+  width: 72px;
+  height: 72px;
+}
+
+.back {
+  left: 30px;
+}
+
+.confirm {
+  left: 330px;
+}
+
+.disabled-icon {
+  background-color: #303030;
+  border-radius: 36px;
+}

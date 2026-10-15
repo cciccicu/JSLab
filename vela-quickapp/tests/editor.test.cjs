@@ -2,6 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { SCREEN } = require('./helpers/loadUi.cjs');
+const withScreen = source => source.replace("import { SCREEN } from '../core/screen.js';", 'const SCREEN = ' + JSON.stringify(SCREEN) + ';');
 
 test("editorDocument", async () => {
   // Check incremental state against an independent full-text oracle, not device timing.
@@ -36,7 +38,7 @@ test("editorDocument", async () => {
   }
 
   async function run() {
-    const metricsUrl = url(read('codeEditor.js'));
+    const metricsUrl = url(withScreen(read('codeEditor.js')));
     const documentSource = read('codeDocument.js').replace("'./codeEditor.js'", JSON.stringify(metricsUrl));
     const api = await import(url(documentSource));
     const profiles = [
@@ -148,7 +150,7 @@ test("editorScroll", async () => {
     const page = new Function('DEFAULT_FONT_PROFILE', 'DEFAULT_FONT_SIZE',
       'DEFAULT_HIGHLIGHT_ENABLED', 'DEFAULT_HIGHLIGHT_CHAR_THRESHOLD',
       'DEFAULT_HIGHLIGHT_LINE_THRESHOLD', 'DEFAULT_HIGHLIGHT_PALETTE',
-      script)({}, 20, false, 2048, 80, 'default');
+      'SCREEN', script)({}, 20, false, 2048, 80, 'default', SCREEN);
     Object.assign(page, page.private);
     page.activateEditorSession = () => {};
     page.loadEditorPreferences = () => {};
@@ -392,7 +394,7 @@ test("javascriptHighlighter", async () => {
   async function checkIncrementalHighlight(highlighter) {
     const root = path.join(__dirname, '..', 'src', 'utils', 'editor');
     const dataUrl = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-    const metricsUrl = dataUrl(fs.readFileSync(path.join(root, 'codeEditor.js'), 'utf8'));
+    const metricsUrl = dataUrl(withScreen(fs.readFileSync(path.join(root, 'codeEditor.js'), 'utf8')));
     const metrics = await import(metricsUrl);
     const api = await import(dataUrl(fs.readFileSync(path.join(root, 'codeDocument.js'), 'utf8')
       .replace("'./codeEditor.js'", JSON.stringify(metricsUrl))));

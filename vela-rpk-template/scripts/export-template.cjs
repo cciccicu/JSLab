@@ -3,16 +3,18 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname,'..');
 const JSZip = require(require.resolve('jszip',{paths:[root,path.resolve(root,'../vela-quickapp'),path.resolve(root,'../ccicc-plugin-cloud/jslab-cloud')]}));
-const target = path.resolve(root,'../ccicc-plugin-cloud/jslab-cloud/rpk-template');
+const assetRoot = path.resolve(root,'../ccicc-plugin-cloud/jslab-cloud/rpk-template');
 function files(dir, base=dir) {
   return fs.readdirSync(dir,{withFileTypes:true}).flatMap(entry => {
     const absolute=path.join(dir,entry.name);
     return entry.isDirectory() ? files(absolute,base) : [{name:path.relative(base,absolute).replace(/\\/g,'/'),data:fs.readFileSync(absolute)}];
   }).sort((a,b)=>a.name.localeCompare(b.name));
 }
-(async()=>{
+async function exportTemplate(project = root, device = 'bandpro') {
+  if (!['bandpro','redmi-watch5'].includes(device)) throw new Error('Unsupported template device');
+  const target = device === 'bandpro' ? assetRoot : path.join(assetRoot,device);
   const zip=new JSZip();
-  for (const item of files(path.join(root,'build'))) {
+  for (const item of files(path.join(project,'build'))) {
     // Rebuild metadata after injecting user resources; never ship development maps.
     if (item.name.startsWith('META-INF/') || item.name.endsWith('.map')) continue;
     let data=item.data;
@@ -29,8 +31,19 @@ function files(dir, base=dir) {
   if (!zip.file('common/payload.json')) throw new Error('Missing static payload resource');
   const buffer=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
   const hashes=Object.fromEntries(files(path.join(root,'src')).map(item=>[item.name,crypto.createHash('sha256').update(/\.(js|ux|css|json|md|txt)$/i.test(item.name) ? item.data.toString('utf8').replace(/\r\n/g,'\n') : item.data).digest('hex')]));
+  const targetSources = {};
+  if (device !== 'bandpro') for (const owner of [path.resolve(root,'../vela-quickapp'),root]) {
+    const overlay = path.join(owner,'targets',device);
+    if (!fs.existsSync(overlay)) continue;
+    for (const item of files(overlay)) if (fs.existsSync(path.join(project,'src',item.name))) {
+      const name = path.relative(path.resolve(root,'..'),path.join(overlay,item.name)).replace(/\\/g,'/');
+      targetSources[name] = crypto.createHash('sha256').update(item.data.toString('utf8').replace(/\r\n/g,'\n')).digest('hex');
+    }
+  }
   fs.mkdirSync(target,{recursive:true});
   fs.writeFileSync(path.join(target,'template.zip'),buffer);
-  fs.writeFileSync(path.join(target,'metadata.json'),JSON.stringify({format:1,toolkit:'2.0.5',runtimeContract:JSON.parse(fs.readFileSync(path.resolve(root,'../runtime-contract.json'),'utf8')).identity,sha256:crypto.createHash('sha256').update(buffer).digest('hex'),sources:hashes},null,2)+'\n');
-  console.log('Exported template: '+buffer.length+' bytes');
-})().catch(error=>{console.error(error);process.exitCode=1;});
+  fs.writeFileSync(path.join(target,'metadata.json'),JSON.stringify({format:1,device,toolkit:'2.0.5',runtimeContract:JSON.parse(fs.readFileSync(path.resolve(root,'../runtime-contract.json'),'utf8')).identity,sha256:crypto.createHash('sha256').update(buffer).digest('hex'),sources:hashes,targetSources},null,2)+'\n');
+  console.log('Exported '+device+' template: '+buffer.length+' bytes');
+}
+module.exports = {exportTemplate};
+if (require.main === module) exportTemplate().catch(error=>{console.error(error);process.exitCode=1;});

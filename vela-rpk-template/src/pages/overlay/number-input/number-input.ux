@@ -97,7 +97,5 @@ export default {
 };
 </script>
 <style>
-@import "../../../common/styles/dialog.css";
-.input-card { height:102px; }
-.key-wide { width:160px; }
+@import "./number-input.css";
 </style>

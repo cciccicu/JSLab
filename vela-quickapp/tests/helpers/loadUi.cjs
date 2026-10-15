@@ -3,7 +3,8 @@ const path = require('path');
 const root = path.join(__dirname, '../..');
 function moduleUrl(source) { return 'data:text/javascript;base64,' + Buffer.from(source).toString('base64'); }
 async function loadUi(layoutSource) {
-  const layoutUrl = moduleUrl(layoutSource || fs.readFileSync(path.join(root, 'src/utils/runtime/uiLayout.js'), 'utf8'));
+  const screenUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/core/screen.js'), 'utf8'));
+  const layoutUrl = moduleUrl((layoutSource || fs.readFileSync(path.join(root, 'src/utils/runtime/uiLayout.js'), 'utf8')).replace("'../core/screen.js'", JSON.stringify(screenUrl)));
   const runtime = fs.readFileSync(path.join(root, 'src/utils/runtime/uiRuntime.js'), 'utf8').replace("'./uiLayout.js'", JSON.stringify(layoutUrl));
   const publisher = fs.readFileSync(path.join(root, 'src/utils/runtime/uiPublisher.js'), 'utf8');
   return { ...await import(layoutUrl), ...await import(moduleUrl(runtime)), ...await import(moduleUrl(publisher)) };
@@ -20,7 +21,8 @@ function host() {
   };
   return { state, callbacks };
 }
-module.exports = { loadUi, host, root };
+const SCREEN = new Function(fs.readFileSync(path.join(root, 'src/utils/core/screen.js'), 'utf8').replace('export const', 'const') + '\nreturn SCREEN;')();
+module.exports = { loadUi, host, root, SCREEN };
 
 async function loadRunnerFixture(code) {
   const { createUiSession, createUiPublisher } = await loadUi();
@@ -33,7 +35,7 @@ async function loadRunnerFixture(code) {
   const names=['createUiSession','createUiPublisher','createScriptRuntimeApi','createConsoleBuffer','formatError','getPageElement','scheduleNextTick','getCurrentClock','startPageClock','stopPageClock','setTimeout','clearTimeout','setInterval','clearInterval','vibrate','deliverDialog','cancelOwnedDialog','closeOwnedDialog','back','replace'];
   const values=[createUiSession,createUiPublisher,() => ({system:{capture(value){captured=value;}},script:{},dialog:{}}),createConsoleBuffer,formatError,
     () => ({scrollTo(options){scrolls.push(options);}}),(_page,callback)=>Promise.resolve().then(callback),()=>'00:00',()=>{},()=>{},()=>1,()=>{},()=>1,()=>{},()=>{},()=>{},()=>{},()=>false,()=>{},()=>{}];
-  const page=new Function(...names,script)(...values);
+  const page=new Function(...names,'SCREEN',script)(...values,SCREEN);
   Object.assign(page,page.private,{$app:{$def:{runnerSource:{name:'review.js',code},deliverDialog:()=>false,cancelOwnedDialog:()=>{},closeOwnedDialog:()=>false}}});
   page.onInit();return {page,captured,scrolls};
 }

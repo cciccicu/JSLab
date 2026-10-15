@@ -16,6 +16,8 @@ function text(value,max,label) {
   return value.trim();
 }
 function validateOptions(body={}) {
+  const target=body.target===undefined ? 'bandpro' : body.target;
+  if (!['bandpro','redmi-watch5'].includes(target)) throw invalid('请选择支持的目标设备');
   const name=text(body.name,30,'应用名称');
   const packageName=text(body.packageName,120,'包名');
   if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){1,}$/.test(packageName)) throw invalid('包名需要至少两段小写字母、数字或下划线，每段以字母开头');
@@ -35,7 +37,8 @@ function validateOptions(body={}) {
     try { PNG.sync.read(icon,{checkCRC:true}); }
     catch (_) { throw invalid('PNG 图标数据损坏，请重新导出图标'); }
   }
-  return {name,packageName,versionName,versionCode,author,icon,options:{disableConsole:options.disableConsole===true,hideTopBar:options.hideTopBar===true}};
+  // Keep legacy Band Pro request hashes byte-for-byte stable, including retries.
+  return {name,packageName,versionName,versionCode,author,icon,options:{disableConsole:options.disableConsole===true,hideTopBar:options.hideTopBar===true},...(target==='bandpro' ? {} : {target})};
 }
 function validateSigning(body={}) {
   if (!body || typeof body!=='object' || Array.isArray(body)) throw invalid('签名信息需要 PEM 私钥和证书');
@@ -90,21 +93,26 @@ async function importSigningZip(base64) {
   }
 }
 function createRpkBuilder(root=path.resolve(__dirname,'..')) {
-  let template;
-  async function load() {
-    if (!template) template=(async()=>{
+  const templates=new Map();
+  async function load(target) {
+    if (!templates.has(target)) templates.set(target,(async()=>{
       // These are immutable engine assets, never user-provided paths or content.
-      const buffer=fs.readFileSync(path.join(root,'rpk-template/template.zip'));
-      const meta=JSON.parse(fs.readFileSync(path.join(root,'rpk-template/metadata.json'),'utf8'));
-      if (digest(buffer)!==meta.sha256 || meta.format!==1) throw new Error('Invalid RPK engine template');
+      const asset=target==='bandpro' ? path.join(root,'rpk-template') : path.join(root,'rpk-template/redmi-watch5');
+      const buffer=fs.readFileSync(path.join(asset,'template.zip'));
+      const meta=JSON.parse(fs.readFileSync(path.join(asset,'metadata.json'),'utf8'));
+      if (digest(buffer)!==meta.sha256 || meta.format!==1 || (meta.device && meta.device!==target)) throw new Error('Invalid RPK engine template');
       const zip=await JSZip.loadAsync(buffer);
+      const manifest=JSON.parse(await zip.file('manifest.json').async('string'));
+      if (manifest.config.designWidth!==(target==='bandpro' ? 336 : 432)) throw new Error('RPK template device mismatch');
       return Promise.all(Object.values(zip.files).filter(file=>!file.dir).map(async file=>({path:file.name,content:await file.async('nodebuffer')})));
-    })().catch(error=>{template=null; throw error;});
-    return template;
+    })().catch(error=>{templates.delete(target); throw error;}));
+    return templates.get(target);
   }
   return async function build(script,options,signing) {
     if (typeof script.source!=='string' || Buffer.byteLength(script.source)>48*1024) throw invalid('脚本不能超过 48 KiB');
-    const files=new Map((await load()).map(file=>[file.path,file.content]));
+    const target=options.target || 'bandpro';
+    if (!['bandpro','redmi-watch5'].includes(target)) throw invalid('请选择支持的目标设备');
+    const files=new Map((await load(target)).map(file=>[file.path,file.content]));
     const update=manifest=>({...manifest,package:options.packageName,name:options.name,versionName:options.versionName,versionCode:options.versionCode,author:options.author});
     for (const name of [...files.keys()].filter(name=>/^manifest(?:-\w+)?\.json$/.test(name))) files.set(name,Buffer.from(JSON.stringify(update(JSON.parse(files.get(name))),null,2)));
     const manifest=JSON.parse(files.get('manifest.json'));
@@ -123,8 +131,8 @@ function createRpkBuilder(root=path.resolve(__dirname,'..')) {
     // Match the toolkit's streaming order: CERT, manifests, app, entry, common, other pages, build info.
     const priority=name=> name==='META-INF/CERT' ? 0 : /^manifest-/.test(name) ? 1 : name==='manifest.json' ? 2 : name==='app.js' ? 3 : name.startsWith(manifest.router.entry+'/') ? 4 : name.startsWith('common/') ? 5 : name==='META-INF/build.txt' ? 9 : 6;
     const resourceList=[...files].sort((a,b)=>priority(a[0])-priority(b[0])).map(([fileBuildPath,fileContentBuffer])=>({fileBuildPath,fileContentBuffer}));
-    const target={resourceList,comment,getResource(name){return resourceList.find(file=>file.fileBuildPath===name);}};
-    return SignUtil.signPackage(target,Buffer.from(signing.privateKey),Buffer.from(signing.certificate));
+    const signingTarget={resourceList,comment,getResource(name){return resourceList.find(file=>file.fileBuildPath===name);}};
+    return SignUtil.signPackage(signingTarget,Buffer.from(signing.privateKey),Buffer.from(signing.certificate));
   };
 }
 module.exports={createRpkBuilder,validateOptions,validateSigning,generateSigning,importSigningZip,digest};

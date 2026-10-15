@@ -33,7 +33,7 @@
   }
   function setBusy(value) {
     busy=value; form.setAttribute('aria-busy',String(value));
-    form.querySelectorAll('input,button').forEach(function(input){input.disabled=value;});
+    form.querySelectorAll('input,select,button').forEach(function(input){input.disabled=value;});
     download.disabled=value || !rpkUrl;
   }
   function makeRequestId() {
@@ -112,7 +112,7 @@
       if (form.elements.signingZipFile.files[0] && !signing) throw new Error('签名 ZIP 未通过验证，请重新选择或清空 ZIP 文件。');
       stage(1,'打包信息已读取，正在准备资源…');
       var icon=form.elements.icon.files[0];
-      var body={name:form.elements.name.value,packageName:form.elements.packageName.value,versionName:form.elements.versionName.value,versionCode:form.elements.versionCode.value,author:form.elements.author.value,iconBase64:icon ? await base64File(icon,32768) : '',options:{disableConsole:form.elements.disableConsole.checked,hideTopBar:form.elements.hideTopBar.checked},signing:signing};
+      var body={name:form.elements.name.value,packageName:form.elements.packageName.value,versionName:form.elements.versionName.value,versionCode:form.elements.versionCode.value,author:form.elements.author.value,target:form.elements.target.value,iconBase64:icon ? await base64File(icon,32768) : '',options:{disableConsole:form.elements.disableConsole.checked,hideTopBar:form.elements.hideTopBar.checked},signing:signing};
       var serialized=JSON.stringify(Object.assign({},body,{signing:signing ? {certificate:signing.certificate} : null}));
       if (serialized!==lastBody) { requestId=makeRequestId(); lastBody=serialized; }
       body.requestId=requestId;

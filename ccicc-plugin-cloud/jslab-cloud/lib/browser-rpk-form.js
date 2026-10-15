@@ -6,6 +6,7 @@ function rpkForm(req,user,view) {
     <p>脚本：<strong data-rpk-source-name></strong></p>
     <p class="text-body-secondary">生成独立 Vela 快应用，每次成功打包扣除 ¥0.10 JSLab 额度。</p>
     <div class="row g-3">
+      <div class="col-md-6"><label class="form-label" for="rpk-target">目标设备</label><select class="form-select" id="rpk-target" name="target"><option value="bandpro">小米手环 Pro（336×480）</option><option value="redmi-watch5">REDMI Watch 5（432×514）</option></select></div>
       ${field('name','应用名称','','maxlength="30" required')}
       ${field('packageName','包名','','maxlength="120" placeholder="com.example.myapp" pattern="[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+" required')}
       ${field('versionName','版本号','1.0.0','maxlength="32" required')}

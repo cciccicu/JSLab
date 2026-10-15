@@ -5,14 +5,24 @@ const {execFileSync}=require('node:child_process');
 const templateRoot=path.resolve(__dirname,'../../vela-rpk-template');
 execFileSync(process.execPath,[path.join(templateRoot,'scripts/sync-runtime.cjs'),'--check'],{cwd:templateRoot,stdio:'inherit'});
 const assetRoot=path.resolve(__dirname,'../jslab-cloud/rpk-template');
-const metadata=JSON.parse(fs.readFileSync(path.join(assetRoot,'metadata.json'),'utf8'));
+const workspace=path.resolve(__dirname,'../..');
 const hash=data=>crypto.createHash('sha256').update(data).digest('hex');
-if(hash(fs.readFileSync(path.join(assetRoot,'template.zip')))!==metadata.sha256)throw new Error('RPK 模板包校验失败');
-for(const [name,expected]of Object.entries(metadata.sources)) {
-  const buffer=fs.readFileSync(path.join(templateRoot,'src',name));
-  const data=/\.(js|ux|css|json|md|txt)$/i.test(name) ? buffer.toString('utf8').replace(/\r\n/g,'\n') : buffer;
-  if(hash(data)!==expected)throw new Error('RPK 模板源文件已改变，请在 vela-rpk-template 执行 npm run build：'+name);
+const contract=JSON.parse(fs.readFileSync(path.join(workspace,'runtime-contract.json'),'utf8')).identity;
+for(const device of ['bandpro','redmi-watch5']) {
+  const asset=device==='bandpro' ? assetRoot : path.join(assetRoot,device);
+  const metadata=JSON.parse(fs.readFileSync(path.join(asset,'metadata.json'),'utf8'));
+  if(hash(fs.readFileSync(path.join(asset,'template.zip')))!==metadata.sha256 || metadata.device!==device)throw new Error('RPK template mismatch: '+device);
+  for(const [name,expected] of Object.entries(metadata.sources)) {
+    const buffer=fs.readFileSync(path.join(templateRoot,'src',name));
+    const data=/\.(js|ux|css|json|md|txt)$/i.test(name) ? buffer.toString('utf8').replace(/\r\n/g,'\n') : buffer;
+    if(hash(data)!==expected)throw new Error('Rebuild RPK template sources: '+name);
+  }
+  for(const [name,expected] of Object.entries(metadata.targetSources || {})) {
+    if(!name.startsWith('vela-quickapp/targets/redmi-watch5/') && !name.startsWith('vela-rpk-template/targets/redmi-watch5/'))throw new Error('Invalid target source path');
+    const file=path.resolve(workspace,name);
+    if(!file.startsWith(workspace+path.sep))throw new Error('Invalid target source path');
+    if(hash(fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n'))!==expected)throw new Error('Rebuild '+device+' template: '+name);
+  }
+  if(metadata.runtimeContract!==contract)throw new Error('RPK runtime contract is stale');
 }
-const contract=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../runtime-contract.json'),'utf8')).identity;
-if(JSON.stringify(metadata.runtimeContract)!==JSON.stringify(contract))throw new Error('RPK 模板运行时协议已过期');
-console.log('RPK template matches current sources and runtime contract');
+console.log('Both device templates match their sources and runtime contract');

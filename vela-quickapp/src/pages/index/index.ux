@@ -17,17 +17,17 @@
     <img static src="/common/images/hd.png" class="header-img" />
     <text class="time-text">{{nowTime}}</text>
     <text class="title-text">JSLab</text>
-    <img static src="/common/images/back.png" class="btn" style="left: 6px;top: 6px;" @click="exit" />
-    <img static src="/common/images/more.png" class="btn" style="left: 258px;top: 6px;" @click="routerTo('settings')" />
+    <img static src="/common/images/back.png" class="header-left btn" @click="exit" />
+    <img static src="/common/images/more.png" class="header-right btn" @click="routerTo('settings')" />
 
     <!-- 底部按钮根据选择状态显示 -->
-    <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" style="left: 6px;top: 402px;" class="btn" @click="routerTo('toolsMarket')"/>
-    <img if="{{selectedFileIndex === -1}}" src="/common/images/cloud.png" style="left: 132px;top: 402px;" class="btn" @click="routerTo('settingsCloudFiles')"/>
-    <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" style="left: 258px;top: 402px;" class="btn" @click="routerTo('newFile')"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" style="left: 6px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="runSelected"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" style="left: 90px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="uploadSelected"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" style="left: 174px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="editSelected"/>
-    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" style="left: 258px;top: 402px;" class="btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="handleDeleteClick"/>
+    <img if="{{selectedFileIndex === -1}}" src="/common/images/market.png" class="footer-left btn" @click="routerTo('toolsMarket')"/>
+    <img if="{{selectedFileIndex === -1}}" src="/common/images/cloud.png" class="footer-center btn" @click="routerTo('settingsCloudFiles')"/>
+    <img if="{{selectedFileIndex === -1}}" src="/common/images/add.png" class="footer-right btn" @click="routerTo('newFile')"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/run.png" class="footer-left btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="runSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/upload.png" class="footer-second btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="uploadSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/edit.png" class="footer-third btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="editSelected"/>
+    <img if="{{selectedFileIndex !== -1}}" src="/common/images/delete.png" class="footer-right btn {{fileActionBusy || cloudBusy ? 'disabled-icon' : ''}}" @click="handleDeleteClick"/>
 
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
       <div class="network-dialog">
@@ -250,121 +250,5 @@ export default {
 </script>
 
 <style>
-@import "../../common/styles/network-loading.css";
-.page {
-  width: 336px;
-  height: 480px;
-  background-color: #000000;
-  color: white;
-  text-align: center;
-}
-
-/* 顶部 */
-.header-img {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  width: 336px;
-  height: 84px;
-}
-
-.time-text {
-  position: absolute;
-  left: 78px;
-  top: 7px;
-  width: 180px;
-  line-height: 32px;
-  font-weight: bold;
-  font-size: 24px;
-  color: rgba(255,255,255,0.6);
-  text-align: center;
-}
-
-.title-text {
-  position: absolute;
-  left: 78px;
-  top: 35px;
-  width: 180px;
-  line-height: 42px;
-  font-weight: bold;
-  font-size: 32px;
-  color: white;
-  text-align: center;
-}
-
-.btn {
-  position: absolute;
-  width: 72px;
-  height: 72px;
-}
-
-.list {
-  width: 336px;
-  height: 480px;
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  padding: 84px 6px 86px;
-}
-
-.item {
-  width: 100%;
-  height: 112px;
-  padding: 10px 18px;
-  margin-bottom: 8px;
-  background-color: #262626;
-  border-radius: 36px;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.item2 {
-  background-color: #0D6EFF;
-}
-
-.empty-img {
-  position: absolute;
-  left: 104px;
-  top: 146px;
-  width: 128px;
-  height: 128px;
-}
-
-.empty-text {
-  position: absolute;
-  left: 0px;
-  top: 298px;
-  width: 336px;
-  line-height: 42px;
-  font-weight: bold;
-  font-size: 32px;
-  color: white;
-  text-align: center;
-}
-
-.error-state { left:18px; top:200px; width:300px; font-size:22px; line-height:30px; lines:6; text-overflow:ellipsis; }
-
-.itemtext {
-  font-size: 28px;
-  line-height: 34px;
-  width: 100%;
-  font-weight: bold;
-  color: white;
-  text-overflow: ellipsis;
-  lines: 1;
-}
-
-.itemmeta {
-  width: 100%;
-  font-size: 16px;
-  line-height: 22px;
-  color: rgba(255,255,255,0.6);
-  text-overflow: ellipsis;
-  lines: 1;
-}
-
-.disabled-icon {
-  background-color: #303030;
-  border-radius: 36px;
-}
+@import "./index.css";
 </style>

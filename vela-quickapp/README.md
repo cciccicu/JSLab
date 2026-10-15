@@ -53,6 +53,8 @@ npm run release
 
 发布包会生成在 `dist/` 目录。`npm run release` 默认启用 JSC。
 
+REDMI Watch 5 使用独立的 432×514 静态布局和 `designWidth:432`。`npm run release:watch5` 构建完整版，`npm run release:community:watch5` 构建社区版；手环对应 `release:bandpro` 和 `release:community`。这些分设备构建在 `release-archive/` 保存安装包，不连接设备。样式维护、圆角边界与命令见 [设备适配说明](docs/device-targets.md)。
+
 社区版可运行 `npm run release:community` 单独构建，生成 `release-archive/JSLab-Community-<版本号>.rpk`。构建脚本只在临时源码副本的 `src/utils/core/buildConfig.js` 中启用社区版标记，不会改动完整版源码或清空现有 `dist/`。安装包显示名称为“JSLab社区版”，包名保持 `icu.ccicc.jslab`。首次进入联网页面时选择官方或第三方 JSLab Cloud 服务器；社区版的默认服务器地址为空，未选择前不会发起云请求。云账户页可更换服务器，更换后需在新服务器重新配对。
 
 公共模块职责与限制见 [模块说明](src/utils/README.md)，UI 优化原则与本地验证见

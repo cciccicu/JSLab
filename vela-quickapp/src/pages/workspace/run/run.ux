@@ -61,15 +61,16 @@ import { vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 import { getPageElement, scheduleNextTick } from '../../../utils/core/runtimeCompat.js';
 import { createScriptRuntimeApi } from '../../../utils/runtime/scriptRuntimeApi.js';
+import { SCREEN } from '../../../utils/core/screen.js';
 import { createUiSession } from '../../../utils/runtime/uiRuntime.js';
 import { createUiPublisher } from '../../../utils/runtime/uiPublisher.js';
 import { createConsoleBuffer, formatError } from '../../../utils/runtime/consoleBuffer.js';
 const runs = new WeakMap();
 export default {
   private: {
-    nowTime:'00:00', view:'console', pageTitle:'脚本', showTopBar:true, hasUi:false,
-    contentTopPadding:84, uiNodes:[], emptyTitle:'空界面', emptyDetail:'脚本未提供显示组件',
-    error:'', logText:'', layoutHeight:480, contentEnd:84, errorTop:84
+    screen:SCREEN, nowTime:'00:00', view:'console', pageTitle:'脚本', showTopBar:true, hasUi:false,
+    contentTopPadding:SCREEN.header, uiNodes:[], emptyTitle:'空界面', emptyDetail:'脚本未提供显示组件',
+    error:'', logText:'', layoutHeight:SCREEN.height, contentEnd:SCREEN.header, errorTop:SCREEN.header
   },
   onInit() {
     const start = this.$app.$def.runnerSource;
@@ -78,9 +79,9 @@ export default {
     runs.set(this, state);
     state.logs = createConsoleBuffer(() => this.queueLogs());
     state.session = createUiSession({
-      top:() => state.header ? 84 : 12,
+      top:() => state.header ? SCREEN.header : SCREEN.topInset,
       title:value => { state.uiTitle=value; if (this.view === 'ui') this.pageTitle=value; },
-      header:value => { if (state.header === value) return false; state.header=value; if (this.view === 'ui') { this.showTopBar=value; this.contentTopPadding=value ? 84 : 12; } return true; },
+      header:value => { if (state.header === value) return false; state.header=value; if (this.view === 'ui') { this.showTopBar=value; this.contentTopPadding=value ? SCREEN.header : SCREEN.topInset; } return true; },
       show:() => this.showUi(), hide:() => this.showConsole(), scroll:value => this.requestScroll(value),
       publish:(nodes,height,end,changed) => this.publishUi(nodes,height,end,changed),
       error:error => this.reportError(error), clearError:() => this.clearRuntimeError()
@@ -123,7 +124,7 @@ export default {
   showUi() {
     const state=runs.get(this); if (!state || !state.active || state.navigating || state.pending || !state.session.hasFrame()) return false;
     const previousView=this.view;
-    this.view='ui'; this.pageTitle=state.uiTitle; this.showTopBar=state.header; this.contentTopPadding=state.header ? 84 : 12;
+    this.view='ui'; this.pageTitle=state.uiTitle; this.showTopBar=state.header; this.contentTopPadding=state.header ? SCREEN.header : SCREEN.topInset;
     if (state.logTimer !== null) clearTimeout(state.logTimer); state.logTimer=null;
     if (state.visible && state.session.setVisible(true) === false) {
       if (previousView === 'console') this.showConsole();
@@ -194,37 +195,5 @@ export default {
 </script>
 
 <style>
-.page { width:336px; height:480px; overflow:hidden; background-color:#000000; }
-.content { width:336px; height:480px; flex-direction:column; }
-.content-inner { width:336px; flex-shrink:0; }
-.node-wrap { position:absolute; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; }
-.ui-text { width:100%; flex-shrink:0; text-overflow:ellipsis; }
-.ui-button { width:100%; height:100%; padding:0px 8px; justify-content:center; align-items:center; }
-.control-card { width:100%; height:100%; padding:12px 16px; flex-direction:row; align-items:center; }
-.control-copy { flex-direction:column; }
-.control-label { width:100%; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
-.control-detail { width:100%; font-size:20px; line-height:26px; lines:2; text-overflow:ellipsis; }
-.ui-switch { width:68px; margin-left:8px; }
-.value-card { width:100%; height:100%; padding:12px 16px; flex-direction:column; justify-content:center; }
-.value-header { width:100%; flex-direction:row; align-items:center; }
-.value-label { flex:1; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
-.value-text { font-size:21px; line-height:28px; font-weight:bold; margin-left:6px; }
-.ui-slider { width:100%; margin-top:8px; padding-left:0px; padding-right:0px; }
-.ui-progress { width:100%; margin-top:12px; stroke-width:12px; }
-.empty-card, .error-card { position:absolute; left:6px; width:324px; padding:16px 18px; border-radius:32px; background-color:#24262a; flex-direction:column; }
-.empty-title, .error-title { color:#ffffff; font-size:28px; line-height:36px; font-weight:bold; }
-.empty-detail { color:#999999; font-size:20px; line-height:28px; margin-top:6px; }
-.error-card { background-color:#3a2020; }
-.error-title, .error-text { color:#f48771; }
-.error-text { font-size:22px; line-height:30px; margin-top:8px; }
-.topbar-bg { position:absolute; left:0px; top:0px; width:336px; height:84px; }
-.time-text { position:absolute; left:78px; top:7px; width:180px; line-height:32px; color:#999999; font-size:24px; font-weight:bold; text-align:center; }
-.title-text, .title-marquee { position:absolute; left:78px; top:35px; width:180px; line-height:42px; color:#ffffff; font-size:30px; font-weight:bold; text-align:center; }
-.btn { position:absolute; width:72px; height:72px; }
-.btn-left-top { left:6px; top:6px; }
-.btn-right-top { left:258px; top:6px; }
-.console-content { position:absolute; top:84px; left:6px; width:324px; height:396px; padding:12px 12px 24px; flex-direction:column; }
-.console-log { width:300px; font-size:22px; line-height:30px; color:#0d6eff; flex-shrink:0; }
-.console-hint { width:300px; font-size:20px; line-height:28px; color:#999999; flex-shrink:0; margin-bottom:12px; }
-.console-error { width:300px; font-size:22px; line-height:30px; color:#f48771; flex-shrink:0; margin-top:12px; }
+@import "./run.css";
 </style>

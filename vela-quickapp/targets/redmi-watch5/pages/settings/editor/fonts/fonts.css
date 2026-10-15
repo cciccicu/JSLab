@@ -1,0 +1,20 @@
+.page { width: 432px; height: 514px; background-color: #000000; overflow: hidden; }
+.content { position: absolute; left: 0px; top: 0px; width: 432px; height: 514px; flex-direction: column; }
+.content-inner { width: 432px; flex-direction: column; flex-shrink: 0; padding: 112px 18px 36px; }
+.section-title { width: 396px; margin-top: 12px; flex-shrink: 0; font-size: 22px; line-height: 30px; font-weight: bold; color: rgba(255,255,255,0.65); }
+.helper-status { width: 356px; margin: 6px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; font-weight: bold; }
+.card { width: 396px; margin-top: 8px; padding: 16px 20px; flex-direction: column; flex-shrink: 0; background-color: #262626; border-radius: 36px; }
+.font-name { width: 356px; flex-shrink: 0; font-size: 28px; line-height: 36px; color: #ffffff; lines: 1; text-overflow: ellipsis; }
+.step-title { width: 356px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #9ecbff; }
+.detail { width: 356px; margin-top: 6px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
+.install-button { width: 396px; height: 72px; margin-top: 8px; padding: 0px 20px; flex-shrink: 0; align-items: center; justify-content: space-between; background-color: #0D6EFF; border-radius: 36px; }
+.disabled-item { background-color: #303030; }
+.install-button-title { width: 262px; flex-shrink: 0; font-size: 24px; line-height: 32px; font-weight: bold; color: #ffffff; text-overflow: ellipsis; lines: 1; }
+.install-button-state { width: 90px; flex-shrink: 0; font-size: 18px; line-height: 26px; color: rgba(255,255,255,0.78); text-align: right; text-overflow: ellipsis; lines: 1; }
+.disabled-text { color: #8c8c8c; }
+.install-status { width: 356px; margin: 8px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
+.last-card { margin-bottom: 16px; }
+.topbar { position: absolute; left: 0px; top: 0px; width: 432px; height: 112px; }
+.btn { position: absolute; left: 18px; top: 30px; width: 72px; height: 72px; }
+.time { position: absolute; left: 108px; top: 16px; width: 216px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
+.title { position: absolute; left: 108px; top: 48px; width: 216px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }

@@ -156,7 +156,7 @@ test("smallModules", async () => {
   const url = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
   const read = name => fs.readFileSync(path.join(root, name), 'utf8');
   async function load(name, replacements = []) {
-    let source = read(name);
+    let source = read(name).replace("'../core/screen.js'", JSON.stringify(url(read('core/screen.js'))));
     for (const [before, after] of replacements) {
       assert(source.includes(before), 'Loader anchor missing: ' + before);
       source = source.replace(before, after);

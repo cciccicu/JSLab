@@ -1,0 +1,155 @@
+@font-face {
+    font-family: 'JSLabActive';
+    src: url('/common/fonts/active.ttf');
+    font-weight: normal;
+    font-style: normal;
+  }
+  .page {
+    width: 336px;
+    height: 480px;
+    background-color: #000000;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .code {
+      color: #ffffff;
+    flex-shrink: 0;
+    }
+
+  .code-plain-text {
+    width: 100%;
+    flex-shrink: 0;
+    text-overflow: clip;
+  }
+
+  .code-lines {
+    width: 100%;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .code-line {
+    width: 100%;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .code-line-text {
+    width: 100%;
+    flex-shrink: 0;
+    text-overflow: clip;
+    lines: 1;
+  }
+
+  .rendering-status {
+    width: 324px;
+    height: 48px;
+    line-height: 48px;
+    color: rgba(255,255,255,0.6);
+    font-size: 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .code-top-spacer {
+    height: 84px;
+    flex-shrink: 0;
+  }
+
+  .code-document {
+    position: relative;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .code-cursor {
+    position: absolute;
+    background-color: #ffffff;
+  }
+
+  .code-bottom-spacer {
+    height: 78px;
+    flex-shrink: 0;
+  }
+
+  .btn {
+    position: absolute;
+    width: 72px;
+    height: 72px;
+  }
+
+  .disabled-icon {
+    background-color: #303030;
+    border-radius: 36px;
+  }
+
+  .topbar-bg {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 336px;
+    height: 84px;
+  }
+
+  .time-text {
+    position: absolute;
+    left: 78px;
+    top: 7px;
+    width: 180px;
+    line-height: 32px;
+    font-weight: bold;
+    font-size: 24px;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+  }
+
+  .title-text {
+    position: absolute;
+    left: 78px;
+    top: 35px;
+    width: 180px;
+    line-height: 42px;
+    font-weight: bold;
+    font-size: 32px;
+    color: white;
+    text-align: center;
+  }
+
+  .cursormove {
+    position: absolute;
+    left: 6px;
+    top: 300px;
+    width: 324px;
+    height: 90px;
+    border-radius: 36px;
+    background-color: #333;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .cursor-btn {
+    width: 72px;
+    height: 72px;
+  }
+
+  .editor-menu-dismiss { position:absolute; left:0px; top:84px; width:336px; height:396px; background-color:rgba(0,0,0,0.58); }
+  .editor-menu-card { position:absolute; left:70px; top:84px; width:260px; height:364px; padding:8px 12px; border-radius:28px; background-color:#262626; flex-direction:column; }
+  .editor-menu-item { width:236px; height:58px; line-height:58px; border-bottom-width:2px; border-bottom-color:#3d3d3d; color:#ffffff; font-size:22px; font-weight:bold; text-align:left; padding-left:18px; }
+  .editor-menu-last { border-bottom-width:0px; }
+
+
+.footer-left { left:6px; top:402px; }
+
+.footer-second { left:90px; top:402px; }
+
+.footer-third { left:174px; top:402px; }
+
+.footer-right { left:258px; top:402px; }
+
+.header-left { left:6px; top:6px; }
+
+.header-right { left:258px; top:6px; }
+
+.scroll { position:absolute; top:0px; left:0px; height:480px; width:100%; flex-direction:column; padding:0px 6px; }
