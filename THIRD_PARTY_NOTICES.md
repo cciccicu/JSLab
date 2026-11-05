@@ -5,7 +5,7 @@
 | 内容 | 来源与许可 | 说明 |
 | --- | --- | --- |
 | Vela 输入法组件 | NEORUAA，MIT | [原始许可](vela-quickapp/src/components/InputMethod/LICENSE)随主应用和模板保留 |
-| 设备端内置字体 | Ubuntu Mono + Sarasa Mono SC + Noto Emoji 合并 | [来源与尚待解决的分发许可](docs/third-party/editor-font.md)；不按 GPL 重新授权 |
+| 设备端内置字体 | Sarasa Mono SC + Noto Emoji，OFL-1.1 | [来源、构建与分发许可](docs/third-party/editor-font.md)；字体不按 GPL 重新授权 |
 | RPK 签名适配 | AIoT Toolkit，ISC | [来源记录](docs/third-party/rpk-signature.md)与[随代码许可](ccicc-plugin-cloud/jslab-cloud/lib/rpk-signature/LICENSE) |
 | Android Sora / TextMate | Sora Editor、Eclipse TM4E | [版本、源码提供方式与 LGPL / EPL 说明](docs/third-party/android-editor.md) |
 | JavaScript TextMate 语法 | Microsoft TypeScript-TmLanguage，MIT | 许可随 APK 位于 assets/licenses，来源见 Android 编辑器说明 |
