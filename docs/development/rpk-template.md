@@ -32,7 +32,7 @@ npm test
 
 源码同步、导出与校验共用 `scripts/source-content.cjs`：代码、配置和许可文本统一为 LF 换行后计算摘要，字体与图片按原始字节计算。Git 在 Windows 与 Linux 上转换文本换行不会使模板失效；模板 ZIP 本身仍按原始字节校验。
 
-修改引擎后运行完整 `npm run build`，并在云插件运行 `npm run check:rpk-template`。必须同时提交同步后的源文件、两个设备模板及元数据。只更新版本文字或只替换一个 ZIP 不能完成引擎更新。
+修改引擎后运行完整 `npm run build`，并在云插件运行 `npm run check:rpk-template`。一次引擎更新应同时提交同步后的源文件、两个设备模板及元数据。
 
 ## 云端装配
 

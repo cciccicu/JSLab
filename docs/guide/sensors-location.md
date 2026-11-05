@@ -22,7 +22,7 @@ if (script.canUse('@system.sensor.subscribeAccelerometer') &&
 }
 ```
 
-`interval` 可设为 `normal`、`ui`、`game`。它们代表不同的回调频率，普通信息展示优先从 `normal` 开始；不要为了让界面更流畅而无条件选择最高频率。
+`interval` 可设为 `normal`、`ui`、`game`，分别对应不同的回调频率。普通信息展示从 `normal` 开始，再根据采样需求调整。
 
 ## 其他传感器及停止方法
 
@@ -32,7 +32,7 @@ if (script.canUse('@system.sensor.subscribeAccelerometer') &&
 | `subscribePressure` | `pressure`，单位为百帕（hPa） | `unsubscribePressure()` |
 | `subscribeCompass` | `direction`、`accuracy` | `unsubscribeCompass()` |
 
-订阅参数使用 `callback`，加速度和罗盘接口还提供 `fail`。罗盘方向以弧度表示，不是角度：朝北约为 0，朝南约为 π。`accuracy` 表示可信度，不能把低可信度的读数当成精确方向。
+订阅参数使用 `callback`，加速度和罗盘接口还提供 `fail`。罗盘方向以弧度表示：朝北约为 0，朝南约为 π。结合 `accuracy` 显示读数的可信度。
 
 ## 读取当前位置
 
@@ -50,13 +50,13 @@ if (script.canUse('@system.geolocation.getLocation')) {
 
 `timeout` 的单位是毫秒，未填写时默认 30000。成功结果可包含经纬度、`altitude`（米）、`speed`（米/秒）、`accuracy`，以及较详细的 `accuracyInfo`。使用某个字段前考虑设备是否提供。
 
-接口不支持和定位超时是不同情况。超时后不要用零坐标代替真实位置，也不要假定用户仍处在上次位置。
+按失败原因分别提示“设备不支持定位”或“定位超时”。展示上次位置时，标注其采集时间，让用户能够判断数据的新旧。
 
 ## 持续监听位置
 
 `system.location.subscribe({ callback, fail })` 监听位置变化，结束时调用 `system.location.unsubscribe()`。重复订阅可能替换已有回调。
 
-持续采集时提供明确的开始、停止操作，并限制持续时间。在停止操作中取消订阅后，再退出脚本；不能依赖切换到日志就自动停止。
+持续采集时提供明确的开始、停止操作，并设置持续时间。在停止操作中取消订阅后，再退出脚本。切换到日志视图时，采集会继续进行。
 
 ## 把读数显示得更清楚
 

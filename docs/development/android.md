@@ -17,7 +17,7 @@ SDK 二进制、下载归档和对应源码 ZIP 均为本地依赖，不提交�
 
 ## 签名与产物
 
-Android 与 Vela 互联要求应用包名和签名证书一致。默认 debug 签名只能用于相应的本地调试组合，不能假定可以连接已有的正式 RPK。
+Android 与 Vela 互联要求应用包名和签名证书一致。调试时为两端配置同一套证书；连接正式 RPK 时，Android 端也使用该 RPK 对应的签名。
 
 已有 Vela 签名可使用 `scripts/import-vela-signing.ps1` 导入。脚本默认只读 `../vela-quickapp/sign/`，将本项目需要的材料写到忽略目录 `.local/`，不会覆盖已有配置。也可以从 `keystore.properties.example` 创建自己的配置。随后运行 `scripts/build.ps1 -Release`。
 
@@ -46,4 +46,4 @@ node scripts/verify-vela-compat.mjs
 
 截图测试使用 Layoutlib 在主机渲染，不依赖模拟器。`app/src/screenshotTestDebug/reference/` 是需要保留的测试基准，使用 `:app:validateDebugScreenshotTest` 比较；只有界面修改且结果已检查时，才用 `:app:updateDebugScreenshotTest` 更新基准。普通开发截图与测试报告不提交。
 
-构建和测试不会调用 ADB。SDK 授权、签名匹配和不同固件上的通信仍需要单独进行真机验证。
+设备联调时检查 SDK 授权、两端签名匹配，以及目标固件上的通信流程。

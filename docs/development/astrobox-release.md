@@ -29,5 +29,4 @@ https://raw.githubusercontent.com/cciccicu/JSLab-AstroBox-Plugin-Release/refs/he
 3. 更新根目录的版本 ABP、README、源码提交链接与 SHA256SUMS。
 4. 核对 WASM Component 文件头、包内容、manifest 的 API Level、权限及所有公开下载地址，再提交推送分发仓库。
 
-已有官方索引地址无需随每次版本更新重新提交 PR。构建和本地校验不连接设备或模拟器；
-设备连接与部署需要另行明确授权。
+后续版本沿用已有官方索引地址，更新分发仓库即可。

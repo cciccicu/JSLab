@@ -25,4 +25,4 @@ npm run build:bandpro
 - [运行接口](../docs/reference/runtime-api.md) · [UI 接口](../docs/reference/ui-api.md)
 - [使用指南](../docs/guide/watch-guide.md) · [示例脚本](../examples/README.md)
 
-机器协作约束见 [AGENTS.md](AGENTS.md)。安装与真机调试不属于构建命令。
+协作约定见 [AGENTS.md](AGENTS.md)。

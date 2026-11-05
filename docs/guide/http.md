@@ -2,7 +2,7 @@
 
 > 最低支持版本：JSLab 2.0.0。本页的请求参数、网络查询和网络订阅均适用；实际连接能力取决于设备固件与网络。
 
-`system.http.request()` 向服务器请求数据，对应小米的 `fetch.fetch()`。它使用设备提供的网络能力，不会自动通过 JSLab 的配套端网络桥接转发。
+`system.http.request()` 通过设备原生网络能力向服务器请求数据，对应小米的 `fetch.fetch()`。
 
 ## 发送一次请求
 
@@ -26,7 +26,7 @@ if (script.canUse('@system.fetch.fetch')) {
 }
 ```
 
-进入 `success` 不等于业务成功。先检查 `response.code`，再按目标服务的约定检查 `response.data`。HTTP 错误状态与传输失败也应分别处理。
+`success` 返回 HTTP 响应。先检查 `response.code`，再按目标服务的格式读取 `response.data`；连接失败等传输错误由 `fail` 处理。
 
 ## 请求参数与响应字段
 
@@ -59,7 +59,7 @@ if (script.canUse('@system.fetch.fetch')) {
 }
 ```
 
-直接传普通对象通常会按表单方式编码，不能假设只写 `Content-Type` 就一定完成 JSON 序列化。请求地址、字段和鉴权方式以目标接口为准。
+普通对象通常按表单方式编码。发送 JSON 时，先用 `JSON.stringify()` 序列化，再设置对应的 `Content-Type`。请求地址、字段和鉴权方式以目标接口为准。
 
 ## 查询网络类型
 
@@ -67,11 +67,11 @@ if (script.canUse('@system.fetch.fetch')) {
 
 监听变化使用 `system.network.subscribe({ callback, fail })`，`callback` 同样收到含 `type` 的对象。用完后调用 `system.network.unsubscribe()`；重复订阅可能替换之前的监听。
 
-网络类型不是 `none` 也不保证目标服务器可访问，仍要处理实际请求结果。部分设备不支持网络类型查询，但不能据此跳过请求本身的错误处理。
+网络类型用于显示当前连接方式；请求是否成功通过 `success` 和 `fail` 判断。
 
 ## 将结果显示在界面中
 
-把请求放在按钮回调或初始化步骤中，收到结果后修改 `ui.signal`。不要在 `ui.render` 的界面生成函数里发请求，否则每次刷新都可能再次发送。
+把请求放在按钮回调或初始化步骤中，收到结果后修改 `ui.signal`。`ui.render` 的界面生成函数会随刷新重复执行，适合读取状态并生成界面描述。
 
 等待期间设置忙碌状态，防止连续点击重复提交。较大的结果只保留和显示需要的字段，长列表分批展示。
 

@@ -16,7 +16,7 @@ async function main() {
 return main();
 ```
 
-同步死循环仍会阻塞 JavaScript 线程。运行页重建不等于重启应用共享的 JavaScript context；系统订阅、音频和脚本创建的长期任务需要由脚本管理，在不再需要时解除订阅或停止。
+脚本与应用共享 JavaScript context，同步死循环会阻塞该线程。重建运行页时，脚本创建的系统订阅、音频和长期任务仍由脚本管理，在结束流程中解除订阅或停止。
 
 ## 视图与导航
 
@@ -34,11 +34,11 @@ return main();
 
 对话框打开时，显式 `render` 只改变对话框关闭后的视图，不会抢占对话框。此时调用重载或退出，会先取消对话框，再在来源运行页恢复后执行导航。
 
-提交成功表示定义已被运行器接受，不保证屏幕已经完成绘制。失败的 `render` 保留上一份有效定义和画面；下一次有效控件操作、显式 `render` 或重载可清除错误提示，已有日志继续保留。布局、控件、signal 和滚动方法详见 [UI 接口参考](ui-api.md)。
+提交成功后，运行器接受界面定义，由原生组件继续完成绘制。失败的 `render` 保留上一份有效定义和画面；下一次有效控件操作、显式 `render` 或重载可清除错误提示，已有日志继续保留。布局、控件、signal 和滚动方法详见 [UI 接口参考](ui-api.md)。
 
 ## Console
 
-`console.log`、`info`、`warn`、`error` 接受多个参数；`console.clear()` 清空日志。`error` 是日志级别，不会自动切换视图或退出脚本。
+`console.log`、`info`、`warn`、`error` 接受多个参数，分别输出对应级别的日志；`console.clear()` 清空日志。输出后保持当前视图并继续执行脚本。
 
 | 项目 | 上限或行为 |
 | --- | --- |
@@ -50,7 +50,7 @@ return main();
 
 对象预览限制层级、成员数和字符数，能够处理循环引用。Console 隐藏时不向页面发布日志文本，也不安排日志刷新定时器；显示时合并更新，不强制跟随滚动。
 
-运行器捕获编译错误、同步主体异常、顶层返回的 Promise 或 thenable 拒绝、UI 回调异常及界面编译提交错误。未返回的 Promise 链和任意原生回调不属于全面捕获范围，需要脚本自行处理。
+运行器捕获编译错误、同步主体异常、顶层返回的 Promise 或 thenable 拒绝、UI 回调异常及界面编译提交错误。脚本自行启动的 Promise 链使用 `catch`，原生回调中的错误由脚本处理。
 
 ## script 对象
 
@@ -69,7 +69,7 @@ return main();
 
 ## 标准对话框
 
-五个方法均返回 `Promise<{action, value}>`。`action` 为 `confirm`、`secondary` 或 `cancel`；正常取消得到 `{action: 'cancel', value: null}`，不是异常。判断用户操作时应检查 `action`，因为空字符串、`0` 和 `false` 都可能是有效结果。
+五个方法均返回 `Promise<{action, value}>`。`action` 为 `confirm`、`secondary` 或 `cancel`；取消时 Promise 成功返回 `{action: 'cancel', value: null}`。通过 `action` 判断用户操作，空字符串、`0` 和 `false` 均可作为有效的 `value`。
 
 公共参数为 `title`、`message`、`confirmText`、`cancelText`。初值使用 `value`，选项集合使用 `items`。
 
@@ -77,7 +77,7 @@ return main();
 | --- | --- | --- |
 | `dialog.alert()` | 无 | `null` |
 | `dialog.confirm()` | `secondaryText` 可增加第二业务操作 | `null`，根据 `action` 判断选择 |
-| `dialog.text()` | `value`、`placeholder`、`required`、`minLength`、`maxLength`、`language: 'en' / 'cn'` | 字符串，不自动去除首尾空白 |
+| `dialog.text()` | `value`、`placeholder`、`required`、`minLength`、`maxLength`、`language: 'en' / 'cn'` | 字符串，保留首尾空白 |
 | `dialog.number()` | `value`、`required`、`min`、`max`、`decimals` | 有限数值；允许空值且没有输入时为 `null` |
 | `dialog.select()` | `items`、`value`、`multiple`、`minSelected`、`maxSelected` | 单选为原始值，多选为按选项顺序排列的数组 |
 

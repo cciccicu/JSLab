@@ -6,7 +6,7 @@
 
 ## 设置来源，再开始播放
 
-音频来源设置在 `system.audio.src` 属性上，之后调用无参数的 `play()`。它不是 `play({ src: ... })` 这样的调用方式。
+先在 `system.audio.src` 属性上设置音频来源，再调用无参数的 `play()`。
 
 下面的示例需要先准备可播放的本地音频文件，并将路径替换成真实地址。
 
@@ -28,7 +28,7 @@ if (script.canUse('@system.audio.play') && script.canUse('@system.audio.stop')) 
 }
 ```
 
-`pause()` 暂停，`stop()` 停止。需要自己控制错误回调时，在结束操作中释放它；媒体对象可能被其他功能共享，不要持续覆盖不属于自己的状态。
+`pause()` 暂停，`stop()` 停止。媒体对象由应用共用，脚本结束时释放自己设置的错误回调。
 
 ## 常用属性和播放状态
 
@@ -66,7 +66,7 @@ if (script.canUse('@system.record.start') && script.canUse('@system.record.stop'
 }
 ```
 
-`duration` 使用毫秒；默认值为 0，表示不会按时长自动结束，因此通常应主动填写。`success` 表示录音完成，而不是刚开始录音。声音被其他系统功能打断时，也可能提前结束。
+`duration` 使用毫秒，建议填写录音时长；默认值 0 表示持续录音，直到主动停止或被系统中断。录音结束时调用 `success`，并返回录音结果。
 
 `sampleRate` 是采样率，`numberOfChannels` 是声道数，`format` 可选 `pcm`、`opus`、`wav`。录音结束后如需长期保留文件，按 [文件接口](files.md) 将缓存文件保存到自己的持久位置。
 
@@ -74,6 +74,6 @@ if (script.canUse('@system.record.start') && script.canUse('@system.record.stop'
 
 需要流式处理时，可以设置 `frameSize` 并使用 `system.recorder.onframerecorded`。回调中的 `frameBuffer` 为 `Uint8Array`，`isLastFrame` 表示是否最后一帧。
 
-有效的帧模式不会在成功结果中返回普通录音文件 `uri`；实际帧大小也可能由设备调整。不要同时假定必然得到完整文件和逐帧数据。结束时停止录音并释放帧回调。
+帧模式通过 `onframerecorded` 提供音频数据，成功结果中没有普通录音文件的 `uri`。实际帧大小由设备确定。结束时停止录音并释放帧回调。
 
 接口与支持明细：[音频](https://iot.mi.com/vela/quickapp/zh/features/other/audio.html)、[录音](https://iot.mi.com/vela/quickapp/zh/features/system/record.html)。

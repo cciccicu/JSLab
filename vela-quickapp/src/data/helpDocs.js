@@ -32,7 +32,7 @@ const WATCH_GUIDE = [
     method('files-copy', '另存为一份副本', '打开脚本编辑器，点右上角菜单，选择“另存为”，输入新的文件名。修改重要脚本前可以先留一份副本。'),
     method('files-backup', '备份与传输', '选中文件后上传到云空间，或使用 AstroBox 插件、Android 同步器下载到手机。同步器还可重命名文件；重命名会迁移该脚本的数据和配置。'),
     method('files-remove', '删除脚本', '首页选中文件，点击删除并确认。删除时会同时清除这个脚本的数据和配置；需要保留时请先备份。'),
-    method('files-large', '打开较大的脚本', '超过 48 KiB 时，进入编辑器前会出现提醒，确认后仍可继续。它不是源码长度上限；大文件在小屏设备上可能较慢，可改用手机编辑。')
+    method('files-large', '打开较大的脚本', '超过 48 KiB 时，在提醒中选择“继续编辑”即可打开。较大的文件也可以在手机或电脑上编辑，再传回设备运行。')
   ]),
   document('guide-editor', '编辑器与设置', '输入代码、调整显示和清除记录', '点击代码区域打开输入法。返回操作会先收起键盘或光标控制，再处理是否离开编辑器。', [
     method('editor-save', '保存与运行', '收起键盘后使用底部保存、运行按钮。运行不会自动保存；退出时可选择保存、不保存或继续编辑。'),
@@ -55,9 +55,9 @@ const SCRIPT_API = [
     method('script-reload', 'script.reload()', '重新运行这次打开时的代码，包括从编辑器运行时尚未保存的修改。', 'script.reload()'),
     method('script-exit', 'script.exit()', '离开运行页。脚本启动的录音、传感器监听等任务，应在不再使用时主动停止。', 'script.exit()'),
     method('script-toast', 'script.toast(message, duration)', '在屏幕上显示短暂提示；可设置 1500 至 10000 毫秒。', "script.toast('已保存')")
-  ], '需要等待异步操作时，把代码放进 async 函数，并在脚本末尾写 return main()；不能直接在最外层使用 await。'),
+  ], '使用 await 时，把异步代码放进 async function main()，并在脚本末尾写 return main()。'),
   document('api-console', '输出与查看日志', '使用 console 检查程序', '日志页显示脚本的输出。切换到界面后，日志仍会保留；日志不会自动保存为文件。', [
-    method('console-output', 'log / info / warn / error', '可以输出多个值。error 用于标记错误消息，不会让脚本自动退出。', "console.log('结果', 42)"),
+    method('console-output', 'log / info / warn / error', '按对应级别输出日志，可以传入多个值。输出后继续执行脚本。', "console.log('结果', 42)"),
     method('console-clear', 'console.clear()', '清空本次运行的日志。', 'console.clear()')
   ], '日志最多保留最近 64 条。记录较多时，最早的内容会被移除。'),
   document('api-script-data', '保存脚本数据', 'script.data 与 script.config', '用 script.data 保存脚本产生的数据，用 script.config 保存设置。两者的用法相同，数据分别保存；不同文件名的脚本也互不共用。', [
@@ -89,7 +89,7 @@ const UI_API = [
     method('ui-align', 'align / justify / flex', 'align 控制横向或纵向对齐；justify 分配多余空间；row 子项可用 flex 指定宽度比例。', "ui.row([\n  ui.text('1', { flex: 1, lines: 1 }),\n  ui.text('2', { flex: 2, lines: 1 })\n])")
   ], 'row 不会自动换行。文字或按钮需要固定高度时，可设置 height；内容超出高度可能被裁剪。样式请写在组件的 options 中。'),
   document('api-ui-components', '界面组件与颜色', '文字、按钮和二维码等', '组件的颜色和尺寸通过 options 设置。需要响应点击时，给按钮传入回调函数。下面的组件示例可放在 ui.render 中使用。', [
-    method('ui-width', 'ui.getWidth()', '同步返回根内容区可用宽度：Pro 324px，RW 372px；不含屏幕安全边距，不是嵌套容器宽度。兼容旧客户端时先检查方法是否存在。', "const width = typeof ui.getWidth === 'function' ? ui.getWidth() : 324;"),
+    method('ui-width', 'ui.getWidth()', '同步返回扣除屏幕安全边距后的根内容宽度：Pro 324px，RW 372px。嵌套布局还需扣除父容器的内边距和间距。兼容旧客户端时先检查方法是否存在。', "const width = typeof ui.getWidth === 'function' ? ui.getWidth() : 324;"),
     method('ui-text', 'heading / text', '显示标题或正文。可设置 size、color、bold、align、lines 和 lineHeight。', "ui.text('正文', { color: '#ffffff', lines: 2 })"),
     method('ui-action', 'button / buttonRow', '创建单个按钮或一排按钮。background 设置底色，color 设置文字色；disabled: true 可禁用按钮。', "ui.button('保存', () => script.toast('已保存'), {\n  id: 'save', background: '#0d6eff', color: '#fff'\n})"),
     method('ui-input', 'switch / slider', '创建开关或滑块。回调会收到新值；可用 accent、trackColor、thumbColor 调整颜色。', "ui.switch('启用', true, value => {\n  console.log('当前状态', value)\n}, { id: 'enabled' })"),
@@ -109,7 +109,7 @@ const UI_API = [
     method('ui-canvas-submit', 'canvas.submit()', '绘图后等待提交完成，再刷新界面。未提交的像素不会显示；提交失败时保留上一幅画面。', '', '提交成功表示图片已写入，还需要原生组件加载显示。建议按需绘制，避免频繁提交。'),
     method('ui-canvas-size', '像素尺寸与显示尺寸', 'pixelWidth/pixelHeight 决定绘图分辨率，创建后只读，建议从 160×96 开始。width/height 控制显示大小，省略 height 时等比例缩放。', '', '显示 width 支持百分比。放大显示不会增加像素数量。'),
     method('ui-canvas-layout', '调整布局', '直接修改画布的布局属性，再调用 ui.refresh。可用 id、width、height、background、radius、x/y、flex 和 fit。', '', 'id 必须全页唯一，x/y 只在 stack 中生效。background/radius 只改变外观，fit 用法与图片相同。'),
-    method('ui-canvas-reuse', '复用同一画布', '把同一个 canvas 放入渲染函数并反复使用。不要通过展开、Object.assign 或 JSON 复制它；复制品无法作为画布显示。'),
+    method('ui-canvas-reuse', '复用同一画布', '把同一个 canvas 放入渲染函数并反复使用。像素内容与原实例关联，展开、Object.assign 或 JSON 复制得到的普通对象会触发“Canvas 实例无效”错误。'),
     method('ui-canvas-pixel', 'canvas.setPixel / getPixel', 'setPixel 写入一个像素，可用颜色字符串或 [r,g,b,a] 数组。getPixel 读出的数组可以直接写入另一个位置。', "const canvas = ui.canvas({\n  pixelWidth: 16, pixelHeight: 16, width: 160\n})\ncanvas.setPixel(4, 4, [255, 128, 0, 255])\ncanvas.setPixel(5, 4, canvas.getPixel(4, 4))\nui.render(canvas)\nreturn canvas.submit().then(() => ui.refresh())", '数组恰好四项，均为 0–255 整数；第四项是透明度，255 表示不透明。之后修改数组不会自动改变画布。'),
     method('ui-canvas-colors', '颜色与输入错误', '只有 setPixel 接受数组。其他绘图方法使用 #RGB、#RRGGBB、rgb() 或 rgba() 颜色字符串；rgba() 的透明度仍为 0–1。', '', '绘图颜色或 RGBA 数组无效时抛错并保留原像素；组件外观颜色无效时使用默认值。越界绘图会裁剪，越界读取像素会报错。')
   ], '旧脚本省略两个 pixel 参数时，width/height 仍同时定义像素与显示尺寸，并保持只读；width 默认使用根内容宽。新脚本建议分别设置像素尺寸和显示尺寸。')
@@ -117,9 +117,9 @@ const UI_API = [
 
 const SYSTEM_API = [
   document('system-overview', '调用设备接口之前', '能力检查、回调与资源释放', 'JSLab 通过 system 提供设备接口。它们沿用小米接口的参数，但名称可能不同，例如 system.files 对应小米的 file。无需照搬官方文档中的模块导入或工程配置。', [
-    method('system-check', '先检查设备是否支持', 'script.canUse 使用小米原始接口名，例如 @system.sensor.subscribeAccelerometer。不同设备和系统版本可能有差异，检查通过后仍应处理调用失败。'),
-    method('system-callback', '在回调中取得结果', '一次请求通常使用 success、fail；持续监听通常使用 callback。不要假设每个系统方法都返回 Promise。摘要等同步方法则直接返回结果。'),
-    method('system-cleanup', '停止不再需要的任务', '传感器监听、录音、音频等应提供停止操作。切回日志或退出运行页不等于所有原生任务都会停止；不要依赖不存在的 script.onDispose。'),
+    method('system-check', '先检查设备是否支持', 'script.canUse 使用小米原始接口名，例如 @system.sensor.subscribeAccelerometer，返回当前设备是否支持该接口。异步调用通过相应回调处理结果。'),
+    method('system-callback', '在回调中取得结果', '一次请求通常使用 success、fail，持续监听通常使用 callback；摘要等同步方法直接返回结果。需要用 await 串联回调式操作时，可自行封装为 Promise。'),
+    method('system-cleanup', '结束持续任务', '在脚本的结束操作中，取消传感器订阅、停止录音和音频，并清除自己的计时器。各接口页面列出了对应的停止方法。'),
     method('system-native-network', '脚本网络与云服务的区别', '设置中的网络桥接用于 JSLab 云服务。脚本调用 system.http.request 不会自动通过同步器转发。')
   ]),
   directory('system-device', '设备与文件', '设备信息、文件与屏幕', [
@@ -127,7 +127,7 @@ const SYSTEM_API = [
       method('system-device-info', 'getInfo', '读取设备类型等信息。', "system.device.getInfo({\n  success: data => console.log(data.deviceType),\n  fail: () => script.toast('无法读取设备信息')\n})"),
       method('system-device-storage', 'getTotalStorage / getAvailableStorage', '读取总容量或剩余容量，单位是字节。结果字段分别为 totalStorage 和 availableStorage。', "system.device.getAvailableStorage({\n  success: data => console.log(data.availableStorage),\n  fail: (data, code) => console.error('读取失败', code)\n})")
     ]),
-    document('system-files-api', '读取和管理文件', '使用 system.files 操作文件', '脚本可操作 internal://files/ 中的文件。这是 JSLab 共享的应用目录，请给自己的文件取明确的名字，不要覆盖其他脚本和应用数据。', [
+    document('system-files-api', '读取和管理文件', '使用 system.files 操作文件', '脚本可操作 internal://files/ 中的文件。这是 JSLab 共享的应用目录，为自己的文件使用专属名称或目录。', [
       method('system-files-text', 'readText / writeText', '读取或写入文本文件。', "system.files.writeText({\n  uri: 'internal://files/note.txt', text: 'hello'\n})"),
       method('system-files-manage', 'list / get / access / mkdir / rmdir / move / copy / delete', '查看目录、检查文件，或管理文件与文件夹。', "system.files.list({\n  uri: 'internal://files/',\n  success: data => console.log(data.fileList.length)\n})")
     ]),
@@ -143,14 +143,14 @@ const SYSTEM_API = [
     document('system-http-api', '发送网络请求', '使用 system.http 请求数据', '请求完成后分别在 success 或 fail 中处理结果。成功回调中还需检查 res.code，再使用 res.data。示例网址需要换成自己的接口。', [
       method('system-http-request', 'request(options)', '发送 HTTP 请求并处理响应。', "system.http.request({\n  url: 'https://example.com/api',\n  responseType: 'json',\n  success: res => console.log(res.data),\n  fail: (data, code) => console.error('请求失败', code)\n})")
     ]),
-    document('system-network-state', '网络连接状态', '读取网络类型或监听变化', 'system.network 提供网络类型。返回 wifi、bluetooth 等类型并不保证目标网站可访问；最终要以请求结果为准。', [
+    document('system-network-state', '网络连接状态', '读取网络类型或监听变化', 'system.network 提供 wifi、bluetooth 等连接类型，用于显示网络状态。HTTP 请求结果由请求本身的成功和失败回调返回。', [
       method('system-network-info', 'getType / subscribe / unsubscribe', 'getType 的 success 和 subscribe 的 callback 都返回含 type 的对象。用完监听后调用 unsubscribe()。', "if (script.canUse('@system.network.getType')) {\n  system.network.getType({\n    success: data => console.log(data.type),\n    fail: (data, code) => console.error('读取失败', code)\n  })\n}")
     ]),
     document('system-transfer-api', '下载和上传文件', '下载任务与上传进度', 'system.download 下载时先取得 token，再等待完成后的文件地址；system.upload 创建上传任务，可取消或监听进度。示例地址需要换成自己的服务器。', [
       method('system-download', 'download.start / download.wait', '下载文件并读取保存位置。', "system.download.start({\n  url: 'https://example.com/file',\n  success: task => system.download.wait({\n    token: task.token,\n    success: data => console.log(data.uri)\n  })\n})"),
       method('system-upload', 'upload.file', '上传本地文件并取得上传任务。', "const task = system.upload.file({\n  url: 'https://example.com/upload',\n  filePath: 'internal://files/note.txt',\n  name: 'file'\n})")
     ]),
-    document('system-companion-api', '与配套应用通信', '使用 system.companion 查询连接', '设备支持配套端连接时，可读取连接状态并发送约定的数据。JSLab 正在使用同一个连接处理同步，请不要直接覆盖接收回调。', [
+    document('system-companion-api', '与配套应用通信', '使用 system.companion 查询连接', '设备支持配套端连接时，可读取连接状态并发送约定的数据。连接的接收回调由 JSLab 用于同步，覆盖它会替换现有的消息处理函数。', [
       method('system-companion-instance', 'instance()', '取得配套端连接对象。', 'const connection = system.companion.instance()'),
       method('system-companion-operations', 'getReadyState / diagnosis / send', '检查连接、诊断问题或发送数据。', "const connection = system.companion.instance()\nconnection.send({ data: { type: 'hello' } })")
     ])
@@ -169,11 +169,11 @@ const SYSTEM_API = [
     ])
   ]),
   directory('system-utilities', '事件与编码', '公共事件、摘要和 Base64', [
-    document('system-events-api', '公共事件', '订阅、发送与取消事件', 'system.events 对应小米公共事件接口。事件可能来自其他应用，不是脚本之间私有的消息通道。', [
-      method('system-events', 'subscribe / unsubscribe', '订阅时保存返回的数字 ID；失败时可能返回 undefined。取消时传入 { id }，不要用真假判断遗漏 ID 为 0 的情况。', "const id = system.events.subscribe({\n  eventName: 'usual.event.BATTERY_CHANGED',\n  callback: event => console.log(event.params)\n})\nif (id !== undefined) system.events.unsubscribe({ id })", '调用前检查 @system.event.subscribe 是否受支持。示例只演示订阅与取消，应把取消操作放在实际结束位置。'),
-      method('system-events-publish', 'publish', '自定义事件通过 eventName 命名，数据放在 options.params 中。不要使用 usual.event 等系统保留名称。')
+    document('system-events-api', '公共事件', '订阅、发送与取消事件', 'system.events 用于应用之间的公共事件通信，接收时通过发送者包名和数据结构识别消息。', [
+      method('system-events', 'subscribe / unsubscribe', '订阅时保存返回的数字 ID，使用 id !== undefined 判断是否成功；0 也可作为有效 ID。取消时传入 { id }。', "const id = system.events.subscribe({\n  eventName: 'usual.event.BATTERY_CHANGED',\n  callback: event => console.log(event.params)\n})\nif (id !== undefined) system.events.unsubscribe({ id })", '调用前检查 @system.event.subscribe 是否受支持。实际使用时，把取消操作放在结束监听的位置。'),
+      method('system-events-publish', 'publish', '自定义事件通过 eventName 命名，数据放在 options.params 中。名称使用自己的前缀；usual.event 等前缀由系统保留。')
     ]),
-    document('system-crypto-api', '摘要与编码', '使用 system.crypto 处理内容', '可计算摘要、加解密或进行 Base64 编码。先检查设备支持；Base64 不是加密，涉及密钥时不要直接把密钥写进公开脚本。', [
+    document('system-crypto-api', '摘要与编码', '使用 system.crypto 处理内容', 'system.crypto 提供摘要、加解密和 Base64 编码方法。调用前使用 script.canUse 查询设备支持。', [
       method('system-crypto-hash', 'hashDigest', '计算数据摘要。', "const digest = system.crypto.hashDigest({\n  data: 'hello', algo: 'SHA256'\n})"),
       method('system-crypto-codec', 'btoa / atob', '进行 Base64 编码或解码。', "const encoded = system.crypto.btoa('hello')\nconsole.log(system.crypto.atob(encoded))")
     ])
@@ -197,7 +197,7 @@ const COMPANION_GUIDE = document('guide-sync', '使用手机与配套端同步',
 const AI_GUIDE = document('guide-ai', '使用 AI 编写和改写', '描述需求、生成、检查和保存', '先配对设备，在网页端激活 AI，并确认 JSLab 额度充足。然后打开一个脚本，在编辑器右上角菜单选择 AI 生成。', [
   method('ai-mode', '选择生成方式', '新建方式根据需求生成代码；改写方式还会使用当前编辑器内容。生成结果会放入当前编辑器，建议先保存或另存为需要保留的原代码。'),
   method('ai-prompt', '写清楚需求', '说明用途、按钮怎样操作、是否联网、是否保存记录。例如：做一个离线计数器，有加一和清零按钮，关闭后保留计数。'),
-  method('ai-review', '检查并保存结果', '生成后先阅读、运行并查看日志，确认符合预期再保存。AI 生成不会替你完成设备上的效果验证；费用从 JSLab 额度扣除。')
+  method('ai-review', '检查并保存结果', '生成后阅读代码，在设备上运行并查看日志，确认符合预期再保存。生成费用从 JSLab 额度扣除。')
 ]);
 
 const MARKET_GUIDE = document('guide-market', '浏览与发布市场作品', '下载、点赞、提交和更新', '市场浏览和下载无需配对或激活。点赞和发布需要设备配对，但不要求激活云空间。', [
@@ -210,7 +210,7 @@ const MARKET_GUIDE = document('guide-market', '浏览与发布市场作品', '�
 const EXPORT_GUIDE = document('guide-rpk', '把脚本做成独立应用', '在网页云空间导出安装包', '独立应用可以直接从设备的应用列表启动，不需要先打开 JSLab。打包操作在网页云空间完成。', [
   method('rpk-prepare', '先保存到云空间', '将要打包的脚本上传到云空间，并确认云端代码是需要的版本。'),
   method('rpk-export', '在网页填写应用信息', '点击文件旁的“打包为 RPK”，选择目标设备，填写名称和版本等信息，再打包并下载安装包。此功能需要激活云空间并有足够额度。'),
-  method('rpk-data', '保留签名和数据备份', '下载并妥善保存生成的签名，以便以后更新同一应用。独立应用使用自己的存储，不会自动带走 JSLab 中已有的脚本数据。')
+  method('rpk-data', '保留签名和数据备份', '下载并妥善保存生成的签名，以便以后更新同一应用。独立应用使用自己的存储；迁移已有记录时，先导出数据，再由脚本导入。')
 ]);
 
 export const HELP_ROOT = [

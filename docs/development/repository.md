@@ -33,4 +33,4 @@ Android 的截图测试 reference 是可重复验证需要的基准，应保留�
 
 根目录执行 `node scripts/check-repository.cjs`，检查文档链接、目录约束和提交边界。持续集成执行这些检查以及既有 JavaScript / Rust 测试；Android 与表盘仍按各自文档验证，CI 不连接设备、不发布软件。
 
-`./scripts/clean-local-artifacts.ps1` 默认只预览可重新生成的缓存，`-Apply` 才执行。脚本验证路径在工作区内、已被 Git 忽略且没有跟踪文件或目录链接；保留签名、本地工具和发布归档。清理不是修复构建失败的默认步骤。
+`./scripts/clean-local-artifacts.ps1` 默认预览可重新生成的缓存，传入 `-Apply` 执行清理。脚本检查工作区路径和 Git 忽略规则，跳过跟踪文件与目录链接，保留签名、本地工具和发布归档。

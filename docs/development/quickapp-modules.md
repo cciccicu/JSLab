@@ -1,6 +1,6 @@
 # 工具模块边界
 
-`src/utils` 存放可复用的应用代码，按职责分组，而不是按文件类型分组。
+`src/utils` 按职责组织可复用的应用代码。
 
 - `core/`：路由、配置、对话框、时间、反馈和 Vela 兼容层等基础设施；
 - `bridge/`：Android / AstroBox 共用的原生互联协议、脚本 RPC 和跨领域消息交付；
@@ -29,15 +29,15 @@
 | `bridge/scriptStorageTransfer.js` | 脚本数据与配置的快照读取、分块写入和冲突检查；通过可选能力扩展 v2 协议 |
 | `files/jsManager.js` | 本地脚本 CRUD、编辑锁和变更订阅；由 app.ux 持有唯一实例，新文件名限制与历史文件读写规则集中在此处 |
 | `files/scriptData.js` | 每个脚本的数据与配置持久化，以及脚本改名、删除时的命名空间迁移和清理；由 app.ux 持有缓存，保留原有文件 URI 与格式 |
-| `files/fileMetadata.js` | 文件大小/时间展示与排序；不负责编码或传输 |
-| `files/textEncoding.js` | UTF-8 字节长度、字符边界分块和严格 Base64 解码；不负责磁盘或消息协议 |
+| `files/fileMetadata.js` | 文件大小、时间展示与排序 |
+| `files/textEncoding.js` | UTF-8 字节长度、字符边界分块和严格 Base64 解码 |
 | `files/transferIntegrity.js` | Adler-32 增量与 UTF-8 校验；直接扫描字符串，避免生成完整编码副本 |
 | `editor/fontProfile.js` | 字体资料默认值、归一化、校验及当前资料读取；编辑器不引用字体包安装流程 |
 | `editor/fontManager.js` | 待安装字体包的续传、完整性与 Helper 安装交付；保留已有磁盘协议 |
 | `editor/highlightPalette.js` | 配色定义和预设选择；设置页不引用词法扫描器 |
 | `editor/javascriptLexer.js` | 单行词法扫描及跨行注释、字符串、正则上下文；不承担完整语法解析 |
 | `editor/javascriptHighlighter.js` | 配色、行级高亮缓存、变化传播和最小字段提交；保留全量着色入口与片段预算 |
-| `editor/codeEditor.js` | 字体度量和显示宽度计算；不负责文件、原生输入或页面状态 |
+| `editor/codeEditor.js` | 字体度量和显示宽度计算 |
 | `editor/codeDocument.js` | 行文本、宽度计数、最长行及光标增量维护；不依赖原生 API 或响应式数据 |
 | `editor/editorPreferences.js` | 字号及高亮阈值的默认值与归一化 |
 | `core/configManager.js` | JSON 配置加载、快照和持久化；由 app.ux 持有唯一缓存，只缓存写入成功的数据 |
@@ -62,7 +62,7 @@
 换行时调整行数组，最长行缩短时只比较行宽数字，并复用同一行连续编辑时的其他行最大宽度。
 字体或整份源码变化时重新建档，切换会话和销毁页面时释放缓存。高亮沿跨行词法状态传播，
 状态一致后停止；普通行内输入通常只重算当前行。纯文本显示仍由原生 text 组件处理完整源码，
-因此增量计算的复杂度不代表整次输入或设备绘制耗时。
+整次输入的耗时还包括字符串处理、页面数据提交和设备绘制。
 
 Vela 各页面单独打包，公共模块的局部变量不会因为文件路径相同而跨页面共享。
 对话框的应用级请求只能由 app.ux 的实例交付；页内 WeakMap 缓冲和时钟句柄仍属于本页。
@@ -76,4 +76,4 @@ Interconnect、脚本文件锁与变更订阅、脚本数据、配置缓存和�
 桥接调试日志由源码 `TRACE_BRIDGE` 控制，发布默认关闭，错误日志保留。
 
 `editorPreferences.js` 只维护仍在使用的字号与高亮设置。
-`scheduleNextTick` 优先调用原生 `$nextTick`，缺失时仅排到下一轮事件循环，不保证屏幕绘制完成。
+`scheduleNextTick` 优先调用原生 `$nextTick`，缺失时在下一轮事件循环执行回调。屏幕绘制由原生组件调度。

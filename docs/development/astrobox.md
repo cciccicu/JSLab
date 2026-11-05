@@ -24,8 +24,8 @@ cargo test --locked
 
 数据编辑使用固定读取快照和保存前冲突检查。草稿绑定原设备；断线与设备切换不能把修改写到其他设备。字体入口当前未开放，握手不要求字体能力。
 
-协议细节见[脚本数据扩展](../protocols/script-storage.md)和[云代理](../protocols/cloud-proxy.md)。修改 Host API 时同时核对依赖的 WIT、manifest 权限与 API Level，不把 WIT 版本等同于宿主能力等级。
+协议细节见[脚本数据扩展](../protocols/script-storage.md)和[云代理](../protocols/cloud-proxy.md)。修改 Host API 时分别核对依赖的 WIT 版本、manifest 权限与宿主 API Level。
 
 ## 分发
 
-源码仓库保存代码与锁文件，已发布二进制使用独立的分发仓库。后续操作见[官方源发布流程](astrobox-release.md)。本地构建不会自动同步或推送远端。
+源码仓库保存代码与锁文件，已发布二进制使用独立的分发仓库。构建完成后，按[官方源发布流程](astrobox-release.md)上传产物并更新源索引。

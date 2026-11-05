@@ -50,7 +50,9 @@ const count = ui.signal(0);
 ui.render(() => [
   ui.heading('计数器'),
   ui.text('当前次数：' + count.get()),
-  ui.button('加一', () => count.update(value => value + 1)),
+  ui.button('加一', () => {
+    count.update(value => value + 1);
+  }),
   ui.button('清零', () => count.set(0))
 ]);
 ```
@@ -61,7 +63,7 @@ ui.render(() => [
 
 JSLab 在 Vela 的 JavaScript 引擎之上实现脚本环境、编辑器和应用导出流程。三个核心部分分别处理执行与交互、设备端编辑，以及应用分发：
 
-| 核心部分 | 实现方式 |
+| 模块 | 实现方式 |
 | --- | --- |
 | **脚本运行器与 UI** | 为每次运行建立会话、注入脚本接口，将 UI 描述编译为原生组件布局，通过状态更新、测量缓存和差异提交减少重复工作。 |
 | **设备端编辑器** | 维护文字与行位置模型，按修改范围重新进行词法分析，沿跨行状态传播高亮结果，并尽量复用原有显示对象。 |
@@ -85,7 +87,7 @@ npm run check:devices
 npm run build:bandpro
 ```
 
-安装包输出到 `vela-quickapp/release-archive/`。REDMI Watch 5 调试构建使用 `npm run build:watch5`；正式版、社区版与签名配置见[设备构建说明](docs/development/device-layouts.md)。构建过程不安装应用到设备。
+安装包输出到 `vela-quickapp/release-archive/`。REDMI Watch 5 调试构建使用 `npm run build:watch5`；正式版、社区版与签名配置见[设备构建说明](docs/development/device-layouts.md)。
 
 ### 仓库结构
 

@@ -23,6 +23,6 @@ python -m pip install -r requirements.txt
 
 ## 设备调试
 
-`scripts/pushlua.ps1` 可部署工程，`-Hot` 可启用 `reloader.lua` 热重载。这些入口会使用 ADB，只有明确安排设备调试时才运行。普通 `.face` 不依赖开发热重载器。
+`scripts/pushlua.ps1` 通过 ADB 部署工程，`-Hot` 启用 `reloader.lua` 热重载，适合开发调试。正式分发使用编译生成的 `.face`。
 
 `build/`、`dist/`、`bin/`、资源输出与 Python 缓存不提交。第三方工具和来源见[许可说明](../../THIRD_PARTY_NOTICES.md)。

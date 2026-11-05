@@ -16,7 +16,7 @@ JavaScript 工具和主机测试使用 Node.js 24。`package-lock.json` 固定 A
 | `npm run lint` | 检查应用源码规范 |
 | `npm test` | 运行当前主机回归测试 |
 
-分设备构建将安装包保存在 `release-archive/`，同名旧产物先备份。传统的 `build`、`release` 仍处理默认布局，其中 AIoT release 会清空 `dist/`；需要的旧包应放在该目录之外。以上构建入口不连接设备，`start` 和 `watch` 则会涉及模拟器，不属于普通验证流程。
+分设备构建将安装包保存在 `release-archive/`，同名旧产物先备份。传统的 `build`、`release` 处理默认布局，其中 AIoT release 会清空 `dist/`；需要保留的旧包放在该目录之外。模拟器调试使用 `start` 或 `watch`。
 
 社区版在临时源码中设置构建标记，保留包名 `icu.ccicc.jslab`，允许用户选择服务器；完整源码不会被改写。签名文件位于本地 `sign/`，不纳入 Git。Android 互联需要两端包名和签名一致。
 
@@ -30,7 +30,7 @@ JavaScript 工具和主机测试使用 Node.js 24。`package-lock.json` 固定 A
 
 Vela `.ux` 使用原生组件与其 CSS 子集。普通页面只有一个模板根节点，文字放入 `text` / `span`，列表采用稳定的 `tid`。样式沿用项目的 `@import` 方式；不要把浏览器 DOM、HTML 或 CSS Grid 引入设备页面。
 
-Pro 和 RW 共用模板、事件与业务逻辑，差异集中在尺寸参数和静态样式。布局维护、键盘与圆角检查见[设备布局说明](device-layouts.md)。页面资源、定时器和订阅按生命周期释放；隐藏与销毁不是同一件事。
+Pro 和 RW 共用模板、事件与业务逻辑，差异集中在尺寸参数和静态样式。布局维护、键盘与圆角检查见[设备布局说明](device-layouts.md)。隐藏页面时保留恢复所需状态，销毁页面时释放资源、定时器和订阅。
 
 ## 运行契约与兼容性
 
@@ -42,4 +42,4 @@ Pro 和 RW 共用模板、事件与业务逻辑，差异集中在尺寸参数和
 
 按改动选择现有测试入口：`test:core`、`test:files`、`test:editor`、`test:cloud`、`test:runtime`。涉及设备样式时检查两个构建目标；涉及共享运行器时检查模板同步。测试使用的历史兼容夹具保留在 `tests/fixtures/`，它们是有效的回归依据。
 
-人工交互脚本集中在 [examples/diagnostics](../../examples/diagnostics/unified-runner-check.js)。主机测试和静态检查不等于真机验证，连接、安装和 ADB 操作需要单独安排。
+人工交互脚本集中在 [examples/diagnostics](../../examples/diagnostics/unified-runner-check.js)，安装到目标设备后检查视图切换、重载与对话框操作。

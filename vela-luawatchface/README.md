@@ -19,4 +19,4 @@ python -m pip install -r requirements.txt
 - [架构与职责边界](../docs/development/architecture.md)
 - [第三方工具说明](../THIRD_PARTY_NOTICES.md)
 
-`scripts/pushlua.ps1` 提供可选的 ADB 部署和热重载，只有明确需要设备操作时才运行。
+设备调试使用 `scripts/pushlua.ps1` 进行 ADB 部署和热重载。

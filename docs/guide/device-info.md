@@ -30,7 +30,7 @@ if (script.canUse('@system.device.getInfo')) {
 | `screenWidth`、`screenHeight` | 屏幕宽度和高度 |
 | `screenShape`、`deviceType` | 屏幕形状和设备类型 |
 
-要给 JSLab 的界面组件计算宽度，优先使用 `ui.getWidth()`。屏幕宽度没有扣除内容安全边距，也不等于嵌套布局的宽度。详见 [制作交互界面](ui-api.md)。
+为界面组件计算宽度时，使用已扣除屏幕安全边距的 `ui.getWidth()`；嵌套布局还要扣除父容器的内边距和间距。详见 [制作交互界面](ui-api.md)。
 
 ## 查看存储空间
 
@@ -46,7 +46,7 @@ if (script.canUse('@system.device.getAvailableStorage')) {
 }
 ```
 
-`getTotalStorage()` 返回的字段是 `totalStorage`，`getAvailableStorage()` 返回的是 `availableStorage`，单位都是字节。它们不是单个脚本的配额，也不保证一次可以分配同样大小的内存。
+`getTotalStorage()` 返回 `totalStorage`，`getAvailableStorage()` 返回 `availableStorage`，分别表示设备的总存储空间和可用存储空间，单位为字节。
 
 ## 设备标识与语言
 

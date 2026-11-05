@@ -1,8 +1,8 @@
 # 摘要、编码与公共事件
 
-> 最低支持版本：JSLab 2.0.0。本页的摘要、Base64、密码算法与公共事件接口均适用；仍需通过能力查询确认设备固件支持。
+> 最低支持版本：JSLab 2.0.0。使用 `script.canUse()` 查询设备对摘要、Base64、密码算法和公共事件接口的支持。
 
-本页收录两个相对独立的能力：`system.crypto` 处理摘要和编码，`system.events` 订阅或发送公共事件。两者都需要设备支持，不是所有手环型号都提供。
+`system.crypto` 处理摘要和编码，`system.events` 订阅或发送公共事件。
 
 ## 计算内容摘要
 
@@ -15,7 +15,7 @@ if (script.canUse('@system.crypto.hashDigest')) {
 }
 ```
 
-输入可使用 `data`（字符串或 `Uint8Array`），或者用 `uri` 指向文件。`algo` 默认 `SHA256`，还支持 `MD5`、`SHA1`、`SHA512`。摘要不等于加密，也不能单凭一个普通摘要证明消息来自可信发送者。
+输入可使用 `data`（字符串或 `Uint8Array`），或者用 `uri` 指向文件。`algo` 默认 `SHA256`，还支持 `MD5`、`SHA1`、`SHA512`。摘要用于计算内容指纹、比较内容是否相同；内容加密使用下文的加解密接口。
 
 ## Base64 编码与解码
 
@@ -27,7 +27,7 @@ if (script.canUse('@system.crypto.btoa') && script.canUse('@system.crypto.atob')
 }
 ```
 
-`btoa` 把二进制字符串编码为 Base64，`atob` 解码。它们同步返回字符串。不要把 Base64 当成加密；含中文的文本还需要明确的字符编码转换，不能把任意 Unicode 字符直接当成单字节数据。
+`btoa` 把二进制字符串编码为 Base64，`atob` 解码，两者同步返回字符串。Base64 可直接解码恢复原文，适合传输二进制内容；需要保密时使用加密接口。处理中文等 Unicode 文本时，先按 UTF-8 等约定编码转换为字节，再进行 Base64 编码。
 
 ## 其他密码算法接口
 
@@ -38,7 +38,7 @@ if (script.canUse('@system.crypto.btoa') && script.canUse('@system.crypto.atob')
 | `verify` | `data` 或 `uri`、`publicKey`、`signature`、可选 `algo` | 回调直接收到布尔值 |
 | `encrypt`、`decrypt` | `data`、`key`、`algo`、可选 `options` | 回调中的 `data` 为处理结果 |
 
-这些方法与 `hashDigest` 不同，使用 `success`、`fail` 回调。加解密支持 RSA、AES，但参数、密钥编码、模式和初始向量必须与通信对端一致。需要实际接入时，按 [小米密码算法文档](https://iot.mi.com/vela/quickapp/zh/features/security/crypto.html) 核对完整参数，不要把示例密钥作为正式密钥使用。
+这些方法使用 `success`、`fail` 回调。加解密支持 RSA、AES，参数、密钥编码、模式和初始向量必须与通信对端一致。接入时使用自己的密钥，并按 [小米密码算法文档](https://iot.mi.com/vela/quickapp/zh/features/security/crypto.html) 核对完整参数。
 
 ## 订阅和取消公共事件
 
@@ -65,12 +65,12 @@ if (script.canUse('@system.event.subscribe') && script.canUse('@system.event.uns
 }
 ```
 
-数字 ID 为 0 时也可能有效，所以不要写 `if (subscriptionId)`。示例中应先点停止监听，再离开脚本。
+数字 ID 为 0 时也可能有效，使用 `subscriptionId !== undefined` 判断是否订阅成功。示例中先点停止监听，再离开脚本。
 
 ## 发送自定义事件
 
 `system.events.publish()` 接收 `eventName`，事件内容放入 `options.params`。系统的 `usual.event.*` 名称是保留事件，不用于自定义发布。
 
-接收回调可包含 `params` 和发送者 `package`。公共事件可能来自其他应用，并不是每个脚本私有的消息通道；需要区分来源时检查发送者和数据结构。
+接收回调可包含 `params` 和发送者 `package`。公共事件在应用之间传递，接收时通过发送者包名和数据结构识别消息。
 
 接口与支持明细：[密码算法](https://iot.mi.com/vela/quickapp/zh/features/security/crypto.html)、[公共事件](https://iot.mi.com/vela/quickapp/zh/features/system/event.html)。
