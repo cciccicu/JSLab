@@ -24,9 +24,9 @@ function resolveAiPromptVersion(jslabVersion) {
   return 1;
 }
 
-const iconSection = [
+const iconSection = (fontDescription) => [
   '内置字体与 Emoji 图标',
-  '新版内置字体使用 Ubuntu Mono 英文及半角符号、Sarasa Mono SC 中文、Noto Emoji 单色图标。支持输入法字库全部汉字；英文字母与半角符号占半格，中文标点和下列图标占一整格。图标随文字颜色显示，不是彩色 Emoji。',
+  fontDescription,
   '只允许从下面的清单复制单个 Emoji 作为图标。使用清单中的原始字符，不附加 U+FE0E / U+FE0F 变体选择符，不拼接肤色、旗帜、家庭或 ZWJ 组合；不要使用清单以外的 Emoji、私用区图标、Nerd Font 或字体图标库。清单没有合适的图标时直接用中文或英文文字，不猜测设备能否显示。',
   ...Object.entries(emojiCatalog.groups).map(([name, icons]) => name + '：' + icons),
   '图标必须配合可读文字表达含义；不要依赖彩色圆点的颜色区分状态。此清单适用于脚本 UI 和日志，原生系统对话框的字体由固件决定，请用普通文字描述按钮和状态。'
@@ -44,8 +44,11 @@ const mediaSection = [
   '初始化异步提交使用 async function main(){...await canvas.submit();ui.refresh();} 并 return main()；事件回调返回 Promise，让运行器显示错误。没有 createCanvas/getContext/flush/Canvas.refresh API，也没有浏览器 DOM、字体绘制、变换或 drawImage API。图片与画布的临时资源由 JSLab 自动管理，脚本无需创建或清理缓存文件。',
   '未知组件或缺少 ui 方法时优先提示 JSLab 客户端可能过老，建议升级或重新导出独立应用；最新版本再检查名称。不要为兼容旧端改写已有组件行为。'
 ].join('\n');
-const version2Sections = [...legacySections.slice(0, -1), iconSection, legacySections[legacySections.length - 1]];
-const sectionsByVersion = { 1: legacySections, 2: version2Sections, 3: [...version2Sections.slice(0, -1), mediaSection, version2Sections[version2Sections.length - 1]] };
+// Keep the 2.0.6 snapshot unchanged. The 2.0.7 description focuses on glyph
+// capabilities shared by both its original font and the OFL-only rebuild.
+const version2Sections = [...legacySections.slice(0, -1), iconSection('新版内置字体使用 Ubuntu Mono 英文及半角符号、Sarasa Mono SC 中文、Noto Emoji 单色图标。支持输入法字库全部汉字；英文字母与半角符号占半格，中文标点和下列图标占一整格。图标随文字颜色显示，不是彩色 Emoji。'), legacySections[legacySections.length - 1]];
+const version3Sections = [...legacySections.slice(0, -1), iconSection('内置字体是适配小屏幕的等宽子集字体，包含英文、中文、标点与单色 Emoji 图标。支持输入法字库全部汉字；英文字母与半角符号占半格，中文标点和下列图标占一整格。图标随文字颜色显示，不是彩色 Emoji。'), mediaSection, legacySections[legacySections.length - 1]];
+const sectionsByVersion = { 1: legacySections, 2: version2Sections, 3: version3Sections };
 const promptsByVersion = Object.fromEntries(Object.entries(sectionsByVersion).map(([version, sections]) => [version, sections.join('\n\n')]));
 function promptVersion(version) { return version === 1 || version === 2 ? version : LATEST_PROMPT_VERSION; }
 

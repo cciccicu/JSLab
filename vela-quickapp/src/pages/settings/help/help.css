@@ -1,3 +1,4 @@
+@font-face { font-family: 'JSLabActive'; src: url('/common/fonts/active.ttf'); font-weight: normal; font-style: normal; }
 .page { width: 336px; height: 480px; background-color: #000000; overflow: hidden; }
 .scroll { position: absolute; left: 0px; top: 0px; width: 336px; height: 480px; flex-direction: column; padding: 84px 6px 24px; }
 .directory-view, .article-view { width: 324px; flex-direction: column; flex-shrink: 0; }
@@ -20,10 +21,10 @@
 .article-summary { width: 296px; margin-top: 5px; font-size: 20px; line-height: 28px; color: #8cbcff; lines: -1; }
 .article-intro { width: 296px; margin-top: 12px; font-size: 21px; line-height: 31px; color: #edf2f8; lines: -1; }
 .method-card { width: 324px; flex-direction: column; flex-shrink: 0; padding: 18px 16px; margin-bottom: 8px; background-color: #262626; border-radius: 24px; }
-.method-name { width: 292px; font-family: UbuntuMono; font-size: 21px; line-height: 30px; font-weight: bold; color: #79b6ff; lines: -1; }
+.method-name { width: 292px; font-family: JSLabActive; font-size: 21px; line-height: 30px; font-weight: bold; color: #79b6ff; lines: -1; }
 .method-description { width: 292px; margin-top: 7px; font-size: 20px; line-height: 29px; color: #ffffff; lines: -1; }
 .code-label { margin-top: 12px; }
-.code-block { width: 292px; padding: 10px; margin-top: 5px; background-color: #101215; border-radius: 6px; font-family: UbuntuMono; font-size: 17px; line-height: 24px; color: #c7e0ff; lines: -1; }
+.code-block { width: 292px; padding: 10px; margin-top: 5px; background-color: #101215; border-radius: 6px; font-family: JSLabActive; font-size: 17px; line-height: 24px; color: #c7e0ff; lines: -1; }
 .method-note { width: 292px; margin-top: 10px; font-size: 18px; line-height: 26px; color: #ffc56e; lines: -1; }
 .article-note-card { width: 324px; flex-direction: column; flex-shrink: 0; padding: 16px; margin-bottom: 8px; background-color: #30281d; border-radius: 24px; }
 .article-note { width: 292px; font-size: 18px; line-height: 27px; color: #ffd99b; lines: -1; }
