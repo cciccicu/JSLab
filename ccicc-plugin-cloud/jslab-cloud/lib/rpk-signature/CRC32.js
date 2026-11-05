@@ -1,4 +1,4 @@
-// Adapted from @aiot-toolkit/aiotpack 2.0.5 (ISC). See NOTICE.md.
+// Adapted from @aiot-toolkit/aiotpack 2.0.5 (ISC). See LICENSE.
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {

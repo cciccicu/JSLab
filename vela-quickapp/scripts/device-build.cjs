@@ -83,7 +83,7 @@ function buildApp({target = 'bandpro', community = false, mode = 'release', jsc 
     fs.mkdirSync(archive, {recursive:true});
     const packages = fs.readdirSync(path.join(context.stage, 'dist')).filter(name => name.endsWith('.rpk'));
     if (packages.length !== 1) throw new Error('Expected one device RPK');
-    const device = target === 'bandpro' ? '' : '-REDMI-Watch-5';
+    const device = target === 'bandpro' ? '' : '-RW';
     const name = 'JSLab-' + (community ? 'Community' : 'Full') + device + '-' + context.manifest.versionName + (mode === 'build' ? '-debug' : '') + '.rpk';
     const output = path.join(archive, name);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');

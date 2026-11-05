@@ -13,6 +13,7 @@
         <text class="item-name {{busy ? 'disabled-text' : ''}}">{{script.name}}</text>
         <text class="item-meta {{busy ? 'disabled-text' : ''}}">更新时间：{{script.updatedText}}</text>
       </list-item>
+      <list-item type="footer-spacer" class="footer-spacer"></list-item>
     </list>
 
     <img static src="/common/images/hd.png" class="header" />

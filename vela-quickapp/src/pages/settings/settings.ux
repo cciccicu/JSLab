@@ -10,10 +10,17 @@
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
 
+		<div class="item" @click="selectTransport">
+		  <div class="item-content">
+			<text class="itemtext">传输方式</text>
+			<text class="itemtext2">{{transportLabel}}</text>
+		  </div>
+		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
+		</div>
 		<div class="item" @click="routerTo('settingsCloud')">
 		  <div class="item-content">
 			<text class="itemtext">云账户</text>
-			<text class="itemtext2">设备配对与传输方式</text>
+			<text class="itemtext2">设备配对与账户状态</text>
 		  </div>
 		  <img src="/common/images/enter.png" style="width:40px;height: 40px;" />
 		</div>
@@ -49,12 +56,19 @@
 
   <script>
   import { back, push } from '../../utils/core/routeManager.js';
-  import { vibrate } from '../../utils/core/uiFeedback.js';
+  import { showToast, vibrate } from '../../utils/core/uiFeedback.js';
   import { getCurrentClock, startPageClock, stopPageClock } from '../../utils/core/time.js';
+  import { formatError } from '../../utils/core/userError.js';
 
   export default {
 	private: {
-	  nowTime: '00:00'
+	  nowTime: '00:00',
+    transport: 'fetch',
+    transportLabel: '正在读取...',
+    transportLoading: false,
+    transportLoaded: false,
+    transportBusy: false,
+    pageActive: true
 	},
 
 	updateTime() {
@@ -66,11 +80,66 @@
 
 	},
 
-	onShow() { startPageClock(this); },
+	onShow() {
+    startPageClock(this);
+    if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
+    this.loadTransport();
+  },
   onHide() { stopPageClock(this); },
   onDestroy() {
     stopPageClock(this);
+    this.$app.$def.cancelOwnedDialog(this);
+    this.pageActive = false;
 	},
+
+  getTransportLabel(transport) {
+    return transport === 'interconnect' ? 'AstroBox 网络桥接' : 'fetch 直连';
+  },
+  loadTransport() {
+    if (this.transportLoading || this.transportBusy) return;
+    this.transportLoading = true;
+    return this.$app.$def.getCloudClients().deviceAccount.getState().then(state => {
+      if (!this.pageActive) return;
+      this.transport = state.transport;
+      this.transportLabel = this.getTransportLabel(state.transport);
+      this.transportLoaded = true;
+    }).catch(error => {
+      if (!this.pageActive) return;
+      if (!this.transportLoaded) this.transportLabel = '读取失败，点击重试';
+      showToast(formatError(error, '读取云服务传输方式'));
+    }).then(() => {
+      if (this.pageActive) this.transportLoading = false;
+    });
+  },
+  selectTransport() {
+    if (this.transportLoading || this.transportBusy) return;
+    if (!this.transportLoaded) return this.loadTransport();
+    vibrate('short');
+    return this.$app.$def.openDialog('select', {
+      title: '传输方式',
+      message: '选择云 API 的请求方式',
+      items: [{label:'fetch 直连',value:'fetch'},{label:'JSLabSync网络桥接',value:'interconnect'}],
+      value: this.transport
+    }, this).then(result => {
+      if (this.pageActive && result.action === 'confirm') return this.saveTransport(result.value);
+    }).catch(error => {
+      if (this.pageActive) showToast(error.message || '无法打开对话框');
+    });
+  },
+  saveTransport(transport) {
+    if (this.transportBusy || (transport !== 'fetch' && transport !== 'interconnect')) return;
+    this.transportBusy = true;
+    return this.$app.$def.getConfigManager().set('cloud.transport', transport).then(() => {
+      if (!this.pageActive) return;
+      this.transport = transport;
+      this.transportLabel = this.getTransportLabel(transport);
+      showToast('已切换为' + this.transportLabel);
+    }).catch(error => {
+      if (this.pageActive) showToast(formatError(error, '保存云服务传输方式'));
+    }).then(() => {
+      if (this.pageActive) this.transportBusy = false;
+    });
+  },
 
 	routerTo(route) {
 	  vibrate('short');

@@ -1,7 +1,7 @@
 @import "../../../common/styles/network-loading.css";
 .page { width:432px; height:514px; background-color:#000000; overflow:hidden; }
 .scroll { position:absolute; left:0px; top:0px; width:432px; height:514px; padding:112px 18px 36px; flex-direction:column; }
-.item { width:396px; height:112px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; flex-shrink:0; justify-content:space-between; }
+.item { width:396px; height:124px; padding:14px 20px; margin-bottom:8px; background-color:#262626; border-radius:36px; flex-direction:column; flex-shrink:0; justify-content:space-between; }
 .status-item { background-color:#1f3045; }
 .prompt-item { height:136px; }
 .item-title { width:356px; font-size:28px; line-height:36px; font-weight:bold; color:#ffffff; text-overflow:ellipsis; lines:1; }

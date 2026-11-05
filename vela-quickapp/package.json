@@ -1,9 +1,9 @@
 {
   "name": "JSLab",
-  "version": "2.0.3",
+  "version": "2.0.7",
   "description": "",
   "engines": {
-    "node": ">=8.10"
+    "node": ">=22.13"
   },
   "scripts": {
     "start": "aiot server --watch --open-nuttx",

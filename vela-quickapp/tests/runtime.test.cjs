@@ -6,6 +6,30 @@ const path = require('node:path');
 describe("uiRuntime", () => {
   const { loadUi, host, root } = require('./helpers/loadUi.cjs');
 
+  test('long text, titles, grid cells, button rows and QR content retain their full values on render and refresh', async () => {
+    const { createUiSession } = await loadUi();
+    const { state, callbacks } = host(); const session = createUiSession(callbacks); const { ui } = session;
+    const long = '中文🙂'.repeat(1024);
+    let value = long;
+    ui.setTitle(long);
+    assert.equal(state.title, long);
+    assert.equal(ui.render(() => [
+      ui.text(value, { id: 'long-text' }),
+      ui.grid([{ text: value }]),
+      ui.buttonRow([{ text: value, id: 'long-button', onPress() {} }]),
+      ui.qrcode(value, { id: 'long-qr' })
+    ]), true);
+    assert.deepEqual(state.errors, []);
+    assert.deepEqual(state.nodes.slice(0, 3).map(node => node.text), [long, long, long]);
+    assert.equal(state.nodes[3].value, long);
+    value += '尾部'; ui.refresh(); await Promise.resolve();
+    assert.deepEqual(state.nodes.slice(0, 3).map(node => node.text), [value, value, value]);
+    assert.equal(state.nodes[3].value, value);
+    assert.equal(ui.render(ui.qrcode('')), false, 'empty QR content remains invalid');
+    assert.equal(state.nodes[3].value, value, 'invalid input preserves the last valid frame');
+    session.dispose();
+  });
+
   test('nested layouts flatten without native container nodes; widths, gaps and backgrounds remain bounded', async () => {
     const { createUiSession } = await loadUi();
     const { state, callbacks } = host(); const { ui } = createUiSession(callbacks);
@@ -100,7 +124,7 @@ describe("uiRuntime", () => {
     for (const view of [
       [ui.text('x', { id: 'same' }), ui.text('y', { id: 'same' })],
       ui.row([ui.text('x', { width: 300 }), ui.text('y', { width: 300 })]),
-      ui.qrcode(''), ui.qrcode('x'.repeat(257)),
+      ui.qrcode(''),
       ui.row([ui.slider('x', 1), ui.slider('y', 1)], { gap: 20 })
     ]) {
       const errors = state.errors.length; ui.render(view);
@@ -175,7 +199,7 @@ describe("uiRuntime", () => {
     const templates = new Function('ui2048Example', templatesSource + '\nreturn UI_TEMPLATES;')(game);
     for (const template of templates.filter(x => x.content && !x.label.includes('对话框') && !x.label.includes('切换'))) {
       const { state, callbacks } = host(); const session = createUiSession(callbacks);
-      new Function('ui', 'script', 'console', template.content)(session.ui, { exit() {}, toast() {} }, { log() {} });
+      await new Function('ui', 'script', 'console', template.content)(session.ui, { exit() {}, toast() {} }, { log() {} });
       await Promise.resolve();
       assert.deepEqual(state.errors, [], template.label);
       assert.ok(state.nodes.length > 0, template.label);
@@ -239,7 +263,7 @@ describe("uiOptimization", () => {
     for (let i = 0; i < 120; i++) {
       const count = i % 21;
       const items = Array.from({ length: count }, (_, j) => ({
-        id: 'ignored-' + j, text: (i + j) % 4 ? String(i * j) : '长文本abcdefghijk',
+        id: 'ignored-' + j, text: (i + j) % 4 ? String(i * j) : '长文本abcde',
         tone: tones[(i + j) % tones.length], background: colors[(i + j) % colors.length],
         color: colors[(i * 2 + j) % colors.length], size: [undefined, 8, 21, 29, 44][(i + j) % 5],
         lineHeight: [undefined, 8, 40, 80][(i + j) % 4],
@@ -265,7 +289,7 @@ describe("uiOptimization", () => {
   test('grid cache invalidates individual inputs and mutable coercible values; deleted cells do not remain cached', async () => {
     const { compileUi } = await loadUi(); const legacy = await v5Layout();
     const cell = { text: '2', size: 25, tone: 'primary' };
-    const view = { kind: 'grid', id: 'g', items: [cell, { text: 'unchanged' }] };
+    const view = { kind: 'grid', id: 'g', items: [cell, { text: 'stable' }] };
     let current = compileUi(view, 12); let previous = legacy.compileUi(view, 12);
     const actions = [
       () => { cell.text = '4'; }, () => { cell.tone = 'warning'; }, () => { cell.color = '#abc'; },
@@ -569,17 +593,33 @@ describe("uiStyleBindings", () => {
     const before = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/run-ui-style-strings.json'), 'utf8'));
     const pageSource = fs.readFileSync(path.join(root, 'src/pages/workspace/run/run.ux'), 'utf8');
     const after = [...pageSource.match(/<template>[\s\S]*?<\/template>/)[0].matchAll(/style="([^"]*)"/g)].map(match => match[1]);
-    assert.equal(before.length, 17); assert.equal(after.length, before.length);
-    for (let i = 0; i < before.length; i++) {
-      const oldBinding = await compileStyle(before[i]); const newBinding = await compileStyle(after[i]);
+    // Preserve historical style values while checking explicit inner dimensions
+    // and the single header now shared by slider/progress after wrapper removal.
+    const references = [
+      ...before.slice(0, 4),
+      'width: {{node.width > 16 ? node.width - 16 : 0}}px; ' + before[4],
+      before[5],
+      'width: {{node.copyWidth}}px; ' + before[6],
+      'width: {{node.copyWidth}}px; ' + before[7],
+      'width: {{node.width - 32}}px;',
+      before[9], before[10], before[15],
+      before[16].replace('width: 100%; height: 100%;', 'width: {{node.width}}px; height: {{node.height}}px;'),
+      before[8],
+      'width: {{node.width - 32}}px; height: {{node.height - 60}}px; ' + before[11],
+      'width: {{node.width - 32}}px; ' + before[14],
+      before[17]
+    ];
+    assert.equal(before.length, 18); assert.equal(after.length, references.length);
+    for (let i = 0; i < references.length; i++) {
+      const oldBinding = await compileStyle(references[i]); const newBinding = await compileStyle(after[i]);
       for (let frame = 0; frame < 24; frame++) {
         const page = { layoutHeight: 480 + frame * 50, contentTopPadding: frame % 2 ? 102 : 12,
           errorTop: 300, scrollTrackTop: 106, scrollTrackHeight: 360, scrollThumbTop: 112, scrollThumbHeight: 42 };
-        const node = { x: frame * 3, y: frame * 5, width: 201.5, height: 50, radius: frame % 3 ? 12 : 0,
+        const node = { x: frame * 3, y: frame * 5, width: 201.5, height: 80 + frame * 5, radius: frame % 3 ? 12 : 0,
           background: ['#abcdef', 'rgba(1, 2, 3, 0.5)', 'transparent'][frame % 3], color: '#ffffff', size: 18 + frame % 12,
           lineHeight: 32 + frame % 10, bold: frame % 2 ? 'bold' : 'normal', align: ['left', 'center', 'right'][frame % 3],
           lines: 1 + frame % 4, copyWidth: 109.5, detailColor: '#aaaaaa', accent: '#ff8800', trackColor: '#333333',
-          thumbColor: '#ffffff', qrSize: 144 };
+          thumbColor: '#ffffff', qrSize: 144, fit: ['contain', 'cover', 'none', 'scale-down'][frame % 4] };
         const reads = [];
         const track = (target, prefix) => new Proxy(target, { get(value, key) { reads.push(prefix + key); return value[key]; } });
         const vm = track(page, 'page.'); const observed = track(node, 'node.');

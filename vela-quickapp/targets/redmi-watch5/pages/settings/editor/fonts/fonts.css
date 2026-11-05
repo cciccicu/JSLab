@@ -15,6 +15,6 @@
 .install-status { width: 356px; margin: 8px 20px 0px; flex-shrink: 0; font-size: 19px; line-height: 28px; color: rgba(255,255,255,0.72); lines: -1; }
 .last-card { margin-bottom: 16px; }
 .topbar { position: absolute; left: 0px; top: 0px; width: 432px; height: 112px; }
-.btn { position: absolute; left: 18px; top: 30px; width: 72px; height: 72px; }
+.btn { position: absolute; left: 30px; top: 30px; width: 72px; height: 72px; }
 .time { position: absolute; left: 108px; top: 16px; width: 216px; line-height: 32px; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.6); text-align: center; }
 .title { position: absolute; left: 108px; top: 48px; width: 216px; line-height: 42px; font-size: 32px; font-weight: bold; color: #ffffff; text-align: center; }

@@ -1,13 +1,11 @@
 param(
   [string]$FaceName,
-  [string]$FaceId
+  [string]$FaceId,
+  [string]$CompilerPath
 )
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "internal\load_config.ps1")
-
-# 同步 watchface 配置
-& (Join-Path $PSScriptRoot "internal\sync_watchface_config.ps1")
 
 $projectName = [string]$config.projectName
 $watchfaceId = [string]$config.watchfaceId
@@ -18,12 +16,20 @@ if (-not $FaceId) { $FaceId = $watchfaceId }
 if (-not $FaceId) { throw "watchfaceId not found in watchface.config.json" }
 if (-not $projectName) { throw "projectName not found in watchface.config.json" }
 
-$compilerExe = Join-Path $root "watchface\tools\Compiler.exe"
+$compilerExe = if ($CompilerPath) { (Resolve-Path -LiteralPath $CompilerPath).Path } else { Join-Path $root '../.local-tools/watchface/Compiler.exe' }
 $fprj = Join-Path $root "watchface\fprj\$projectName.fprj"
 $fprjOutput = Join-Path $root "watchface\fprj\output"
 $outDir = Join-Path $root "bin"
 
 if (-not (Test-Path $compilerExe)) { throw "Compiler.exe not found: $compilerExe" }
+# This compiler automatically uploads when adb.exe is beside its executable.
+# A build must never connect to a device; deployment uses pushlua.ps1 separately.
+$compilerAdb = Join-Path (Split-Path -Parent $compilerExe) 'adb.exe'
+if (Test-Path -LiteralPath $compilerAdb -PathType Leaf) {
+  throw 'Use a compiler directory without adb.exe. Automatic device upload is not allowed during a build.'
+}
+
+& (Join-Path $PSScriptRoot "internal\sync_watchface_config.ps1")
 if (-not (Test-Path $fprj)) { throw "Project .fprj not found: $fprj" }
 
 if (-not (Test-Path $fprjOutput)) { New-Item -ItemType Directory -Path $fprjOutput | Out-Null }

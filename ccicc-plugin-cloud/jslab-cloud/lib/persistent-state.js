@@ -1,11 +1,16 @@
 'use strict';
 
+const { defaultDownloadsDirectory, DEFAULT_ASTROBOX_RESOURCE_URL } = require('./release-downloads');
+
 const DEFAULT_AI_MODEL = 'deepseek-ai/DeepSeek-V4-Flash';
 const DEFAULT_MARKET_MODERATION_PROMPT = '审核 JSLab 市场脚本是否包含恶意行为、凭据窃取、破坏性操作或与说明明显不符的行为。正常使用 JSLab API 的脚本应通过审核。';
 
 // Shared durable setup also runs when an update calls boot without install.
 // Register metadata/defaults without overwriting saved configuration values.
 function ensurePersistentState(ctx) {
+    ctx.config.register({ key: 'downloadsBannerEnabled', displayName: '下载横幅：显示开关', description: '在云空间首页显示 Android 同步器及 Pro / RW 完整版与社区版下载链接；独立下载页不受此开关影响。', valueType: 'boolean', defaultValue: true, hotReload: true });
+    ctx.config.register({ key: 'astroboxResourceUrl', displayName: '下载横幅：AstroBox 资源链接', description: '“从 AstroBox 获取”徽标的目标链接，可在安装包下载页面修改。留空恢复官方源 JSLab 社区版链接。', valueType: 'string', defaultValue: DEFAULT_ASTROBOX_RESOURCE_URL, hotReload: true });
+    ctx.config.register({ key: 'downloadsDirectory', displayName: '下载横幅：安装包目录', description: '独立保存正式安装包，可在 JSLab Cloud 管理的“安装包下载”中上传替换。插件更新不会覆盖此目录。', valueType: 'filepath', defaultValue: defaultDownloadsDirectory(ctx.rootDir), hotReload: true });
     ctx.config.register({ key: 'marketModerationMode', displayName: '市场审核方式', description: '人工审核由管理员决定；单 LLM 审核使用下方审核模型直接给出结论。保存后立即生效。', valueType: 'string', defaultValue: 'manual', enumOptions: ['manual', 'llm'], controlType: 'select', hotReload: true });
     ctx.config.register({ key: 'pairingPublicOrigin', displayName: '配对二维码：网页地址', description: '手机扫描二维码后打开的网页地址；生产环境留空时使用 https://ccicc.icu，本地开发时根据当前请求生成。保存后立即生效。', valueType: 'string', defaultValue: '', hotReload: true });
     ctx.config.register({ key: 'llmApiUrl', displayName: '市场审核 LLM：API 地址', description: '仅在审核方式为“单 LLM”时使用，不用于代码生成。', valueType: 'string', defaultValue: '', hotReload: true });
@@ -40,7 +45,17 @@ function ensurePersistentState(ctx) {
         source TEXT NOT NULL, hash TEXT NOT NULL, checksum TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
         pending_name TEXT, pending_description TEXT, pending_tags TEXT,
         pending_source TEXT, pending_hash TEXT, pending_checksum TEXT, pending_status TEXT,
+        supported_devices TEXT NOT NULL DEFAULT '["pro"]', pending_supported_devices TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS ${t('market_downloads')} (
+        script_id INTEGER PRIMARY KEY REFERENCES ${t('market_scripts')}(id) ON DELETE CASCADE,
+        download_count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS ${t('market_likes')} (
+        script_id INTEGER NOT NULL REFERENCES ${t('market_scripts')}(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY(script_id,user_id)
       );
       CREATE TABLE IF NOT EXISTS ${t('devices')} (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL,

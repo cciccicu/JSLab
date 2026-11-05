@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { normalizeSource } = require('./source-content.cjs');
 const root = path.resolve(__dirname,'..');
 const JSZip = require(require.resolve('jszip',{paths:[root,path.resolve(root,'../vela-quickapp'),path.resolve(root,'../ccicc-plugin-cloud/jslab-cloud')]}));
 const assetRoot = path.resolve(root,'../ccicc-plugin-cloud/jslab-cloud/rpk-template');
@@ -30,14 +31,14 @@ async function exportTemplate(project = root, device = 'bandpro') {
   }
   if (!zip.file('common/payload.json')) throw new Error('Missing static payload resource');
   const buffer=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
-  const hashes=Object.fromEntries(files(path.join(root,'src')).map(item=>[item.name,crypto.createHash('sha256').update(/\.(js|ux|css|json|md|txt)$/i.test(item.name) ? item.data.toString('utf8').replace(/\r\n/g,'\n') : item.data).digest('hex')]));
+  const hashes=Object.fromEntries(files(path.join(root,'src')).map(item=>[item.name,crypto.createHash('sha256').update(normalizeSource(item.name,item.data)).digest('hex')]));
   const targetSources = {};
   if (device !== 'bandpro') for (const owner of [path.resolve(root,'../vela-quickapp'),root]) {
     const overlay = path.join(owner,'targets',device);
     if (!fs.existsSync(overlay)) continue;
     for (const item of files(overlay)) if (fs.existsSync(path.join(project,'src',item.name))) {
       const name = path.relative(path.resolve(root,'..'),path.join(overlay,item.name)).replace(/\\/g,'/');
-      targetSources[name] = crypto.createHash('sha256').update(item.data.toString('utf8').replace(/\r\n/g,'\n')).digest('hex');
+      targetSources[name] = crypto.createHash('sha256').update(normalizeSource(item.name,item.data)).digest('hex');
     }
   }
   fs.mkdirSync(target,{recursive:true});

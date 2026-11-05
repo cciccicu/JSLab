@@ -1,0 +1,17 @@
+{
+  "validScriptNames": ["hello.js", "legacy..name.JS", "中文.ui.js", ".js", "a\u0085.js", "🌏.js"],
+  "invalidScriptNames": ["", "..", "folder/a.js", "a\\b.js", "x.txt", "bad\u0000.js"],
+  "acceptedHello": [
+    {"protocol": 2},
+    {"protocol": 2, "fontUploadResumeSupported": false, "fontChunkBytes": 0, "fontChecksumAlgorithm": "unsupported"}
+  ],
+  "rejectedHello": [{"protocol": 1}, {"protocol": 3}, {"protocol": "2"}, {}],
+  "storageCapabilities": [
+    {"hello": {"protocol": 2}, "supported": false},
+    {"hello": {"protocol": 2, "scriptStorageProtocol": 1}, "supported": true},
+    {"hello": {"protocol": 2, "scriptStorageProtocol": 2}, "supported": false},
+    {"hello": {"protocol": 2, "scriptStorageProtocol": "1"}, "supported": false},
+    {"hello": {"protocol": 2, "scriptStorageProtocol": null}, "supported": false}
+  ],
+  "fileList": {"files": [{"name": "legacy..name.JS", "size": "1024"}, {"name": "中文.ui.js", "size": 50700}]}
+}

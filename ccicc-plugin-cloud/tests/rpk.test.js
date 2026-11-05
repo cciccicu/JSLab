@@ -54,6 +54,17 @@ function verifySignature(buffer,certificate) {
   const expected=crypto.createHash('sha256').update(Buffer.concat([prefix,...hashes])).digest();
   assert.ok(expected.equals(signedData.subarray(16,48)));
 }
+test('large scripts are embedded completely in both device RPKs',async()=>{
+  const source="console.log('旧脚本');\n//"+'中文'.repeat(64*1024);
+  const builder=createRpkBuilder();
+  for(const target of ['bandpro','redmi-watch5']) {
+    const buffer=await builder({name:'large.js',source},validateOptions({...defaults,target}),keys);
+    verifySignature(buffer,keys.certificate);
+    const zip=await JSZip.loadAsync(buffer);
+    assert.equal(JSON.parse(await zip.file('common/payload.json').async('string')).code,source);
+  }
+});
+
 test('generated signing ZIP contains a reusable matching RSA key and certificate',async()=>{
   assert.ok(validateSigning(keys));
   const archive=await JSZip.loadAsync(keys.archiveBase64,{base64:true});

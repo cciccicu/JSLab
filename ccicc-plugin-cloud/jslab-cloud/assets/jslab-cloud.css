@@ -5,6 +5,151 @@
   overflow-wrap: anywhere;
 }
 
+.jslab-cloud-page .jslab-cloud-download-banner {
+  margin-bottom: var(--app-space-6);
+  padding: var(--app-space-4);
+  border: 1px solid var(--app-border);
+  border-radius: var(--ui-radius);
+  background: var(--app-bg-elevated);
+}
+
+.jslab-cloud-page .jslab-cloud-download-banner-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-4);
+  margin-bottom: var(--app-space-4);
+}
+
+.jslab-cloud-page .jslab-cloud-download-banner[hidden] {
+  display: none;
+}
+
+.jslab-cloud-page .jslab-cloud-download-banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-download-dismiss {
+  flex-shrink: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-download-title {
+  margin: 0 0 var(--app-space-1);
+  color: var(--app-text);
+  font-size: var(--app-font-size-base);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.jslab-cloud-page .jslab-cloud-download-description {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  line-height: 1.6;
+}
+
+.jslab-cloud-page .jslab-cloud-download-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-4);
+}
+
+.jslab-cloud-page .jslab-cloud-download-row + .jslab-cloud-download-row {
+  margin-top: var(--app-space-3);
+}
+
+.jslab-cloud-page .jslab-cloud-download-label {
+  flex: 0 0 4.5rem;
+  margin: 0;
+  padding-top: 12px;
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  line-height: 22px;
+}
+
+.jslab-cloud-page .jslab-cloud-download-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-3);
+  min-width: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-download-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-2);
+  min-height: 46px;
+  max-width: 100%;
+  padding: 8px 12px;
+  font-size: var(--app-font-size-sm);
+  line-height: 22px;
+}
+
+.jslab-cloud-page .jslab-cloud-download-link {
+  width: 234px;
+  justify-content: space-between;
+}
+
+.jslab-cloud-page .jslab-cloud-download-size {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-xs);
+  white-space: nowrap;
+}
+
+.jslab-cloud-page .jslab-cloud-channel-caption {
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-xs);
+  line-height: 18px;
+}
+
+.jslab-cloud-page .jslab-cloud-astrobox-badge,
+.jslab-cloud-page .jslab-cloud-channel-link {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--app-space-1);
+  flex-shrink: 0;
+  width: 234px;
+  max-width: 100%;
+  text-decoration: none;
+}
+
+.jslab-cloud-page .jslab-cloud-astrobox-badge img,
+.jslab-cloud-page .jslab-cloud-channel-link img {
+  display: block;
+  width: 234px;
+  height: 46px;
+  max-width: 100%;
+  border-radius: var(--ui-radius-sm);
+  object-fit: contain;
+}
+
+@media (max-width: 575.98px) {
+  .jslab-cloud-page .jslab-cloud-download-row {
+    flex-direction: column;
+    gap: var(--app-space-2);
+  }
+
+  .jslab-cloud-page .jslab-cloud-download-label {
+    flex-basis: auto;
+    padding-top: 0;
+  }
+
+  .jslab-cloud-page .jslab-cloud-download-links {
+    width: 100%;
+  }
+
+  .jslab-cloud-page .jslab-cloud-download-link {
+    min-width: 0;
+  }
+}
+
+.jslab-cloud-admin [data-jslab-download-upload] {
+  min-width: 13rem;
+}
+
 .jslab-cloud-modal,
 .jslab-cloud-admin {
   min-width: 0;
@@ -53,8 +198,276 @@
   letter-spacing: 0.08em;
 }
 
+.jslab-cloud-page.jslab-cloud-docs-page {
+  max-width: var(--app-wide-width);
+  margin-inline: auto;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--app-space-8);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-sidebar {
+  position: sticky;
+  top: calc(var(--ui-header-height) + var(--app-space-6));
+  min-width: 0;
+  max-height: calc(100dvh - var(--ui-header-height) - var(--app-space-8) * 2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-right: var(--app-space-5);
+  border-right: 1px solid var(--app-border);
+}
+
+/* The host styles content-flow details as cards; document navigation is a tree. */
+.jslab-cloud-page :is(.jslab-cloud-docs-navigation, .jslab-cloud-docs-nav-group) {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-mobile-toggle {
+  display: none;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-5);
+  padding-inline: var(--app-space-2);
+  color: var(--app-text);
+  font-size: var(--app-font-size-lg);
+  font-weight: 700;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-brand > i {
+  color: var(--app-accent-hover);
+  font-size: var(--app-font-size-2xl);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-brand span span {
+  display: block;
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  font-weight: 400;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-search {
+  display: flex;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-5);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-search .form-control {
+  min-width: 0;
+  padding-inline: var(--app-space-3);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-search .btn {
+  flex: 0 0 2.75rem;
+  padding-inline: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-tree {
+  font-size: var(--app-font-size-sm);
+  line-height: 1.6;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-tree ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-tree li {
+  min-width: 0;
+  margin: var(--app-space-1) 0;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-tree > ul {
+  margin-top: var(--app-space-3);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-nav-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-2);
+  min-height: 2.5rem;
+  padding: var(--app-space-2) var(--app-space-3);
+  border-radius: var(--ui-radius-sm);
+  color: var(--app-text);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.jslab-cloud-page :is(.jslab-cloud-docs-nav-group, .jslab-cloud-docs-navigation, .jslab-cloud-docs-outline) > summary::-webkit-details-marker {
+  display: none;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-nav-group > summary > i {
+  flex: 0 0 auto;
+  color: var(--app-text-soft);
+  font-size: var(--app-font-size-xs);
+  transition: transform var(--ui-transition);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-nav-group[open] > summary > i {
+  transform: rotate(90deg);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-nav-group > ul {
+  margin: var(--app-space-1) 0 var(--app-space-3) var(--app-space-3);
+  padding-left: var(--app-space-2);
+  border-left: 1px solid var(--app-border);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-nav-group .jslab-cloud-docs-nav-group > summary {
+  font-weight: 500;
+}
+
+.jslab-cloud-page :is(.jslab-cloud-docs-overview, .jslab-cloud-docs-nav-article > a) {
+  display: block;
+  padding: var(--app-space-2) var(--app-space-3);
+  border-left: 2px solid transparent;
+  border-radius: var(--ui-radius-sm);
+  color: var(--app-text-muted);
+  text-decoration: none;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-tree :is(a:hover, summary:hover) {
+  color: var(--app-accent-hover);
+  background: var(--app-accent-soft);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-tree [aria-current="page"] {
+  color: var(--app-accent-hover);
+  background: var(--app-accent-soft);
+  border-left-color: var(--app-accent);
+  font-weight: 600;
+}
+
+.jslab-cloud-page.jslab-cloud-docs-page :is(a, summary, button):focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-3) var(--app-space-4);
+  padding: var(--app-space-5) var(--app-space-3) var(--app-space-2);
+  margin-top: var(--app-space-5);
+  border-top: 1px solid var(--app-border);
+  font-size: var(--app-font-size-sm);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-resources a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  color: var(--app-text-muted);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-resources a:first-child {
+  flex-basis: 100%;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-resources a:hover {
+  color: var(--app-accent-hover);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-body {
+  min-width: 0;
+  max-width: var(--app-readable-width);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-body > .plugin-page-header {
+  padding-bottom: var(--app-space-5);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-body .plugin-page-description {
+  margin-top: var(--app-space-3);
+  line-height: 1.7;
+}
+
 .jslab-cloud-page .jslab-cloud-docs-list {
-  max-width: 760px;
+  padding: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-start {
+  padding: var(--ui-card-padding);
+  margin-bottom: var(--app-space-8);
+  border-left: 3px solid var(--app-accent);
+  background: var(--app-bg-subtle);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-start ul,
+.jslab-cloud-page .jslab-cloud-docs-categories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-content-gap);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-start ul,
+.jslab-cloud-page .jslab-cloud-docs-category ul {
+  padding: 0;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-start h2,
+.jslab-cloud-page .jslab-cloud-docs-category h2 {
+  margin-top: 0;
+  font-size: var(--app-font-size-xl);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-category h3 {
+  margin: 0 0 var(--app-space-1);
+  font-size: var(--app-font-size-base);
+  line-height: 1.6;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-start span {
+  display: block;
+  margin-top: var(--app-space-1);
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-category {
+  min-width: 0;
+  border-top: 1px solid var(--app-border);
+  padding-top: var(--app-space-5);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-category li {
+  margin-top: var(--app-space-5);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-4);
+  font-size: var(--app-font-size-sm);
+  color: var(--app-text-muted);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-breadcrumb a {
+  color: var(--app-text-muted);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-breadcrumb i {
+  font-size: var(--app-font-size-xs);
+  color: var(--app-text-soft);
 }
 
 .jslab-cloud-page .jslab-cloud-docs-item {
@@ -62,36 +475,62 @@
   border-bottom: 1px solid var(--app-border);
 }
 
-.jslab-cloud-page .jslab-cloud-docs-layout {
-  display: grid;
-  grid-template-columns: 14rem minmax(0, 1fr);
-  gap: var(--ui-content-gap);
+.jslab-cloud-page .jslab-cloud-docs-outline {
+  padding: 0;
+  margin: 0 0 var(--app-space-6);
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  border-radius: 0;
 }
 
-.jslab-cloud-page .jslab-cloud-docs-sidebar {
-  align-self: start;
+.jslab-cloud-page .jslab-cloud-docs-outline > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--app-space-4);
+  list-style: none;
+  color: var(--app-text-muted);
+  font-size: var(--app-font-size-sm);
+  font-weight: 500;
 }
 
-.jslab-cloud-page .jslab-cloud-docs-sidebar li {
-  margin-bottom: var(--app-space-2);
-  overflow-wrap: anywhere;
+.jslab-cloud-page .jslab-cloud-docs-outline[open] > summary > i {
+  transform: rotate(180deg);
 }
 
-.jslab-cloud-page .jslab-cloud-docs-sidebar [aria-current="page"] {
-  font-weight: 700;
+.jslab-cloud-page .jslab-cloud-docs-toc ul {
+  list-style: none;
+  margin: 0 0 var(--app-space-4);
+  padding-left: var(--app-space-3);
+  border-left: 1px solid var(--app-border);
+  font-size: var(--app-font-size-sm);
 }
 
-.jslab-cloud-page .jslab-cloud-docs-toc {
-  margin-top: var(--app-space-6);
+.jslab-cloud-page .jslab-cloud-docs-toc a {
+  display: block;
+  padding-block: var(--app-space-1);
+  color: var(--app-text-muted);
 }
 
-.jslab-cloud-page .jslab-cloud-docs-body {
-  min-width: 0;
-  max-width: 760px;
+.jslab-cloud-page .jslab-cloud-docs-toc a:hover {
+  color: var(--app-accent-hover);
 }
 
 .jslab-cloud-page .jslab-cloud-docs-content {
   overflow-wrap: anywhere;
+  font-size: var(--app-font-size-base);
+  line-height: 1.8;
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content :is(p, ul, ol) {
+  color: var(--app-text);
+}
+
+.jslab-cloud-page .jslab-cloud-docs-content img {
+  display: block;
+  max-width: min(100%, 336px);
+  height: auto;
+  margin-block: var(--app-space-4);
 }
 
 .jslab-cloud-page .jslab-cloud-docs-content > h1:first-child {
@@ -101,6 +540,7 @@
 .jslab-cloud-page .jslab-cloud-docs-content pre {
   max-width: 100%;
   overflow: auto;
+  line-height: 1.6;
 }
 
 .jslab-cloud-page .jslab-cloud-docs-content table {
@@ -111,7 +551,7 @@
 
 .jslab-cloud-page .jslab-cloud-docs-content h2,
 .jslab-cloud-page .jslab-cloud-docs-content h3 {
-  scroll-margin-top: var(--app-space-8);
+  scroll-margin-top: calc(var(--ui-header-height) + var(--app-space-6));
 }
 
 .jslab-cloud-page .jslab-cloud-docs-pagination {
@@ -121,8 +561,63 @@
 }
 
 @media (max-width: 900px) {
-  .jslab-cloud-page .jslab-cloud-docs-layout {
+  .jslab-cloud-page .jslab-cloud-docs-layout,
+  .jslab-cloud-page .jslab-cloud-docs-categories,
+  .jslab-cloud-page .jslab-cloud-docs-start ul {
     grid-template-columns: 1fr;
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-layout {
+    gap: var(--app-space-6);
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-space-3);
+    min-height: 44px;
+    padding: var(--app-space-2) var(--app-space-3);
+    color: var(--app-accent-hover);
+    border: 1px solid var(--app-border-strong);
+    border-radius: var(--ui-radius-sm);
+    list-style: none;
+    font-size: var(--app-font-size-sm);
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-mobile-toggle > span {
+    display: flex;
+    align-items: center;
+    gap: var(--app-space-2);
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-navigation[open] > summary > i {
+    transform: rotate(180deg);
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-sidebar-content {
+    max-height: calc(100dvh - var(--ui-header-height) - 8rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--app-space-5) var(--app-space-2);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-tree :is(summary, a) {
+    min-height: 44px;
+  }
+
+  .jslab-cloud-page .jslab-cloud-docs-tree a {
+    display: flex;
+    align-items: center;
   }
 }
 
@@ -707,4 +1202,205 @@
   .jslab-cloud-page .jslab-cloud-files-table .plugin-actions {
     justify-content: flex-start !important;
   }
+}
+
+/* Public product and download pages: all rules are scoped to these pages. */
+.jslab-cloud-page.jslab-public {
+  max-width: 1120px;
+  margin-inline: auto;
+  color: var(--app-text);
+}
+.jslab-cloud-page .jslab-public .jslab-public-kicker {
+  margin: 0 0 8px;
+  color: var(--app-accent-hover);
+  font-family: var(--app-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.4;
+}
+.jslab-cloud-page .jslab-public a { text-decoration: none; }
+.jslab-cloud-page .jslab-public-arrow { color: var(--app-accent-hover); font-size: 19px; line-height: 1; }
+
+.jslab-cloud-page .jslab-home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  align-items: center;
+  gap: 56px;
+  padding: 20px 0 56px;
+}
+.jslab-cloud-page .jslab-home-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 38px; }
+.jslab-cloud-page .jslab-home-brand img { display: block; flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; }
+.jslab-cloud-page .jslab-home-brand > span { color: var(--app-text); font-size: 22px; font-weight: 750; line-height: 1.05; }
+.jslab-cloud-page .jslab-home-brand small { display: block; margin-top: 5px; color: var(--app-text-muted); font-family: var(--app-mono); font-size: 9px; font-weight: 600; letter-spacing: .06em; }
+.jslab-cloud-page.jslab-home-page .jslab-home-intro h1 { margin: 0; color: var(--app-text); font-size: 44px; font-weight: 750; line-height: 1.17; }
+.jslab-cloud-page .jslab-home-intro h1 span { color: var(--app-accent-hover); }
+.jslab-cloud-page.jslab-home-page .jslab-home-lead { max-width: 470px; margin: 20px 0 0; color: var(--app-text-muted); font-size: 17px; line-height: 1.8; }
+.jslab-cloud-page .jslab-home-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.jslab-cloud-page .jslab-home-actions .btn { display: inline-flex; align-items: center; justify-content: center; gap: 20px; min-height: 46px; padding-inline: 17px; font-weight: 650; }
+.jslab-cloud-page.jslab-home-page .jslab-home-support { margin: 16px 0 0; color: var(--app-text-muted); font-size: 12px; }
+.jslab-cloud-page .jslab-home-preview { min-width: 0; margin: 0; padding: 20px 24px 18px; border: 1px solid var(--app-border); border-radius: var(--app-radius-md); background: var(--app-accent-soft); }
+.jslab-cloud-page .jslab-home-preview-top { display: flex; justify-content: space-between; gap: 12px; color: var(--app-text-muted); font: 600 10px/1.4 var(--app-mono); letter-spacing: .06em; }
+.jslab-cloud-page .jslab-home-screens { display: flex; align-items: flex-end; justify-content: center; gap: 16px; padding: 22px 0 18px; }
+.jslab-cloud-page .jslab-home-screen { width: 41%; max-width: 180px; overflow: hidden; border: 5px solid var(--app-border-strong); border-radius: 14% / 10%; background: var(--app-bg-muted); box-shadow: var(--app-shadow); }
+.jslab-cloud-page .jslab-home-screen img { display: block; width: 100%; height: auto; border-radius: 0; }
+.jslab-cloud-page .jslab-home-screen-editor { transform: translateY(14px); }
+.jslab-cloud-page .jslab-home-preview figcaption { display: flex; justify-content: space-between; gap: 12px; color: var(--app-text); font-size: 12px; font-weight: 650; }
+.jslab-cloud-page .jslab-home-preview figcaption span { color: var(--app-text-muted); font-size: 11px; font-weight: 400; }
+.jslab-cloud-page .jslab-home-section { padding: 34px 0; border-top: 1px solid var(--app-border); }
+.jslab-cloud-page .jslab-home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.jslab-cloud-page.jslab-home-page .jslab-home-section-heading h2 { margin: 0; color: var(--app-text); font-size: 25px; font-weight: 700; line-height: 1.3; }
+.jslab-cloud-page.jslab-home-page .jslab-home-section-heading p:not(.jslab-public-kicker) { margin: 7px 0 0; color: var(--app-text-muted); font-size: 14px; }
+.jslab-cloud-page .jslab-home-section-heading > a { flex-shrink: 0; font-size: 13px; font-weight: 650; }
+.jslab-cloud-page .jslab-home-channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.jslab-cloud-page .jslab-home-channel { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 20px; border: 1px solid var(--app-border); border-radius: var(--app-radius-md); background: var(--app-bg-elevated); }
+.jslab-cloud-page .jslab-home-channel-tag { color: var(--app-text-muted); font: 600 10px/1.5 var(--app-mono); letter-spacing: .05em; }
+.jslab-cloud-page.jslab-home-page .jslab-home-channel h3 { margin: 14px 0 0; color: var(--app-text); font-size: 17px; font-weight: 700; }
+.jslab-cloud-page.jslab-home-page .jslab-home-channel p { min-height: 42px; margin: 8px 0 18px; color: var(--app-text-muted); font-size: 13px; line-height: 1.6; }
+.jslab-cloud-page .jslab-home-channel > a, .jslab-cloud-page .jslab-home-channel-links a { color: var(--app-accent-hover); font-size: 13px; font-weight: 700; }
+.jslab-cloud-page .jslab-home-channel > a { margin-top: auto; }
+.jslab-cloud-page .jslab-home-channel-links { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: auto; }
+.jslab-cloud-page .jslab-home-unavailable { margin-top: auto; color: var(--app-text-muted); font-size: 13px; }
+.jslab-cloud-page .jslab-home-feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.jslab-cloud-page .jslab-home-feature-grid article { min-width: 0; padding: 6px 12px 0 0; }
+.jslab-cloud-page .jslab-home-feature-grid article > span { color: var(--app-accent-hover); font: 600 11px/1 var(--app-mono); }
+.jslab-cloud-page.jslab-home-page .jslab-home-feature-grid h3 { margin: 12px 0 0; color: var(--app-text); font-size: 16px; font-weight: 700; }
+.jslab-cloud-page.jslab-home-page .jslab-home-feature-grid p { margin: 8px 0 0; color: var(--app-text-muted); font-size: 13px; line-height: 1.7; }
+.jslab-cloud-page .jslab-home-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 6px; padding: 20px 24px; border-radius: var(--app-radius-md); background: var(--app-accent-soft); color: var(--app-text); font-weight: 650; }
+.jslab-cloud-page .jslab-home-footer a { flex-shrink: 0; font-size: 13px; }
+
+.jslab-cloud-page.jslab-download-page { max-width: 900px; }
+.jslab-cloud-page .jslab-download-header { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+.jslab-cloud-page.jslab-download-page .jslab-download-header h1 { margin: 0; color: var(--app-text); font-size: 32px; font-weight: 750; line-height: 1.2; }
+.jslab-cloud-page.jslab-download-page .jslab-download-header p:not(.jslab-public-kicker) { margin: 7px 0 0; color: var(--app-text-muted); font-size: 14px; }
+.jslab-cloud-page .jslab-public-back { flex-shrink: 0; font-size: 13px; font-weight: 650; }
+.jslab-cloud-page .jslab-download-devices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.jslab-cloud-page .jslab-download-device { min-width: 0; padding: 18px; border: 1px solid var(--app-border); border-radius: var(--app-radius-xl); background: var(--app-bg-elevated); }
+.jslab-cloud-page .jslab-download-device > header, .jslab-cloud-page .jslab-download-android-info { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.jslab-cloud-page .jslab-download-device > header { margin-bottom: 16px; }
+.jslab-cloud-page .jslab-download-device-mark { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 12px; background: var(--app-accent-soft); color: var(--app-accent-hover); font: 700 11px/1 var(--app-mono); }
+.jslab-cloud-page.jslab-download-page :is(.jslab-download-device, .jslab-download-android) h2 { margin: 0; color: var(--app-text); font-size: 16px; font-weight: 700; line-height: 1.25; }
+.jslab-cloud-page.jslab-download-page :is(.jslab-download-device, .jslab-download-android) p { margin: 3px 0 0; color: var(--app-text-muted); font-size: 12px; line-height: 1.3; }
+.jslab-cloud-page .jslab-download-choices { display: grid; gap: 8px; }
+.jslab-cloud-page .jslab-download-choice, .jslab-cloud-page .jslab-download-android-action { display: flex; align-items: center; gap: 8px; min-height: 46px; min-width: 0; padding: 8px 12px; border: 1px solid var(--app-border); border-radius: var(--app-radius-md); background: var(--app-bg-subtle); color: var(--app-text); font-size: 14px; font-weight: 650; }
+.jslab-cloud-page .jslab-download-choice:hover, .jslab-cloud-page .jslab-download-android-action:hover { color: var(--app-accent-hover); border-color: var(--app-accent); }
+.jslab-cloud-page .jslab-download-choice > span:first-child, .jslab-cloud-page .jslab-download-android-action > span:first-child { flex: 1; min-width: 0; }
+.jslab-cloud-page .jslab-download-choice small, .jslab-cloud-page .jslab-download-android-action small { flex-shrink: 0; color: var(--app-text-muted); font-size: 11px; font-weight: 400; white-space: nowrap; }
+.jslab-cloud-page .jslab-download-version { display: block; color: var(--app-text-muted); font-size: 11px; font-weight: 400; line-height: 1.5; }
+.jslab-cloud-page .jslab-download-choice.is-unavailable, .jslab-cloud-page .jslab-download-android-action.is-unavailable { color: var(--app-text-muted); }
+.jslab-cloud-page .jslab-download-android { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 12px; padding: 15px 18px; border: 1px solid var(--app-border); border-radius: var(--app-radius-xl); background: var(--app-bg-elevated); }
+.jslab-cloud-page .jslab-download-android-action { flex-shrink: 0; min-width: 180px; }
+.jslab-cloud-page .jslab-download-more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.jslab-cloud-page .jslab-download-more > a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; min-height: 44px; padding: 12px 16px; border: 1px solid var(--app-border-strong); border-radius: var(--app-radius-md); background: var(--app-bg-subtle); color: var(--app-text); font-size: 14px; font-weight: 650; }
+.jslab-cloud-page .jslab-download-more > a:hover { color: var(--app-accent-hover); border-color: var(--app-accent); }
+.jslab-cloud-page .jslab-download-more small { display: block; margin-top: 4px; color: var(--app-text-muted); font-size: 12px; font-weight: 400; }
+.jslab-cloud-page .jslab-download-more > a > span:last-child { flex-shrink: 0; color: var(--app-accent-hover); }
+.jslab-cloud-page.jslab-download-page .jslab-download-note { margin: 14px 0 0; color: var(--app-text-muted); font-size: 12px; line-height: 1.5; }
+
+@media (max-width: 767.98px) {
+  .jslab-cloud-page .jslab-home-hero { grid-template-columns: 1fr; gap: 26px; padding: 0 0 36px; }
+  .jslab-cloud-page .jslab-home-brand { margin-bottom: 24px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-intro h1 { font-size: 34px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-lead { margin-top: 14px; font-size: 15px; }
+  .jslab-cloud-page .jslab-home-actions { margin-top: 18px; }
+  .jslab-cloud-page .jslab-home-preview { padding: 16px 18px; }
+  .jslab-cloud-page .jslab-home-screens { padding: 16px 0; }
+  .jslab-cloud-page .jslab-home-screen { max-width: 142px; }
+  .jslab-cloud-page .jslab-home-section { padding: 28px 0; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-section-heading h2 { font-size: 21px; }
+  .jslab-cloud-page .jslab-home-channels { grid-template-columns: 1fr; gap: 10px; }
+  .jslab-cloud-page .jslab-home-channel { padding: 16px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-channel h3 { margin-top: 7px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-channel p { min-height: 0; margin: 6px 0 12px; }
+  .jslab-cloud-page .jslab-home-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 16px; }
+  .jslab-cloud-page .jslab-home-footer { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .jslab-cloud-page .jslab-download-header { align-items: flex-start; margin-bottom: 14px; }
+  .jslab-cloud-page.jslab-download-page .jslab-download-header h1 { font-size: 25px; }
+  .jslab-cloud-page.jslab-download-page .jslab-download-header p:not(.jslab-public-kicker) { font-size: 12px; }
+  .jslab-cloud-page .jslab-download-devices { gap: 8px; }
+  .jslab-cloud-page .jslab-download-device { padding: 12px; }
+  .jslab-cloud-page .jslab-download-device > header { gap: 8px; margin-bottom: 10px; }
+  .jslab-cloud-page .jslab-download-device-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 10px; }
+  .jslab-cloud-page.jslab-download-page :is(.jslab-download-device, .jslab-download-android) h2 { font-size: 13px; }
+  .jslab-cloud-page.jslab-download-page :is(.jslab-download-device, .jslab-download-android) p { font-size: 11px; }
+  .jslab-cloud-page .jslab-download-choice, .jslab-cloud-page .jslab-download-android-action { gap: 5px; min-height: 44px; padding: 7px 8px; font-size: 12px; }
+  .jslab-cloud-page .jslab-download-choice small, .jslab-cloud-page .jslab-download-android-action small { font-size: 10px; }
+  .jslab-cloud-page .jslab-download-android { gap: 8px; margin-top: 8px; padding: 10px 12px; }
+  .jslab-cloud-page .jslab-download-android-info { gap: 8px; }
+  .jslab-cloud-page .jslab-download-android-action { min-width: 132px; }
+  .jslab-cloud-page .jslab-download-more { grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+  .jslab-cloud-page.jslab-download-page .jslab-download-note { margin-top: 10px; }
+}
+
+/* Keep the smallest handsets legible without hiding a download option. */
+@media (max-width: 359.98px) {
+  .jslab-cloud-page .jslab-download-device { padding: 10px; }
+  .jslab-cloud-page .jslab-download-device > header { gap: 6px; }
+  .jslab-cloud-page .jslab-download-device-mark { width: 28px; height: 28px; }
+  .jslab-cloud-page.jslab-download-page .jslab-download-device h2 { font-size: 12px; }
+  .jslab-cloud-page .jslab-download-choice small { display: none; }
+  .jslab-cloud-page .jslab-download-android .jslab-download-device-mark { display: none; }
+  .jslab-cloud-page .jslab-download-android-action { min-width: 124px; }
+}
+.jslab-cloud-page .jslab-download-choice > span:first-child { white-space: nowrap; }
+.jslab-cloud-page .jslab-public-arrow { width: 16px; height: 16px; flex-shrink: 0; }
+.jslab-cloud-page .jslab-home-channel > a, .jslab-cloud-page .jslab-home-channel-links a { display: inline-flex; align-items: center; min-height: 40px; }
+@media (max-width: 767.98px) {
+  .jslab-cloud-page .jslab-home-section-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+}
+.jslab-cloud-page .jslab-download-choice,
+.jslab-cloud-page .jslab-download-android-action { border-color: var(--app-border-strong); }
+.jslab-cloud-page .jslab-public-back { display: inline-flex; align-items: center; min-height: 44px; }
+.jslab-cloud-page .jslab-home-channel > a,
+.jslab-cloud-page .jslab-home-channel-links a,
+.jslab-cloud-page .jslab-home-section-heading > a,
+.jslab-cloud-page .jslab-home-footer a { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* Homepage acquisition links stay together above the product preview. */
+.jslab-cloud-page .jslab-home-quickstart { margin-top: 24px; }
+.jslab-cloud-page.jslab-home-page .jslab-home-quickstart h2 { margin: 0; color: var(--app-text); font-size: 14px; font-weight: 700; }
+.jslab-cloud-page .jslab-home-quick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.jslab-cloud-page .jslab-home-quick-grid > a,
+.jslab-cloud-page .jslab-home-quick-grid > .jslab-home-unavailable { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; min-height: 44px; margin: 0; padding: 8px 12px; border: 1px solid var(--app-border-strong); border-radius: var(--app-radius-md); background: var(--app-bg-subtle); color: var(--app-text); font-size: 13px; font-weight: 650; line-height: 1.3; }
+.jslab-cloud-page .jslab-home-quick-grid > a:hover { color: var(--app-accent-hover); border-color: var(--app-accent); }
+.jslab-cloud-page .jslab-home-quick-grid > a > span:last-child { flex-shrink: 0; color: var(--app-accent-hover); }
+.jslab-cloud-page .jslab-home-quick-grid > .jslab-home-unavailable { color: var(--app-text-muted); font-weight: 400; }
+.jslab-cloud-page .jslab-home-screens { gap: 10px; }
+.jslab-cloud-page .jslab-home-screen { width: 30%; max-width: 145px; }
+
+@media (max-width: 767.98px) {
+  .jslab-cloud-page .jslab-home-hero { gap: 22px; padding-bottom: 30px; }
+  .jslab-cloud-page .jslab-home-brand { gap: 9px; margin-bottom: 14px; }
+  .jslab-cloud-page .jslab-home-brand img { width: 36px; height: 36px; border-radius: 9px; }
+  .jslab-cloud-page .jslab-home-brand > span { font-size: 19px; }
+  .jslab-cloud-page .jslab-home-brand small { margin-top: 4px; font-size: 8px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-intro h1 { font-size: 30px; line-height: 1.15; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-lead { margin-top: 8px; font-size: 13px; line-height: 1.55; }
+  .jslab-cloud-page .jslab-home-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .jslab-cloud-page .jslab-home-actions .btn { min-height: 44px; gap: 8px; padding: 8px; font-size: 13px; }
+  .jslab-cloud-page .jslab-home-quickstart { margin-top: 14px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-quickstart h2 { font-size: 13px; }
+  .jslab-cloud-page .jslab-home-quick-grid { gap: 6px; margin-top: 8px; }
+  .jslab-cloud-page .jslab-home-quick-grid > a,
+  .jslab-cloud-page .jslab-home-quick-grid > .jslab-home-unavailable { padding: 7px 8px; font-size: 12px; }
+  .jslab-cloud-page.jslab-home-page .jslab-home-support { margin-top: 10px; }
+}
+@media (max-width: 359.98px) {
+  .jslab-cloud-page .jslab-home-quick-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
+}
+.jslab-cloud-page .jslab-prompt-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border: 1px solid var(--app-border); border-radius: var(--app-radius-xl); background: var(--app-bg-elevated); }
+.jslab-cloud-page .jslab-prompt-info { min-width: 0; }
+.jslab-cloud-page .jslab-prompt-info h2 { margin: 0; color: var(--app-text); font-size: 14px; font-weight: 700; line-height: 1.3; }
+.jslab-cloud-page .jslab-prompt-info p { margin: 4px 0 0; color: var(--app-text-muted); font-size: 12px; line-height: 1.4; }
+.jslab-cloud-page .jslab-prompt-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--app-border-strong); border-radius: var(--app-radius-md); background: var(--app-bg-subtle); color: var(--app-accent-hover); font-size: 13px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+.jslab-cloud-page .jslab-prompt-action:hover { border-color: var(--app-accent); }
+.jslab-cloud-page .jslab-home-quick-grid > .jslab-prompt-card { grid-column: 1 / -1; }
+.jslab-cloud-page.jslab-download-page > .jslab-prompt-card { margin-top: 12px; }
+.jslab-cloud-page:not(.jslab-public) > .jslab-prompt-card { margin-bottom: 20px; }
+@media (max-width: 767.98px) {
+  .jslab-cloud-page .jslab-prompt-card { gap: 8px; padding: 8px 10px; }
+  .jslab-cloud-page .jslab-prompt-info h2 { font-size: 13px; }
+  .jslab-cloud-page .jslab-prompt-info p { font-size: 11px; }
+  .jslab-cloud-page .jslab-prompt-action { gap: 5px; padding: 7px 8px; font-size: 12px; }
+  .jslab-cloud-page.jslab-download-page > .jslab-prompt-card { margin-top: 8px; }
 }

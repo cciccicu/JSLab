@@ -47,7 +47,7 @@
   .resource-text { width: 356px; font-size: 20px; line-height: 32px; color: #ffffff; lines: 1; text-overflow: ellipsis; }
   .qrcode-card {
     width: 396px;
-    height: 300px;
+    height: 316px;
     padding: 18px 20px;
     margin-bottom: 8px;
     background-color: #262626;
@@ -57,7 +57,7 @@
     flex-shrink: 0;
   }
   .centered { text-align: center; }
-  .feedback-qrcode { width: 220px; height: 220px; margin-top: 12px; color: #000000; background-color: #ffffff; }
+  .feedback-qrcode { width: 220px; height: 220px; margin-top: 12px; color: #000000; background-color: #ffffff; flex-shrink:0; }
   .license-card { width: 396px; min-height: 120px; padding: 16px 20px; margin: 2px 0px 16px; border-radius: 36px; background-color: #262626; flex-direction: column; flex-shrink: 0; align-items: center; justify-content: center; }
   .license-text { width: 356px; font-size: 20px; line-height: 28px; color: rgba(255,255,255,0.65); text-align: center; }
   .joke-text { width: 356px; margin-top: 7px; font-size: 28px; line-height: 36px; font-weight: bold; color: #ff5b5b; text-align: center; }

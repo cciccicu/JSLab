@@ -52,8 +52,10 @@
   position: absolute;
   top: 0px;
   left: 0px;
-  padding: 112px 18px 110px;
+  padding: 112px 18px 0px;
 }
+
+.footer-spacer { width:100%; height:110px; flex-shrink:0; }
 
 .item {
   width: 100%;

@@ -1,8 +1,14 @@
 <script>
+import file from '@system.file';
+import { clearUiMediaCache } from './utils/runtime/uiMediaCache.js';
 import { createScriptStorage } from './utils/files/scriptData.js';
 import { openDialog, getDialog, settleDialog, deliverDialog, cancelOwnedDialog, closeOwnedDialog, dialogDestroyed } from './utils/core/dialogState.js';
 let payload = null;
 export default {
+  uiMediaReady: null,
+  onCreate() {
+    this.uiMediaReady = clearUiMediaCache(file).catch(error => console.warn(error.message));
+  },
   onDestroy() { payload = null; },
   loadPayload() {
     // The cloud packer fills this JSON string in memory, without recompiling

@@ -3,25 +3,30 @@
     <scroll class="body" scroll-y="true">
       <div if="{{statusText}}" class="status-card">
 
-        <text class="status-text">{{statusText}}</text>
+        <text class="status-text {{reviewReason ? 'review-text' : ''}}">{{statusText}}</text>
 
       </div>
       <div if="{{script}}" class="source-card">
         <text class="script-name">{{script.name}}</text>
         <text class="script-meta">{{script.description || '没有说明'}}</text>
         <text class="script-meta">作者：{{script.authorName || '未知'}} · {{statusLabel}}</text>
+        <text class="script-meta">适配设备：{{script.deviceLabel}}</text>
+        <text class="script-meta">下载 {{script.downloadCount}} · 点赞 {{script.likeCount}}</text>
       </div>
       <div if="{{script}}" class="code-card">
 
         <text for="{{chunk in sourceChunks}}" tid="id" class="source">{{chunk.text}}</text>
 
       </div>
+      <div class="footer-spacer"></div>
     </scroll>
     <img static src="/common/images/hd.png" class="header" />
     <text class="time-text">{{nowTime}}</text>
     <text class="heading">查看脚本</text>
     <img static src="/common/images/back.png" class="btn back" @click="goBack" />
-    <img if="{{script}}" src="/common/images/download.png" class="action action-download" @click="download" />
+    <img if="{{script}}" src="/common/images/download.png" class="action action-download {{script.canLike && !isMineView ? 'action-download-with-like' : ''}}" @click="download" />
+    <img if="{{script && script.canLike && !script.liked}}" src="/common/images/market-like.png" class="action action-like {{isMineView ? 'action-like-last' : ''}}" @click="like" />
+    <img if="{{script && script.canLike && script.liked}}" src="/common/images/market-liked.png" class="action action-like {{isMineView ? 'action-like-last' : ''}}" @click="like" />
     <img if="{{script && !isMineView}}" src="/common/images/market-report.png" class="action action-report" @click="report" />
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
       <div class="network-dialog">
@@ -33,6 +38,7 @@
 </template>
 
 <script>
+import { confirmMarketDownload } from "../../../../utils/cloud/marketDevices.js";
 import { back } from '../../../../utils/core/routeManager.js';
 import { errorMessage } from '../../../../utils/cloud/cloudError.js';
 import { normalizeMarketSaveName, suggestMarketFilename } from '../../../../utils/cloud/marketFilename.js';
@@ -50,6 +56,7 @@ export default {
     sourceChunks: [],
     statusLabel: '',
     statusText: '正在读取脚本...',
+    reviewReason: '',
     loading: false,
     busy: false,
     initialized: false,
@@ -94,22 +101,30 @@ export default {
     this.$app.$def.getCloudClients().marketClient.getMarketScript(id, this.isMineView).then(script => {
       if (!this.pageActive) return;
       this.sourceChunks = this.chunkSource(script.source);
-      this.statusLabel = {
+      this.statusLabel = script.statusText || {
         pending: '待审核',
         published: '已发布',
         rejected: '已拒绝',
         draft: '草稿'
-      }[script.status] || '已发布';
+      }[script.status] || '状态未知';
       this.script = {
         id: script.id,
         name: script.name,
         description: script.description,
-        authorName: script.authorName
+        authorName: script.authorName,
+        supportedDevices: script.supportedDevices,
+        deviceLabel: script.deviceLabel,
+        downloadCount: script.downloadCount,
+        likeCount: script.likeCount,
+        liked: script.liked,
+        canLike: script.publishedStatus === 'published' || script.status === 'published'
       };
-      this.statusText = '';
+      this.reviewReason = this.isMineView ? script.reviewReason || '' : '';
+      this.statusText = this.reviewReason ? '审核拒绝原因：' + this.reviewReason : '';
     }).catch(error => {
       if (!this.pageActive) return;
       this.script = null;
+      this.reviewReason = '';
       this.sourceChunks = [];
       this.statusText = errorMessage(error, '读取市场脚本');
     }).then(() => {
@@ -169,14 +184,17 @@ export default {
   save(name, overwrite) {
     if (!this.script || !this.pageActive) return;
     startNetworkFeedback(this, overwrite ? '正在覆盖本地脚本' : '正在下载市场脚本');
-    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(this.script.id, name, overwrite, this.isMineView).then(saved => {
+    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(this.script.id, name, overwrite, this.isMineView, source => confirmMarketDownload(this, source)).then(saved => {
       if (!this.pageActive) return;
+      this.script = Object.assign({}, this.script, { downloadCount: saved.downloadCount, likeCount: saved.likeCount, liked: saved.liked });
+      this.$app.$def.marketRefreshNeeded = true;
       stopNetworkFeedback(this);
       this.busy = false;
       showToast((overwrite ? '已覆盖 ' : '已下载 ') + saved.name);
     }).catch(error => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
+      if (error.message === 'market_download_cancelled') { this.busy = false; return; }
       if (error.message !== 'file_exists' || overwrite) {
         this.busy = false;
         showToast(errorMessage(error, '下载市场脚本'));
@@ -198,6 +216,24 @@ export default {
           showToast(dialogError.message || '无法打开对话框');
         }
       });
+    });
+  },
+  like() {
+    if (!this.script || !this.script.canLike || this.loading || this.busy) return;
+    this.busy = true;
+    vibrate('short');
+    startNetworkFeedback(this, this.script.liked ? '正在取消点赞' : '正在点赞');
+    this.$app.$def.getCloudClients().marketClient.likeMarketScript(this.script.id, !this.script.liked).then(stats => {
+      if (!this.pageActive) return;
+      this.script = Object.assign({}, this.script, stats);
+      this.$app.$def.marketRefreshNeeded = true;
+      showToast(stats.liked ? '已点赞' : '已取消点赞');
+    }).catch(error => {
+      if (this.pageActive) showToast(errorMessage(error, '更新点赞'));
+    }).then(() => {
+      if (!this.pageActive) return;
+      this.busy = false;
+      stopNetworkFeedback(this);
     });
   },
   report() {

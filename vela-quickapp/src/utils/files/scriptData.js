@@ -1,8 +1,6 @@
 import file from '@system.file';
 
 const DATA_URI = 'internal://files/jslab-script-data.json';
-const MAX_VALUE_BYTES = 16 * 1024;
-const MAX_NAMESPACE_BYTES = 64 * 1024;
 let cache = null;
 let loadPromise = null;
 let writeQueue = Promise.resolve();
@@ -10,10 +8,6 @@ let writeQueue = Promise.resolve();
 function clone(value) {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value));
-}
-
-function sizeOf(value) {
-  return unescape(encodeURIComponent(JSON.stringify(value))).length;
 }
 
 function readFile() {
@@ -102,14 +96,12 @@ export function createScriptStorage(scriptName) {
     });
   }
   function set(area, key, value) {
-    if (sizeOf(value) > MAX_VALUE_BYTES) return Promise.reject(new Error('scriptData value is too large'));
     return mutate((next) => {
       const item = getNamespace(next, true);
       const name = String(key);
       const saved = clone(value);
       if (name === '__proto__') Object.defineProperty(item[area], name, { value: saved, enumerable: true, writable: true, configurable: true });
       else item[area][name] = saved;
-      if (sizeOf(item[area]) > MAX_NAMESPACE_BYTES) throw new Error('scriptData namespace is too large');
     });
   }
   function remove(area, key) {
@@ -153,6 +145,42 @@ export function renameScriptStorage(oldName, newName) {
     if (hasOld) next[to] = next[from];
     else delete next[to]; // Discard stale storage from a previously deleted name.
     delete next[from];
+  });
+}
+
+function storageDocument(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+    Object.keys(value).some(key => key !== 'data' && key !== 'config') ||
+    !Object.prototype.hasOwnProperty.call(value, 'data') || !Object.prototype.hasOwnProperty.call(value, 'config') ||
+    !value.data || typeof value.data !== 'object' || Array.isArray(value.data) ||
+    !value.config || typeof value.config !== 'object' || Array.isArray(value.config)) {
+    throw new Error('脚本数据必须是包含 data 和 config 两个对象的 JSON');
+  }
+  return { data: value.data, config: value.config };
+}
+
+function storageContent(root, scriptName) {
+  const item = root[namespaceName(scriptName)] || {};
+  return JSON.stringify({ data: item.data || {}, config: item.config || {} });
+}
+
+export function readScriptStorageContent(scriptName) {
+  return writeQueue.catch(() => {}).then(() => load()).then(root => storageContent(root, scriptName));
+}
+
+export function replaceScriptStorageContent(scriptName, base, content) {
+  let expected;
+  let replacement;
+  try {
+    expected = JSON.stringify(storageDocument(JSON.parse(base)));
+    replacement = storageDocument(JSON.parse(content));
+  } catch (error) { return Promise.reject(new Error(error.message || '脚本数据 JSON 无效')); }
+  return mutate(next => {
+    if (storageContent(next, scriptName) !== expected) throw new Error('脚本数据已变更，请重新读取后再保存；当前修改尚未覆盖设备数据');
+    const namespace = namespaceName(scriptName);
+    next[namespace] = next[namespace] || {};
+    next[namespace].data = replacement.data;
+    next[namespace].config = replacement.config;
   });
 }
 

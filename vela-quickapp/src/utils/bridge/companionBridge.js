@@ -3,6 +3,7 @@ import brightness from '@system.brightness';
 import jsManager from '../files/jsManager.js';
 import fontManager from '../editor/fontManager.js';
 import { clearScriptTransfers, handleScriptTransfer } from './scriptTransfer.js';
+import { SCRIPT_STORAGE_PROTOCOL, clearScriptStorageTransfers, handleScriptStorageTransfer } from './scriptStorageTransfer.js';
 
 const PROTOCOL_VERSION = 2;
 const WRITE_SESSION_TTL_MS = 2 * 60 * 1000;
@@ -207,6 +208,7 @@ function handleRequest(request) {
       return Promise.resolve({
         protocol: PROTOCOL_VERSION,
         maxScriptBytes: 0,
+        scriptStorageProtocol: SCRIPT_STORAGE_PROTOCOL,
         fontPackageUploadSupported: true,
         fontUploadResumeSupported: true,
         fontChunkBytes: FONT_CHUNK_BYTES,
@@ -218,6 +220,11 @@ function handleRequest(request) {
       return appendFontWriteChunk(payload);
     case 'fontUploadFinish':
       return finishFontWrite(payload);
+    case 'storageRead':
+    case 'storageWriteStart':
+    case 'storageWriteChunk':
+    case 'storageWriteFinish':
+      return handleScriptStorageTransfer(request.action, payload);
     default:
       return handleScriptTransfer(request.action, payload);
   }
@@ -287,6 +294,7 @@ function start() {
     log('CLOSE', 'code=' + String(event && event.code) + ' reason=' + String(event && event.data));
     keepScreenAwake(false);
     clearScriptTransfers();
+    clearScriptStorageTransfers();
     Object.keys(fontWriteSessions).forEach(id => delete fontWriteSessions[id]);
 
     Object.keys(cloudProxyPending).forEach((id) => {
@@ -340,6 +348,7 @@ function stop() {
   }
   pendingChange = null;
   clearScriptTransfers();
+  clearScriptStorageTransfers();
   Object.keys(fontWriteSessions).forEach(id => delete fontWriteSessions[id]);
 
   Object.keys(cloudProxyPending).forEach((id) => {

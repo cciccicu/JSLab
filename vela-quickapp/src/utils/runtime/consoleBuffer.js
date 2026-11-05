@@ -2,7 +2,13 @@ import { LOG_LIMITS } from './runtimeContract.js';
 
 export function formatError(error) {
   try {
-    if (error && error.message !== undefined) return ((error.name ? String(error.name) + ': ' : '') + String(error.message)).slice(0, 512);
+    if (error && error.message !== undefined) {
+      const message = String(error.message);
+      const missingUi = /\bui\.([A-Za-z_$][\w$]*)/.exec(message);
+      const hint = error.name === 'TypeError' && missingUi && /not a function|not callable|undefined/i.test(message)
+        ? 'JSLab 版本可能过老，无法调用 ui.' + missingUi[1] + '。请更新客户端或重新导出独立应用；若已是最新版，请检查接口名称。\n' : '';
+      return (hint + (error.name ? String(error.name) + ': ' : '') + message).slice(0, 512);
+    }
     return String(error).slice(0, 512);
   } catch (_) { return '无法显示错误'; }
 }

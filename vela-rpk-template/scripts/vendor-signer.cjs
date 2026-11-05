@@ -18,6 +18,6 @@ for (const name of ['SignUtil.js','Signer.js','Base64.js','CRC32.js']) {
       .replace('require("../ZipUtil")','require("./ZipUtil")')
       .replace(/^var _(fsExtra|path|CompileMode) = .*\r?\n/gm,'');
   }
-  fs.writeFileSync(path.join(to,name),'// Adapted from @aiot-toolkit/aiotpack 2.0.5 (ISC). See NOTICE.md.\n'+content);
+  fs.writeFileSync(path.join(to,name),'// Adapted from @aiot-toolkit/aiotpack 2.0.5 (ISC). See LICENSE.\n'+content);
 }
 fs.writeFileSync(path.join(to,'upstream-hashes.json'),JSON.stringify(hashes,null,2)+'\n');

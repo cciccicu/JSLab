@@ -1,6 +1,9 @@
 <template>
   <div class="page">
-    <scroll class="body" scroll-y="true" bounces="true"><text class="message">{{dialog.message}}</text></scroll>
+    <scroll class="body" scroll-y="true" bounces="true">
+      <text class="message">{{dialog.message}}</text>
+      <div class="footer-spacer"></div>
+    </scroll>
     <div class="actions {{dialog.secondaryText ? 'actions-three' : ''}} {{dialog.type === 'alert' ? 'actions-single' : ''}}">
       <div if="{{dialog.type !== 'alert'}}" class="action {{dialog.secondaryText ? 'action-compact' : ''}}" @click="onCancel"><text class="action-text {{dialog.secondaryText ? 'action-text-compact' : ''}}">{{dialog.cancelText}}</text></div>
       <div if="{{dialog.secondaryText}}" class="action action-compact" @click="onSecondary"><text class="action-text action-text-compact">{{dialog.secondaryText}}</text></div>

@@ -10,19 +10,21 @@
 .keyboard-panel { width: 432px; height: 255px; background-color: #000000; }
 .keyboard-background { position: absolute; left: 0px; top: 0px; width: 432px; height: 255px; background-color: #000000; }
 .keyboard-body { position: absolute; left: 30px; top: 66px; width: 372px; height: 159px; }
-.letter-rows { left: 0px; flex-direction: column; }
-.letter-row { height: 50px; }
-.row-2 { margin-left: 32px; margin-top: 3px; }
+.letter-rows { left: 0px; width:640px; flex-direction: column; flex-shrink:0; }
+.letter-row { width:640px; height: 50px; flex-shrink:0; }
+.row-2 { width:608px; margin-left: 32px; margin-top: 3px; }
 .row-3 { margin-left: 0px; margin-top: 3px; }
 .letter-row-spacer { width: 64px; height: 50px; }
 .letter-key {
   width: 60px; height: 50px; margin-right: 4px; border-radius: 30px;
+  flex-shrink:0;
   border: 3px solid rgba(255,255,255,0.06); background-color: #262626;
   color: #ffffff; font-size: 30px; font-weight: bold; text-align: center;
 }
-.key-image { width: 60px; height: 50px; object-fit:contain; }
+.key-image { width: 60px; height: 50px; object-fit:contain; flex-shrink:0; }
 .shift-key {
   position: relative; width: 60px; height: 50px; margin-right: 4px;
+  flex-shrink:0;
   border-radius: 30px; border: 3px solid rgba(255,255,255,0.06);
   background-color: #262626; justify-content: center; align-items: center;
 }
@@ -59,7 +61,7 @@
 .action-row-cn { position: absolute; left: 30px; top: 3px; width: 372px; height: 60px; flex-direction: row; }
 .action-row-five { position: absolute; left: 30px; top: 3px; width: 372px; height: 60px; flex-direction: row; }
 .candidate-bar { width: 240px; height: 60px; margin-left: 6px; border: 3px solid #333333; border-radius: 30px; background-color: #262626; }
-.candidate-scroll { position: absolute; left: 0px; width: 206px; height: 42px; }
+.candidate-scroll { position: absolute; left: 0px; width: 196px; height: 42px; }
 .candidate-content { position: absolute; left: 0px; height: 42px; padding-left: 12px; padding-right: 8px; }
 .candidate { height: 42px; padding-right: 10px; color: #ffffff; font-size: 28px; text-align: center; }
 .candidate-expand { position: absolute; right: 2px; top: 14px; width: 32px; height: 21px; }
@@ -97,5 +99,5 @@
 .candidate-list-view { width: 100%; height: 100%; }
 .candidate-row { height: 50px; }
 .candidate-cell { height: 50px; flex: 1; }
-.candidate-button { width: 52px; height: 52px; border-radius: 0px; background-color: rgba(38,38,38,0); color: #ffffff; font-size: 28px; text-align: center; }
+.candidate-button { width: 100%; height: 50px; border-radius: 0px; background-color: rgba(38,38,38,0); color: #ffffff; font-size: 28px; text-align: center; }
 .candidate-collapse { width: 372px; height: 50px; margin-top: 5px; object-fit:contain; }

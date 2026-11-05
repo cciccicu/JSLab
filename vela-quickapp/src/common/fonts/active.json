@@ -1,11 +1,14 @@
 {
   "version": 1,
-  "name": "Ubuntu Mono",
-  "sourceName": "UbuntuMono-MiSans-Editor-v4.ttf",
+  "name": "JSLab Wrist Mono",
+  "sourceName": "JSLabWristMono-Regular.ttf",
   "format": "ttf",
   "family": "JSLabActive",
   "lineHeightRatio": 1,
   "lineHeightOffset": 0,
   "asciiWidthRatio": 0.5,
-  "wideWidthRatio": 1
+  "wideWidthRatio": 1,
+  "fullWidthCharacters": "·—‘’“”…ℹ↔↕↩⌚⌛⏩⏪⏰⏱⏸⏹▶◀☀☁☎☔☕⚖⚙⚠⚡⚪⚫⚽⛅✂✅✈✉✏✖✨❄❌❓❗❤➕➖➡⬅⬆⬇⭐　、。〈〉《》「」『』【】〔〕〖〗〘〙〚〛",
+  "zeroWidthCharacters": "‌‍︎️",
+  "emojiCatalog": "jslab-wrist-mono-v2"
 }

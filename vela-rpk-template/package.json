@@ -9,5 +9,10 @@
     "build": "node scripts/build.cjs",
     "export:template": "node scripts/export-template.cjs"
   },
-  "devDependencies": { "aiot-toolkit": "2.0.5" }
+  "devDependencies": {
+    "aiot-toolkit": "2.0.5"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
 }

@@ -2,7 +2,8 @@ const crypto = require('crypto');
 const { validScriptName } = require('./script-filename');
 const { withErrorMessage } = require('./error-messages');
 
-const MAX_SOURCE = 48 * 1024;
+// A zero sourceBytes value means no project-defined size cap.
+const MAX_SOURCE = require('./runtime-contract.json').sourceBytes;
 const DEFAULT_PAIRING_PUBLIC_ORIGIN = 'https://ccicc.icu';
 const INITIAL_AI_CREDIT_CENTS = 200;
 const ACTIVATION_CODE_CREDIT_CENTS = 300;
@@ -54,7 +55,7 @@ function createServerContext(ctx) {
     return !!entitlement && entitlement.ai_enabled === 1 && entitlement.cloud_enabled === 1;
   };
   const sourceFromBody = (body) => typeof body?.source === 'string' ? body.source : '';
-  const validSource = (name, source, existing = false) => validScriptName(name, existing) && Buffer.byteLength(source, 'utf8') <= MAX_SOURCE;
+  const validSource = (name, source, existing = false) => validScriptName(name, existing) && typeof source === 'string' && (!MAX_SOURCE || Buffer.byteLength(source, 'utf8') <= MAX_SOURCE);
   const validJavaScript = (source) => {
     try { new Function(String(source)); return true; } catch (_) { return false; }
   };

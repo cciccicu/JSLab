@@ -1,0 +1,165 @@
+{
+  "format": 1,
+  "description": "Native method baseline for the JSLab AI reference; update against the linked Xiaomi documentation when changing exposed APIs.",
+  "modules": {
+    "device": {
+      "native": "device",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/basic/device.html",
+      "methods": [
+        "getAvailableStorage",
+        "getDeviceId",
+        "getInfo",
+        "getSerial",
+        "getTotalStorage"
+      ]
+    },
+    "files": {
+      "native": "file",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/data/file.html",
+      "methods": [
+        "access",
+        "copy",
+        "delete",
+        "get",
+        "list",
+        "mkdir",
+        "move",
+        "readArrayBuffer",
+        "readText",
+        "rmdir",
+        "writeArrayBuffer",
+        "writeText"
+      ]
+    },
+    "http": {
+      "native": "fetch",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/network/fetch.html",
+      "methods": [
+        "fetch"
+      ]
+    },
+    "download": {
+      "native": "request",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/network/request.html",
+      "methods": [
+        "download",
+        "onDownloadComplete"
+      ]
+    },
+    "upload": {
+      "native": "uploadtask",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/network/uploadtask.html",
+      "methods": [
+        "uploadFile"
+      ]
+    },
+    "companion": {
+      "native": "interconnect",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/network/interconnect.html",
+      "methods": [
+        "instance"
+      ]
+    },
+    "network": {
+      "native": "network",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/network.html",
+      "methods": [
+        "getType",
+        "subscribe",
+        "unsubscribe"
+      ]
+    },
+    "display": {
+      "native": "brightness",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/brightness.html",
+      "methods": [
+        "getMode",
+        "getValue",
+        "setKeepScreenOn",
+        "setMode",
+        "setValue"
+      ]
+    },
+    "battery": {
+      "native": "battery",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/battery.html",
+      "methods": [
+        "getStatus"
+      ]
+    },
+    "location": {
+      "native": "geolocation",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/geolocation.html",
+      "methods": [
+        "getLocation",
+        "subscribe",
+        "unsubscribe"
+      ]
+    },
+    "vibration": {
+      "native": "vibrator",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/vibrator.html",
+      "methods": [
+        "getSystemDefaultMode",
+        "start",
+        "stop",
+        "vibrate"
+      ]
+    },
+    "events": {
+      "native": "event",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/event.html",
+      "methods": [
+        "publish",
+        "subscribe",
+        "unsubscribe"
+      ]
+    },
+    "sensors": {
+      "native": "sensor",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/sensor.html",
+      "methods": [
+        "subscribeAccelerometer",
+        "subscribeCompass",
+        "subscribePressure",
+        "unsubscribeAccelerometer",
+        "unsubscribeCompass",
+        "unsubscribePressure"
+      ]
+    },
+    "recorder": {
+      "native": "record",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/system/record.html",
+      "methods": [
+        "start",
+        "stop"
+      ]
+    },
+    "audio": {
+      "native": "audio",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/other/audio.html",
+      "methods": [
+        "getPlayState",
+        "pause",
+        "play",
+        "stop"
+      ]
+    },
+    "crypto": {
+      "native": "crypto",
+      "source": "https://iot.mi.com/vela/quickapp/zh/features/security/crypto.html",
+      "methods": [
+        "atob",
+        "btoa",
+        "createECDH",
+        "decrypt",
+        "encrypt",
+        "hashDigest",
+        "hkdf",
+        "hmacDigest",
+        "sign",
+        "verify"
+      ]
+    }
+  }
+}

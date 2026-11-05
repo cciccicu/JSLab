@@ -1,21 +1,38 @@
+const { storedSupportedDevices, deviceLabels } = require('./market-devices');
 const { scriptFilename } = require('./script-filename');
 
 function registerMarketPages(ctx, options, view) {
-  const { scripts, marketScripts, currentUser, escapeHtml, writeScript, hash, log, getMarketReview } = options;
+  const { scripts, marketScripts, currentUser, escapeHtml, writeScript, hash, log, marketState, marketEngagement, recordMarketDownload } = options;
   const { csrf, escAttr, page, button, isAjax, json, modal, statusBadge, marketForm } = view;
+  const metrics = (id, stats) => `<p class="text-body-secondary" data-cloud-market-metrics="${id}" aria-live="polite">下载量：<span data-cloud-download-count>${stats.downloadCount}</span> · 点赞：<span data-cloud-like-count>${stats.likeCount}</span></p>`;
+  const likeButton = (req, row, stats, user, returnTo, small = false) => {
+    if (row.status !== 'published') return '';
+    const size = small ? ' btn-sm' : '';
+    if (!user) return `<button class="btn${size} btn-outline-secondary" type="button" disabled>登录后点赞</button>`;
+    return `<form method="post" action="/jslab-cloud/api/cloud/market/${row.id}/like" data-cloud-ajax data-cloud-market-like="${row.id}"><input type="hidden" name="_csrf" value="${csrf(req)}"><input type="hidden" name="liked" value="${stats.liked ? '0' : '1'}"><input type="hidden" name="returnTo" value="${escAttr(returnTo)}"><button class="btn${size} btn-outline-primary" type="submit" aria-pressed="${stats.liked}">${stats.liked ? '取消点赞' : '点赞'}</button></form>`;
+  };
   ctx.routes.frontend.get('/workspace/market', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     const query = String(req.query?.q || '').trim().slice(0, 80);
     const tab = req.query?.tab === 'mine' && currentUser(req) ? 'mine' : 'market';
     const like = `%${query}%`;
     const user = currentUser(req);
     const rows = tab === 'mine'
-      ? ctx.db.prepare(`SELECT id,name,description,tags,hash,status,pending_name,pending_description,pending_tags,pending_hash,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (COALESCE(pending_name,name) LIKE ? OR COALESCE(pending_description,description) LIKE ? OR COALESCE(pending_tags,tags) LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(user.id, like, like, like)
-      : ctx.db.prepare(`SELECT id,name,description,status,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(like, like, like);
+      ? ctx.db.prepare(`SELECT id,name,description,tags,hash,status,pending_name,pending_description,pending_tags,supported_devices,pending_supported_devices,pending_hash,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (COALESCE(pending_name,name) LIKE ? OR COALESCE(pending_description,description) LIKE ? OR COALESCE(pending_tags,tags) LIKE ?) ORDER BY updated_at DESC,id DESC LIMIT 50`).all(user.id, like, like, like)
+      : ctx.db.prepare(`SELECT id,name,description,supported_devices,status,pending_status,updated_at,owner_user_id FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(like, like, like);
+    const states = [];
+    const returnTo = `/jslab-cloud/workspace/market?tab=${tab}&q=${encodeURIComponent(query)}`;
     const items = rows.map((row) => {
+      const stats = marketEngagement(row.id, user);
       const author = ctx.users.get(row.owner_user_id);
       const authorName = author?.display_name || author?.username || `用户 ${row.owner_user_id}`;
-      const effective = row.pending_status === 'pending' || row.pending_status === 'rejected' ? row.pending_status : row.status;
-      const review = tab === 'mine' && effective === 'rejected' ? getMarketReview(row) : null;
+      const state = marketState(row, tab === 'mine');
+      const effective = state.status;
+      const review = state.review;
+      const pending = tab === 'mine' && (row.pending_status === 'pending' || row.pending_status === 'rejected');
+      const name = pending ? row.pending_name || row.name : row.name;
+      const description = pending ? row.pending_description || row.description : row.description;
+      states.push({ id: row.id, status: effective, reason: review?.reason || '', revision: state.revision || '' });
       const rejection = tab === 'mine' && effective === 'rejected'
         ? `<div class="alert alert-danger jslab-cloud-review-feedback mb-0"><strong>${review?.decision === 'reject' ? 'AI 审核拒绝原因' : '审核拒绝原因'}</strong><p class="mb-0">${escapeHtml(review?.decision === 'reject' && review.reason?.trim() || '未记录具体原因，请修改后重新提交或联系管理员。')}</p></div>` : '';
       const manage = user && row.owner_user_id === user.id ? `<button class="btn btn-sm btn-outline-secondary" type="button" data-cloud-market-edit="${row.id}">编辑</button><form method="post" action="/jslab-cloud/workspace/market/${row.id}/delete" data-cloud-ajax><input type="hidden" name="_csrf" value="${csrf(req)}"><input type="hidden" name="ajax" value="1"><button class="btn btn-sm btn-outline-danger" type="submit" data-confirm="确定删除此市场脚本吗？">删除</button></form>` : '';
@@ -23,23 +40,24 @@ function registerMarketPages(ctx, options, view) {
       const view = row.status === 'published' ? `<a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}">查看详情</a>` : '';
       const download = row.status === 'published' ? `<a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}/download">下载</a>` : '';
       const save = tab === 'market' && user ? `<form method="post" action="/jslab-cloud/workspace/market/${row.id}/save" data-cloud-ajax><input type="hidden" name="_csrf" value="${csrf(req)}"><input type="hidden" name="ajax" value="1"><button class="btn btn-sm btn-outline-primary" type="submit">保存到云空间</button></form>` : '';
-      const title = row.status === 'published' ? `<a href="/jslab-cloud/workspace/market/${row.id}">${escapeHtml(row.name)}</a>` : escapeHtml(row.name);
-      return `<article class="card jslab-cloud-market-item"><div class="card-body"><div class="jslab-cloud-market-content"><div class="jslab-cloud-market-title"><h2 class="h5">${title}</h2>${tab === 'mine' ? statusBadge(effective) : ''}</div><p class="jslab-cloud-market-description">${escapeHtml(row.description || '作者未提供说明。')}</p><p class="jslab-cloud-market-byline">作者：<a href="/jslab-cloud/workspace/authors/${row.owner_user_id}">${escapeHtml(authorName)}</a></p>${rejection}</div><div class="plugin-actions jslab-cloud-market-actions">${view}${save}${download}${manage}${adminDelete}</div></div></article>`;
+      const like = likeButton(req, row, stats, user, returnTo, true);
+      const title = row.status === 'published' ? `<a href="/jslab-cloud/workspace/market/${row.id}">${escapeHtml(name)}</a>` : escapeHtml(name);
+      return `<article class="card jslab-cloud-market-item"><div class="card-body"><div class="jslab-cloud-market-content"><div class="jslab-cloud-market-title"><h2 class="h5">${title}</h2>${tab === 'mine' ? statusBadge(effective, state.statusText) : ''}</div><p class="jslab-cloud-market-description">${escapeHtml(description || '作者未提供说明。')}</p><p class="jslab-cloud-market-byline">作者：<a href="/jslab-cloud/workspace/authors/${row.owner_user_id}">${escapeHtml(authorName)}</a></p><p class="text-body-secondary">适配设备：${escapeHtml(deviceLabels(tab === 'mine' && row.pending_status ? row.pending_supported_devices || row.supported_devices : row.supported_devices))}</p>${metrics(row.id, stats)}${rejection}</div><div class="plugin-actions jslab-cloud-market-actions">${view}${save}${download}${like}${manage}${adminDelete}</div></div></article>`;
     }).join('');
     const mineHref = `/jslab-cloud/workspace/market?tab=mine${query ? `&q=${encodeURIComponent(query)}` : ''}`;
     const marketHref = `/jslab-cloud/workspace/market${query ? `?q=${encodeURIComponent(query)}` : ''}`;
     const publishModal = user ? modal('cloud-publish-modal', '发布到市场', marketForm(req), 'modal-lg') : '';
     const publishAction = user ? '<button class="btn btn-primary" type="button" data-cloud-publish-new data-bs-toggle="modal" data-bs-target="#cloud-publish-modal">发布脚本</button>' : '';
-    return page(req, res, `<section class="plugin-page jslab-cloud-page"><header class="plugin-page-header plugin-page-heading"><div><h1 class="plugin-page-heading-title">JS 市场</h1><p class="plugin-page-description">保存或下载前请检查源码。市场脚本拥有 JSLab 权限，不提供沙箱隔离。</p></div><div class="plugin-actions">${publishAction}${button('JSLab Cloud', '/jslab-cloud/workspace', 'btn btn-outline-secondary')}${button('文档', '/jslab-cloud/docs', 'btn btn-outline-secondary')}</div></header><nav class="nav nav-tabs jslab-cloud-market-tabs" aria-label="市场视图"><a class="nav-link${tab === 'market' ? ' active' : ''}" href="${marketHref}">市场脚本</a>${user ? `<a class="nav-link${tab === 'mine' ? ' active' : ''}" href="${mineHref}">我的发布</a>` : ''}</nav><form method="get" action="/jslab-cloud/workspace/market" class="jslab-cloud-search mb-4"><input type="hidden" name="tab" value="${tab}"><label class="visually-hidden" for="market-search">搜索市场</label><input id="market-search" class="form-control" name="q" value="${escAttr(query)}" placeholder="搜索市场"><button class="btn btn-outline-secondary">搜索</button></form><div class="jslab-cloud-market-grid">${items || `<div class="jslab-cloud-empty"><h2>${tab === 'mine' ? '尚未提交市场脚本' : '暂无公开脚本'}</h2><p>请尝试其他搜索词或稍后再来。</p></div>`}</div></section>${publishModal}`, tab === 'mine' ? '我的发布' : 'JS 市场');
+    return page(req, res, `<section class="plugin-page jslab-cloud-page"><header class="plugin-page-header plugin-page-heading"><div><h1 class="plugin-page-heading-title">JS 市场</h1><p class="plugin-page-description">保存或下载前请检查源码。市场脚本拥有 JSLab 权限，不提供沙箱隔离。</p></div><div class="plugin-actions">${publishAction}${button('JSLab Cloud', '/jslab-cloud/workspace', 'btn btn-outline-secondary')}${button('文档', '/jslab-cloud/docs', 'btn btn-outline-secondary')}</div></header><nav class="nav nav-tabs jslab-cloud-market-tabs" aria-label="市场视图"><a class="nav-link${tab === 'market' ? ' active' : ''}" href="${marketHref}">市场脚本</a>${user ? `<a class="nav-link${tab === 'mine' ? ' active' : ''}" href="${mineHref}">我的发布</a>` : ''}</nav><form method="get" action="/jslab-cloud/workspace/market" class="jslab-cloud-search mb-4"><input type="hidden" name="tab" value="${tab}"><label class="visually-hidden" for="market-search">搜索市场</label><input id="market-search" class="form-control" name="q" value="${escAttr(query)}" placeholder="搜索市场"><button class="btn btn-outline-secondary">搜索</button></form><div class="jslab-cloud-market-grid"${tab === 'mine' ? ` data-cloud-market-states="${escAttr(JSON.stringify(states))}" data-query="${escAttr(query)}"` : ''}>${items || `<div class="jslab-cloud-empty"><h2>${tab === 'mine' ? '尚未提交市场脚本' : '暂无公开脚本'}</h2><p>请尝试其他搜索词或稍后再来。</p></div>`}</div></section>${publishModal}`, tab === 'mine' ? '我的发布' : 'JS 市场');
   });
 
   ctx.routes.frontend.get('/api/cloud/market/:id/manage', ctx.users.requireAuth, (req, res) => {
     const user = currentUser(req);
-    const row = ctx.db.prepare(`SELECT id,name,description,tags,source,hash,status,pending_status,pending_name,pending_description,pending_tags,pending_source,pending_hash,owner_user_id FROM ${marketScripts} WHERE id=? AND (owner_user_id=? OR ?='admin')`).get(Number(req.params.id), user.id, user.role);
+    const row = ctx.db.prepare(`SELECT id,name,description,tags,source,hash,status,pending_status,pending_name,pending_description,pending_tags,supported_devices,pending_supported_devices,pending_source,pending_hash,owner_user_id FROM ${marketScripts} WHERE id=? AND (owner_user_id=? OR ?='admin')`).get(Number(req.params.id), user.id, user.role);
     if (!row) return json(res, 404, { error: 'not_found' });
     const pending = row.pending_status === 'pending' || row.pending_status === 'rejected';
-    const review = (pending ? row.pending_status : row.status) === 'rejected' ? getMarketReview(row) : null;
-    json(res, 200, { review: review?.decision === 'reject' ? review : null, script: { id: row.id, name: pending ? row.pending_name || row.name : row.name, description: pending ? row.pending_description || row.description : row.description, tags: pending ? row.pending_tags || row.tags : row.tags, source: pending ? row.pending_source || row.source : row.source } });
+    const state = marketState(row, true);
+    json(res, 200, { review: state.review, script: { ...state, id: row.id, name: pending ? row.pending_name || row.name : row.name, description: pending ? row.pending_description || row.description : row.description, tags: pending ? row.pending_tags || row.tags : row.tags, supportedDevices: storedSupportedDevices(pending ? row.pending_supported_devices || row.supported_devices : row.supported_devices), source: pending ? row.pending_source || row.source : row.source } });
   });
 
   ctx.routes.frontend.get('/workspace/publications', ctx.users.requireAuth, (req, res) => {
@@ -50,27 +68,37 @@ function registerMarketPages(ctx, options, view) {
     const row = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
     if (!row) return res.status(404).send('未找到市场脚本');
     const user = currentUser(req);
+    res.setHeader('Cache-Control', 'no-store');
+    const stats = marketEngagement(row.id, user);
+    const like = likeButton(req, row, stats, user, `/jslab-cloud/workspace/market/${row.id}`);
     const report = user ? `<button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#cloud-report-modal">举报脚本</button>` : '';
     const reportModal = user ? modal('cloud-report-modal', '举报脚本', `<form method="post" action="/jslab-cloud/api/cloud/market/${row.id}/report"><input type="hidden" name="_csrf" value="${csrf(req)}"><div class="mb-3"><label class="form-label" for="report-reason">举报原因</label><textarea id="report-reason" class="form-control" name="reason" maxlength="500" rows="5" placeholder="请说明需要审核的问题" required></textarea><div class="form-text">最多 500 个字符。</div></div><div class="plugin-actions justify-content-end"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">取消</button><button class="btn btn-outline-danger" type="submit">提交举报</button></div></form>`) : '';
     const author = ctx.users.get(row.owner_user_id);
     const save = user ? `<form method="post" action="/jslab-cloud/workspace/market/${row.id}/save"><input type="hidden" name="_csrf" value="${csrf(req)}"><button class="btn btn-outline-primary">保存到我的云空间</button></form>` : '';
-    return page(req, res, `<section class="plugin-page jslab-cloud-page"><header class="plugin-page-header plugin-page-heading"><div><h1 class="plugin-page-heading-title">${escapeHtml(row.name)}</h1><p class="plugin-page-description">${escapeHtml(row.description || '作者未提供说明。')}</p><p class="text-body-secondary">作者：<a href="/jslab-cloud/workspace/authors/${row.owner_user_id}">${escapeHtml(author?.display_name || author?.username || `用户 ${row.owner_user_id}`)}</a></p></div><div class="plugin-actions">${save}${button('下载源码', `/jslab-cloud/workspace/market/${row.id}/download`)}${report}${button('返回市场', '/jslab-cloud/workspace/market', 'btn btn-outline-secondary')}</div></header><div class="alert alert-warning"><strong>可信源码风险提示：</strong>保存或下载前请阅读源码和权限声明。</div><div class="card jslab-cloud-source-card"><div class="jslab-cloud-source-toolbar"><span><strong>SHA-256</strong><code>${escapeHtml(row.hash)}</code></span><button class="btn btn-sm btn-outline-secondary" type="button" data-copy-source>复制源码</button></div><pre class="jslab-cloud-source"><code>${escapeHtml(row.source)}</code></pre></div></section>${reportModal}`, row.name);
+    return page(req, res, `<section class="plugin-page jslab-cloud-page"><header class="plugin-page-header plugin-page-heading"><div><h1 class="plugin-page-heading-title">${escapeHtml(row.name)}</h1><p class="plugin-page-description">${escapeHtml(row.description || '作者未提供说明。')}</p><p class="text-body-secondary">适配设备：${escapeHtml(deviceLabels(row.supported_devices))}</p><p class="text-body-secondary">作者：<a href="/jslab-cloud/workspace/authors/${row.owner_user_id}">${escapeHtml(author?.display_name || author?.username || `用户 ${row.owner_user_id}`)}</a></p>${metrics(row.id, stats)}</div><div class="plugin-actions">${save}<a class="btn btn-outline-primary" href="/jslab-cloud/workspace/market/${row.id}/download">下载源码</a>${like}${report}${button('返回市场', '/jslab-cloud/workspace/market', 'btn btn-outline-secondary')}</div></header><div class="alert alert-warning"><strong>可信源码风险提示：</strong>保存或下载前请阅读源码和权限声明。</div><div class="card jslab-cloud-source-card"><div class="jslab-cloud-source-toolbar"><span><strong>SHA-256</strong><code>${escapeHtml(row.hash)}</code></span><button class="btn btn-sm btn-outline-secondary" type="button" data-copy-source>复制源码</button></div><pre class="jslab-cloud-source"><code>${escapeHtml(row.source)}</code></pre></div></section>${reportModal}`, row.name);
   });
 
   ctx.routes.frontend.get('/workspace/market/:id/download', (req, res) => {
     const row = ctx.db.prepare(`SELECT id,name,source FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
     if (!row) return res.status(404).send('未找到市场脚本');
+    if (req.method !== 'HEAD') recordMarketDownload(row.id);
+    res.setHeader('Cache-Control', 'no-store');
     const filename = scriptFilename(row.name);
     res.setHeader('Content-Disposition', `attachment; filename="jslab-${row.id}.js"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     return res.type('text/javascript; charset=utf-8').send(row.source);
   });
 
   ctx.routes.frontend.get('/workspace/authors/:id', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const user = currentUser(req);
     const authorId = Number(req.params.id);
     const author = ctx.users.get(authorId);
     if (!author) return res.status(404).send('未找到作者');
-    const rows = ctx.db.prepare(`SELECT id,name,description FROM ${marketScripts} WHERE owner_user_id=? AND status='published' ORDER BY updated_at DESC`).all(authorId);
-    const items = rows.map((row) => `<article class="card jslab-cloud-market-item"><div class="card-body"><div class="jslab-cloud-market-content"><div class="jslab-cloud-market-title"><h2 class="h5"><a href="/jslab-cloud/workspace/market/${row.id}">${escapeHtml(row.name)}</a></h2></div><p class="jslab-cloud-market-description">${escapeHtml(row.description || '作者未提供说明。')}</p></div><div class="plugin-actions jslab-cloud-market-actions"><a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}">查看详情</a><a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}/download">下载</a></div></div></article>`).join('');
+    const rows = ctx.db.prepare(`SELECT id,name,description,supported_devices,status FROM ${marketScripts} WHERE owner_user_id=? AND status='published' ORDER BY updated_at DESC`).all(authorId);
+    const items = rows.map((row) => {
+      const stats = marketEngagement(row.id, user);
+      return `<article class="card jslab-cloud-market-item"><div class="card-body"><div class="jslab-cloud-market-content"><div class="jslab-cloud-market-title"><h2 class="h5"><a href="/jslab-cloud/workspace/market/${row.id}">${escapeHtml(row.name)}</a></h2></div><p class="jslab-cloud-market-description">${escapeHtml(row.description || '作者未提供说明。')}</p><p class="text-body-secondary">适配设备：${escapeHtml(deviceLabels(row.supported_devices))}</p>${metrics(row.id, stats)}</div><div class="plugin-actions jslab-cloud-market-actions"><a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}">查看详情</a><a class="btn btn-sm btn-outline-secondary" href="/jslab-cloud/workspace/market/${row.id}/download">下载</a>${likeButton(req, row, stats, user, `/jslab-cloud/workspace/authors/${authorId}`, true)}</div></div></article>`;
+    }).join('');
     const name = author.display_name || author.username;
     return page(req, res, `<section class="plugin-page jslab-cloud-page"><header class="plugin-page-header plugin-page-heading"><div><p class="plugin-page-eyebrow">作者</p><h1 class="plugin-page-heading-title">${escapeHtml(name)}</h1><p class="plugin-page-description">已发布的 JSLab 脚本。</p></div><div class="plugin-actions">${button('返回市场', '/jslab-cloud/workspace/market', 'btn btn-outline-secondary')}</div></header><div class="jslab-cloud-market-grid">${items || '<div class="jslab-cloud-empty"><h2>暂无公开脚本</h2></div>'}</div></section>`, name);
   });
@@ -78,7 +106,7 @@ function registerMarketPages(ctx, options, view) {
   const unpublish = (userId, id) => ctx.db.transaction(() => {
     const row = ctx.db.prepare(`SELECT id FROM ${marketScripts} WHERE id=? AND owner_user_id=?`).get(id, userId);
     if (!row) return null;
-    ctx.db.prepare(`UPDATE ${marketScripts} SET status='draft',pending_name=NULL,pending_description=NULL,pending_tags=NULL,pending_source=NULL,pending_hash=NULL,pending_checksum=NULL,pending_status=NULL,updated_at=datetime('now') WHERE id=?`).run(row.id);
+    ctx.db.prepare(`UPDATE ${marketScripts} SET status='draft',pending_name=NULL,pending_description=NULL,pending_tags=NULL,pending_source=NULL,pending_hash=NULL,pending_checksum=NULL,pending_supported_devices=NULL,pending_status=NULL,updated_at=datetime('now') WHERE id=?`).run(row.id);
     return row;
   })();
 

@@ -1,20 +1,24 @@
+@font-face { font-family:'JSLabActive'; src:url('/common/fonts/active.ttf'); font-weight:normal; font-style:normal; }
+.ui-text, .control-label, .control-detail, .value-label, .value-text,
+.title-text, .title-marquee, .console-log, .console-error, .error-text { font-family:JSLabActive; }
 .page { width:432px; height:514px; overflow:hidden; background-color:#000000; }
 .content { width:432px; height:514px; flex-direction:column; }
 .content-inner { width:432px; flex-shrink:0; }
 .node-wrap { position:absolute; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; }
+.ui-image { flex-shrink:0; }
 .ui-text { width:100%; flex-shrink:0; text-overflow:ellipsis; }
-.ui-button { width:100%; height:100%; padding:0px 8px; justify-content:center; align-items:center; }
-.control-card { width:100%; height:100%; padding:12px 16px; flex-direction:row; align-items:center; }
-.control-copy { flex-direction:column; }
-.control-label { width:100%; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
-.control-detail { width:100%; font-size:20px; line-height:26px; lines:2; text-overflow:ellipsis; }
-.ui-switch { width:68px; margin-left:8px; }
-.value-card { width:100%; height:100%; padding:12px 16px; flex-direction:column; justify-content:center; }
-.value-header { width:100%; flex-direction:row; align-items:center; }
-.value-label { flex:1; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
-.value-text { font-size:21px; line-height:28px; font-weight:bold; margin-left:6px; }
-.ui-slider { width:100%; margin-top:8px; padding-left:0px; padding-right:0px; }
-.ui-progress { width:100%; margin-top:12px; stroke-width:12px; }
+.node-button { padding:0px 8px; flex-direction:row; }
+.node-switch { padding:12px 16px; flex-direction:row; justify-content:flex-start; }
+.node-slider, .node-progress { padding:12px 16px; align-items:flex-start; }
+.control-copy { flex-direction:column; flex-shrink:0; }
+.control-label { flex-shrink:0; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.control-detail { flex-shrink:0; font-size:20px; line-height:26px; lines:2; text-overflow:ellipsis; }
+.ui-switch { width:68px; flex-shrink:0; margin-left:8px; }
+.value-header { height:28px; flex-shrink:0; flex-direction:row; align-items:center; }
+.value-label { flex:1; min-width:0px; font-size:23px; line-height:28px; font-weight:bold; lines:1; text-overflow:ellipsis; }
+.value-text { flex-shrink:0; font-size:21px; line-height:28px; font-weight:bold; margin-left:6px; }
+.ui-slider { flex-shrink:0; margin-top:8px; padding-left:0px; padding-right:0px; }
+.ui-progress { flex-shrink:0; margin-top:12px; stroke-width:12px; }
 .empty-card, .error-card { position:absolute; left:30px; width:372px; padding:16px 18px; border-radius:32px; background-color:#24262a; flex-direction:column; }
 .empty-title, .error-title { color:#ffffff; font-size:28px; line-height:36px; font-weight:bold; }
 .empty-detail { color:#999999; font-size:20px; line-height:28px; margin-top:6px; }

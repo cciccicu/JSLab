@@ -2,8 +2,8 @@
 <template>
   <div class="page" style="flex-direction: column;">
 
-    <!-- 文件名、模板按创建流程排列。 -->
-    <div class="field-group">
+    <!-- 两个字段使用各设备 CSS 固定定位，避免键盘切换时 Flex 重排。 -->
+    <div class="field-group filename-field">
       <text class="label">文件名（自动补 .js）</text>
       <div class="input-box" @click="toggleKeyboard">
         <text class="input-text">{{fileName}}_</text>
@@ -11,8 +11,8 @@
     </div>
 
 
-    <div class="field-group {{hideInputMethod ? '' : 'template-hidden'}}">
-      <text class="label">模板</text>
+    <div class="field-group template-field">
+      <text class="label">模板（滑动选择）</text>
       <picker class="picker"
               type="text"
               selected="{{selectedTemplateIndex}}"

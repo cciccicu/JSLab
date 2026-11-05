@@ -1,44 +1,23 @@
-# JSLab AstroBox 同步插件
+# JSLab Sync for AstroBox
 
-这是 AstroBox v2 第三方插件，用于管理包名为 `icu.ccicc.jslab` 的 JSLab 手环应用。
-
-## 功能
-
-- 发现已连接设备并显示连接状态；
-- 刷新、新建、编辑、重命名、删除、上传和下载手环脚本；
-- 使用 UI V3 `TEXTAREA` 编辑多行文本；
-- 使用请求 ID、分块确认和 15 秒超时处理大文件与断线；
-- 接收手环端文件变化事件并合并刷新请求；
-- 同名上传前要求确认覆盖，新建和重命名默认不覆盖；
-- 字体更换入口当前显示“即将上线”。
-
-## 运行边界
-
-插件是 `wasm32-wasip2` WebAssembly Component，只通过 AstroBox Host API 工作：
-
-- `device`：发现当前设备；
-- `thirdpartyapp`：启动 `icu.ccicc.jslab`；
-- `register`：注册 Interconnect 接收；
-- `interconnect`：发送 JSLab RPC；
-- `dialog`：选择文件和保存下载内容；
-- `timer`：处理超时；
-- `ui-v3`：渲染 AstroBox 界面。
-
-插件不包含 Android 应用、证书、签名或官方 Android 同步器配对逻辑。
+AstroBox v2 的 WASI 插件，通过 Host API 与 JSLab 设备端通信，支持脚本管理、编辑、导入导出、脚本数据编辑和云请求转发。当前要求 API Level 3，字体入口尚未开放。
 
 ## 构建
 
-需要 Rust 和 `wasm32-wasip2`：
+准备 Rust 工具链，在本目录执行：
 
 ```powershell
 rustup target add wasm32-wasip2
+cargo test --locked
 .\build.ps1
 ```
 
-脚本在 `dist/` 生成带版本号的 `JSLab-Sync-<版本>.abp`，其中包含 manifest、图标和 WASM Component。
-官方源分发仓库与后续更新流程见 [官方源分发说明](MARKET.md)。
+依赖已缓存时可使用 `build.ps1 -Offline`。输出为 `dist/JSLab-Sync-<版本>.abp`，同时保留 manifest、图标和 WASM Component，构建不连接设备。
 
-## JSLab 统一运行器
+## 文档
 
-全部 `.js` 共用同一运行契约，`.ui.js` 保留为普通文件名。此插件原本按 `.js` 校验/传输，不需要更改 WIT 或 RPC 协议版本。
-cloudProxy 原样转发请求 body 与服务器 JSON，包含 runtimeContract；AI 契约验证由快应用与云插件负责，文件同步不受影响。
+- [插件开发与运行边界](../docs/development/astrobox.md)
+- [官方源发布流程](../docs/development/astrobox-release.md)
+- [云代理协议](../docs/protocols/cloud-proxy.md)
+- [脚本数据同步扩展](../docs/protocols/script-storage.md)
+- [用户操作指南](../docs/guide/sync-guide.md)

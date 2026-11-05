@@ -77,18 +77,21 @@ function registerDeviceApi(state, services) {
     json(res, 200, { runtimeContract: RUNTIME_CONTRACT, entitlement: { cloudEnabled: entitlement.cloud_enabled === 1, aiEnabled: entitlement.ai_enabled === 1, aiCreditCents: Number(entitlement.ai_credit_cents) || 0 } });
   });
   ctx.routes.frontend.post('/api/cloud/device/ai/generate', requireDevice, async (req, res) => {
-    const user = deviceUser(req); const result = await ai.generateAiSource(user, req.body || {});
+    const user = deviceUser(req); const result = await ai.generateAiSource(user, req.body || {}, req.query?.jslabVersion);
     if (result.error) return json(res, result.status, { error: result.error });
     return json(res, 200, result);
   });
   ctx.routes.frontend.get('/api/cloud/device/market', (req, res) => {
     if (req.query?.mine === '1') return requireDevice(req, res, () => market.listMarket(req, res, deviceUser(req)));
-    return market.listMarket(req, res);
+    return market.listMarket(req, res, deviceUser(req));
   });
   ctx.routes.frontend.get('/api/cloud/device/market/:id/source', (req, res) => {
     if (req.query?.mine === '1') return requireDevice(req, res, () => market.getMarketSource(req, res, deviceUser(req)));
-    return market.getMarketSource(req, res);
+    return market.getMarketSource(req, res, deviceUser(req));
   });
+  ctx.routes.frontend.post('/api/cloud/device/market/:id/download', (req, res) => market.downloadMarket(req, res, deviceUser(req)));
+  ctx.routes.frontend.post('/api/cloud/device/market/:id/like', requireDevice,
+    (req, res) => market.likeMarket(req, res, deviceUser(req)));
   ctx.routes.frontend.post('/api/cloud/device/market/:id/report', requireDevice,
     (req, res) => market.reportMarket(req, res, deviceUser(req)));
   ctx.routes.frontend.post('/api/cloud/device/market/:id/delete', requireDevice,

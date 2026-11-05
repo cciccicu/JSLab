@@ -1,8 +1,8 @@
 {
   "package": "icu.ccicc.jslab",
   "name": "JSLab",
-  "versionName": "2.0.3",
-  "versionCode": 2030,
+  "versionName": "2.0.7",
+  "versionCode": 2070,
   "minPlatformVersion": 1000,
   "icon": "/common/logo.png",
   "deviceTypeList": [

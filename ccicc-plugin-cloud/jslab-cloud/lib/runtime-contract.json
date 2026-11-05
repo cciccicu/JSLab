@@ -1,6 +1,6 @@
 {
   "identity": "jslab-unified-open-ui",
-  "sourceBytes": 49152,
+  "sourceBytes": 0,
   "logs": {
     "entries": 64,
     "characters": 6144,
@@ -11,8 +11,8 @@
     "items": 100
   },
   "ui": {
-    "textCharacters": 1024,
-    "titleCharacters": 80,
+    "textCharacters": 0,
+    "titleCharacters": 0,
     "performanceGuidance": {
       "declarations": 40,
       "paintedNodes": 160,
@@ -36,6 +36,7 @@
       "toast"
     ],
     "ui": [
+      "getWidth",
       "render",
       "show",
       "hide",
@@ -59,7 +60,9 @@
       "row",
       "column",
       "stack",
-      "qrcode"
+      "qrcode",
+      "image",
+      "canvas"
     ],
     "console": [
       "log",

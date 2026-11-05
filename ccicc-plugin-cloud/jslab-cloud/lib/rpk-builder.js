@@ -109,7 +109,7 @@ function createRpkBuilder(root=path.resolve(__dirname,'..')) {
     return templates.get(target);
   }
   return async function build(script,options,signing) {
-    if (typeof script.source!=='string' || Buffer.byteLength(script.source)>48*1024) throw invalid('脚本不能超过 48 KiB');
+    if (typeof script.source!=='string') throw invalid('脚本源码必须是字符串');
     const target=options.target || 'bandpro';
     if (!['bandpro','redmi-watch5'].includes(target)) throw invalid('请选择支持的目标设备');
     const files=new Map((await load(target)).map(file=>[file.path,file.content]));

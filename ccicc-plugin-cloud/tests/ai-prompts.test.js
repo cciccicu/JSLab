@@ -2,33 +2,44 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildAiSystemPrompt, buildAiUserPrompt } = require('../jslab-cloud/lib/ai-prompts');
+const { buildAiSystemPrompt, buildAiUserPrompt, buildAiPromptMarkdown } = require('../jslab-cloud/lib/ai-prompts');
 const { estimateTokenCount } = require('../jslab-cloud/lib/ai-service');
 const vela = path.join(__dirname, '../../vela-quickapp');
 const prompt = buildAiSystemPrompt();
 const examples = [...prompt.matchAll(/```javascript\n([\s\S]*?)\n```/g)].map(match => new Function('console', 'ui', 'dialog', 'script', 'system', match[1]));
 
+test('downloadable Markdown preserves the complete built-in prompt and provides separate request templates', () => {
+  for (const version of [1, 2, 3]) {
+  const markdown = buildAiPromptMarkdown(version);
+  const system = markdown.split('## 系统提示词\n\n')[1].split('\n\n## 需求填写模板')[0];
+  assert.equal(system.replace(/^### ([^\n]+)\n\n/gm, '$1\n'), buildAiSystemPrompt(version));
+  assert.match(markdown, /## 使用方法/);
+  assert.match(markdown, /### 创建脚本/);
+  assert.match(markdown, /### 改写脚本/);
+  assert.match(markdown, /现有源码（改写材料）/);
+  }
+  const { createHash } = require('node:crypto');
+  assert.equal(createHash('sha256').update(buildAiSystemPrompt(1)).digest('hex'), '4e582c78e9cb63a0046d9c69651ce563c8c981fba4f0fc1bd1b21d279ab40673');
+  for (const icons of Object.values(require('../jslab-cloud/lib/ai-prompt-emoji.json').groups)) assert.ok(prompt.includes(icons));
+  assert.match(prompt, /清单没有合适的图标时直接用中文或英文文字/);
+});
+
 test('AI reference covers every exposed native module and documented method', () => {
   const runtime = fs.readFileSync(path.join(vela, 'src/utils/runtime/scriptRuntimeApi.js'), 'utf8');
   const systemBlock = runtime.slice(runtime.indexOf('system: {'));
   const exposed = [...systemBlock.matchAll(/^      (\w+)(?:[,:]|\r?$)/gm)].map(match => match[1]);
-  const modules = {
-    device: ['basic/device', 'device'], files: ['data/file', 'file'], http: ['network/fetch', 'fetch'],
-    download: ['network/request', 'request'], upload: ['network/uploadtask', 'uploadtask'], companion: ['network/interconnect', 'interconnect'],
-    network: ['system/network', 'network'], display: ['system/brightness', 'brightness'], battery: ['system/battery', 'battery'],
-    location: ['system/geolocation', 'geolocation'], vibration: ['system/vibrator', 'vibrator'], events: ['system/event', 'event'],
-    sensors: ['system/sensor', 'sensor'], recorder: ['system/record', 'record'], audio: ['other/audio', 'audio'], crypto: ['security/crypto', 'crypto']
-  };
+  const { modules } = require('./fixtures/native-api-methods.json');
   assert.deepEqual(exposed.sort(), Object.keys(modules).sort());
   const renames = { 'fetch.fetch': 'request', 'request.download': 'start', 'request.onDownloadComplete': 'wait', 'uploadtask.uploadFile': 'file' };
-  for (const [alias, [file, native]] of Object.entries(modules)) {
+  for (const [alias, { native, source, methods }] of Object.entries(modules)) {
     assert.ok(prompt.includes(`system.${alias}`), alias);
     assert.ok(prompt.includes(`@system.${native}`), native);
-    const docs = ['zh', 'en'].map(language => fs.readFileSync(path.join(vela, `VelaDocs/docs/${language}/features/${file}.md`), 'utf8')).join('\n');
-    const methodPattern = new RegExp(`^### (?:UploadTask )?${native}\\.(\\w+)\\s*\\(`, 'gm');
-    const methods = [...docs.matchAll(methodPattern)].map(match => renames[`${native}.${match[1]}`] || match[1]);
+    assert.match(source, /^https:\/\/iot\.mi\.com\/vela\/quickapp\/zh\/features\//);
     assert.ok(methods.length, alias);
-    for (const method of methods) assert.match(prompt, new RegExp(`\\b${method}\\(`), `${alias}.${method}`);
+    for (const method of methods) {
+      const exposedMethod = renames[`${native}.${method}`] || method;
+      assert.match(prompt, new RegExp(`\\b${exposedMethod}\\(`), `${alias}.${exposedMethod}`);
+    }
   }
   assert.match(prompt, /hashDigest[\s\S]*?同步返回摘要字符串/);
   assert.match(prompt, /system\.events[\s\S]*?同步返回订阅 id/);
@@ -74,10 +85,7 @@ test('storage example saves zero, preserves data on cancel, and returns rejectio
 });
 
 test('UI example runs against the real UI compiler and updates without render side effects', async () => {
-  const layoutSource = fs.readFileSync(path.join(vela, 'src/utils/runtime/uiLayout.js'), 'utf8');
-  const layoutUrl = 'data:text/javascript;base64,' + Buffer.from(layoutSource).toString('base64');
-  const runtimeSource = fs.readFileSync(path.join(vela, 'src/utils/runtime/uiRuntime.js'), 'utf8').replace("'./uiLayout.js'", JSON.stringify(layoutUrl));
-  const { createUiSession } = await import('data:text/javascript;base64,' + Buffer.from(runtimeSource).toString('base64'));
+  const { createUiSession } = await require('../../vela-quickapp/tests/helpers/loadUi.cjs').loadUi();
   let nodes; let hidden = false;
   const session = createUiSession({ top: () => 84, show: () => true, hide: () => { hidden = true; }, publish: next => { nodes = next; }, error: error => { throw error; } });
   examples[1]({}, session.ui, {}, {}, {});

@@ -10,11 +10,14 @@
         <text class="name {{busy ? 'disabled-text' : ''}}">{{script.name}}</text>
         <text class="description {{busy ? 'disabled-text' : ''}}">{{script.description || '没有说明'}}</text>
         <text class="author {{busy ? 'disabled-text' : ''}}">作者：{{script.authorName || '未知'}}</text>
+        <text class="meta">适配：{{script.deviceLabel}}</text>
+        <text class="meta">下载 {{script.downloadCount}} · 点赞 {{script.likeCount}}</text>
         <text class="meta {{busy ? 'disabled-text' : ''}}">{{mine ? script.statusText : '点击选择后操作'}}</text>
       </div>
       <div if="{{shownCount < scripts.length}}" class="item load-more" @click="loadMore">
         <text class="load-more-text">显示更多（{{shownCount}}/{{scripts.length}}）</text>
       </div>
+      <div class="footer-spacer"></div>
     </scroll>
     <div class="toolbar">
       <div class="search" @click="search">
@@ -24,7 +27,7 @@
       </div>
       <div class="mode" @click="toggleMode">
 
-        <text class="mode-text">{{mine ? '我的发布' : '市场脚本'}}</text>
+        <text class="mode-text">{{mine ? '市场脚本' : '我的发布'}}</text>
 
       </div>
       <img src="/common/images/rerun.png" class="refresh-action {{loading || busy ? 'disabled-icon' : ''}}" @click="load" />
@@ -35,10 +38,12 @@
     <img static src="/common/images/back.png" class="back" @click="goBack" />
     <img src="/common/images/upload.png" class="upload {{loading || busy ? 'disabled-icon' : ''}}" @click="upload" />
     <div if="{{selectedScriptIndex !== -1}}" class="actions">
-      <img src="/common/images/market-view.png" class="action" @click="viewSelected" />
-      <img src="/common/images/download.png" class="action" @click="downloadSelected" />
-      <img if="{{mine}}" src="/common/images/delete.png" class="action" @click="deleteSelected" />
-      <img if="{{mine}}" src="/common/images/upload.png" class="action" @click="reuploadSelected" />
+      <img src="/common/images/market-view.png" class="action {{mine && visibleScripts[selectedScriptIndex].canLike ? 'action-compact' : ''}}" @click="viewSelected" />
+      <img src="/common/images/download.png" class="action {{mine && visibleScripts[selectedScriptIndex].canLike ? 'action-compact' : ''}}" @click="downloadSelected" />
+      <img if="{{visibleScripts[selectedScriptIndex].canLike && !visibleScripts[selectedScriptIndex].liked}}" src="/common/images/market-like.png" class="action {{mine ? 'action-compact' : ''}}" @click="likeSelected" />
+      <img if="{{visibleScripts[selectedScriptIndex].canLike && visibleScripts[selectedScriptIndex].liked}}" src="/common/images/market-liked.png" class="action {{mine ? 'action-compact' : ''}}" @click="likeSelected" />
+      <img if="{{mine}}" src="/common/images/delete.png" class="action {{visibleScripts[selectedScriptIndex].canLike ? 'action-compact' : ''}}" @click="deleteSelected" />
+      <img if="{{mine}}" src="/common/images/upload.png" class="action {{visibleScripts[selectedScriptIndex].canLike ? 'action-compact' : ''}}" @click="reuploadSelected" />
       <img if="{{!mine}}" src="/common/images/market-report.png" class="action" @click="reportSelected" />
     </div>
     <div if="{{networkStatus}}" class="network-shade" @click="loadingTap">
@@ -51,6 +56,7 @@
 </template>
 
 <script>
+import { confirmMarketDownload } from "../../../utils/cloud/marketDevices.js";
 import { back, push } from '../../../utils/core/routeManager.js';
 import { errorMessage } from '../../../utils/cloud/cloudError.js';
 import { normalizeMarketSaveName, suggestMarketFilename } from '../../../utils/cloud/marketFilename.js';
@@ -73,6 +79,8 @@ export default {
     query: '',
     mine: false,
     selectedScriptIndex: -1,
+    submissionNotice: '',
+    submittedMarketId: 0,
     nowTime: '00:00',
     pageActive: true
   },
@@ -83,14 +91,24 @@ export default {
     startPageClock(this);
     setNetworkFeedbackVisible(this, true);
     this.$app.$def.deliverDialog(this);
+    const submitted = this.$app.$def.marketSubmissionResult;
+    if (submitted) {
+      this.$app.$def.marketSubmissionResult = null;
+      this.mine = true;
+      this.query = '';
+      this.submissionNotice = submitted.statusText || '';
+      this.submittedMarketId = Number(submitted.marketId);
+    }
     if (!this.initialized) {
       this.initialized = true;
+      this.$app.$def.marketRefreshNeeded = false;
       enterNetworkPage(this, () => this.load());
       return;
     }
-    if (this.$app.$def.marketRefreshNeeded) {
+    if (this.$app.$def.marketRefreshNeeded || submitted) {
       this.$app.$def.marketRefreshNeeded = false;
       this.load();
+      return;
     }
   },
   onHide() {
@@ -120,28 +138,29 @@ export default {
     startNetworkFeedback(this, '正在读取 JS 市场');
     this.$app.$def.getCloudClients().marketClient.listMarketScripts(this.query, this.mine).then(scripts => {
       if (!this.pageActive) return;
-      this.scripts = Array.isArray(scripts) ? scripts.map(script => Object.assign({}, script, {
-        statusText: {
-          pending: '待审核',
-          published: '已发布',
-          rejected: '已拒绝',
-          draft: '草稿'
-        }[script.status] || '状态未知'
-      })) : [];
-      this.shownCount = Math.min(PAGE_SIZE, this.scripts.length);
-      this.visibleScripts = this.scripts.slice(0, this.shownCount);
-      this.statusText = this.scripts.length === 0 ? this.mine ? '暂无自己的发布' : '暂无可用脚本' : '';
+      this.applyScripts(scripts);
     }).catch(error => {
       if (!this.pageActive) return;
       console.error('Failed to load JS market:', error);
       this.clearResults();
-      this.statusText = errorMessage(error, '读取 JS 市场') + '，点刷新按钮重试';
+      this.statusText = errorMessage(error, '读取 JS 市场', { codeFirst: true }) + '，点刷新按钮重试';
     }).then(() => {
       if (this.pageActive) {
         this.loading = false;
         stopNetworkFeedback(this);
       }
     });
+  },
+  applyScripts(scripts) {
+    this.scripts = Array.isArray(scripts) ? scripts.map(script => Object.assign({}, script, {
+      canLike: script.publishedStatus === 'published' || script.status === 'published',
+      statusText: script.statusText || { pending: '待审核', published: '已发布', rejected: '已拒绝', draft: '草稿' }[script.status] || '状态未知'
+    })) : [];
+    this.shownCount = Math.min(PAGE_SIZE, this.scripts.length);
+    this.visibleScripts = this.scripts.slice(0, this.shownCount);
+    const submitted = this.scripts.find(script => Number(script.id) === this.submittedMarketId);
+    if (this.submittedMarketId) this.submissionNotice = submitted ? submitted.statusText : '';
+    this.statusText = this.scripts.length === 0 ? this.mine ? '暂无自己的发布' : '暂无可用脚本' : this.mine ? this.submissionNotice || '' : '';
   },
   loadMore() {
     if (this.loading || this.busy) return;
@@ -199,6 +218,25 @@ export default {
     if (!script) return;
     this.saveAs(script);
   },
+  likeSelected() {
+    const script = this.selectedScript();
+    if (!script || !script.canLike) return;
+    this.busy = true;
+    vibrate('short');
+    startNetworkFeedback(this, script.liked ? '正在取消点赞' : '正在点赞');
+    this.$app.$def.getCloudClients().marketClient.likeMarketScript(script.id, !script.liked).then(stats => {
+      if (!this.pageActive) return;
+      this.scripts = this.scripts.map(item => Number(item.id) === Number(script.id) ? Object.assign({}, item, stats) : item);
+      this.visibleScripts = this.scripts.slice(0, this.shownCount);
+      showToast(stats.liked ? '已点赞' : '已取消点赞');
+    }).catch(error => {
+      if (this.pageActive) showToast(errorMessage(error, '更新点赞'));
+    }).then(() => {
+      if (!this.pageActive) return;
+      this.busy = false;
+      stopNetworkFeedback(this);
+    });
+  },
   deleteSelected() {
     const script = this.selectedScript();
     if (!script || !this.mine || this.busy) return;
@@ -238,7 +276,8 @@ export default {
       marketId: String(script.id),
       marketTitle: script.name,
       marketDescription: script.description || '',
-      marketTags: script.tags || ''
+      marketTags: script.tags || '',
+      marketSupportedDevices: JSON.stringify(script.supportedDevices || ['pro'])
     });
   },
   reportSelected() {
@@ -307,14 +346,19 @@ export default {
   download(script, name, overwrite) {
     if (!this.pageActive) return;
     startNetworkFeedback(this, overwrite ? '正在覆盖本地脚本' : '正在保存市场脚本');
-    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, name, overwrite, this.mine).then(saved => {
+    this.$app.$def.getCloudClients().marketClient.downloadMarketScript(script.id, name, overwrite, this.mine, source => confirmMarketDownload(this, source)).then(saved => {
       if (!this.pageActive) return;
+      this.scripts = this.scripts.map(item => Number(item.id) === Number(script.id) ? Object.assign({}, item, {
+        downloadCount: saved.downloadCount, likeCount: saved.likeCount, liked: saved.liked
+      }) : item);
+      this.visibleScripts = this.scripts.slice(0, this.shownCount);
       stopNetworkFeedback(this);
       this.busy = false;
       showToast((overwrite ? '已覆盖 ' : '已另存为 ') + saved.name);
     }).catch(error => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
+      if (error.message === 'market_download_cancelled') { this.busy = false; return; }
       if (error.message !== 'file_exists' || overwrite) {
         this.busy = false;
         showToast(errorMessage(error, '保存市场脚本 ' + script.name));

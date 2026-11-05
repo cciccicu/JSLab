@@ -1,149 +1,68 @@
 <div align="center">
-  <img src="vela-quickapp/src/common/logo.png" width="96" alt="JSLab Logo" />
+  <img src="vela-quickapp/src/common/logo.png" width="96" alt="JSLab" />
   <h1>JSLab</h1>
-  <p>在手腕上编写、运行和管理 JavaScript</p>
-  <p>
-    <a href="https://github.com/cciccicu/JSLab"><img src="https://img.shields.io/badge/平台-Xiaomi%20Vela-111827?style=flat-square" alt="平台：Xiaomi Vela" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-GPL--3.0-2563eb?style=flat-square" alt="许可证：GPL-3.0" /></a>
-    <a href="docs/architecture.md"><img src="https://img.shields.io/badge/架构-四项目协作-0f766e?style=flat-square" alt="架构：四项目协作" /></a>
-  </p>
+  <p>在手腕上编写、运行和分享 JavaScript</p>
+  <p><a href="https://ccicc.icu/jslab-cloud/downloads">下载安装</a> · <a href="docs/README.md">文档</a> · <a href="CONTRIBUTING.md">参与开发</a> · <a href="LICENSE">GPL-3.0</a></p>
 </div>
 
-JSLab 是一个面向小米 Vela 手环的 JavaScript 开发环境。它把编辑器、脚本运行时、AstroBox 配套端和云端工作区组合成一条完整的创作链路：脚本可以在手环上编写和运行，也可以通过电脑传输、保存到云空间并发布到市场。
+JSLab 是面向小米 Vela 穿戴设备的 JavaScript 开发环境。设备端提供代码编辑器、脚本运行器和原生交互界面；Android 与 AstroBox 配套端用于编辑和传输脚本；JSLab Cloud 提供云空间、作品市场、AI 辅助编写和独立快应用导出。
 
-> 本项目仍处于持续开发阶段。
+脚本在设备上执行，文件由用户主动上传或下载。项目同时维护 Pro 手环与 RW 手表的静态布局，旧脚本和旧客户端接口保持兼容。
 
-## 目录
+## 开始使用
 
-- [你可以用 JSLab 做什么](#你可以用-jslab-做什么)
-- [界面预览](#界面预览)
-- [项目组成](#项目组成)
-- [快速开始](#快速开始)
-- [开发边界](#开发边界)
-- [文档](#文档)
-
-## 你可以用 JSLab 做什么
-
-| 场景 | 能力 |
-| --- | --- |
-| 手环编程 | 创建、编辑、运行、保存、重命名和删除 `.js` 文件（已有 `.ui.js` 名字保留） |
-| 统一运行器 | 所有脚本注入 console/ui/dialog/script/system；UI 返回日志，轻点日志恢复；右上完整重载 |
-| 编辑体验 | 当前编辑器支持字号、语法高亮和高亮阈值；大文件或高亮关闭时自动采用低节点文本渲染 |
-| 电脑协作 | AstroBox 插件支持脚本和字体的浏览、新建、编辑、上传、下载、重命名与删除，并提供分块传输和断线恢复 |
-| 云端工作区 | 云空间按网盘模型保存当前文件；仅在用户主动操作时上传或下载，不执行自动同步 |
-| 独立快应用 | 网页云空间脚本可打包为独立 Vela RPK，支持图标、签名和打包选项，每次成功扣除 ¥0.10 JSLab 额度 |
-| JS 市场 | 浏览详情、查看作者、下载源码、保存到云空间；从云空间发布时自动填充代码，其余市场信息仍由用户填写 |
-| 设备与账户 | 手环发起配对，网页输入配对码或扫描二维码确认；支持激活、充值、AI 代码生成和 Token 计费 |
-| 表盘协作 | JSLab Helper Lua 表盘显示时间与动画，并从快应用端发起字体安装和表盘存活检测 |
-
-## 界面预览
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><img src="vela-quickapp/images/mainInterface.png" width="220" alt="JSLab 主页" /><br /><sub>主页</sub></td>
-      <td align="center"><img src="vela-quickapp/images/newFile.png" width="220" alt="新建文件" /><br /><sub>新建文件</sub></td>
-    </tr>
-    <tr>
-      <td align="center"><img src="vela-quickapp/images/editorInterface.png" width="220" alt="代码编辑器" /><br /><sub>代码编辑器</sub></td>
-      <td align="center"><img src="vela-quickapp/images/settingsInterface.png" width="220" alt="设置" /><br /><sub>设置</sub></td>
-    </tr>
-  </table>
-</div>
+- 安装应用：[版本与安装指南](docs/guide/installation.md)。
+- 第一次写脚本：[快速上手](docs/guide/getting-started.md)、[脚本基础](docs/guide/script-basics.md)。
+- 连接配套端：[Android 与 AstroBox 同步](docs/guide/sync-guide.md)。
+- 使用云端：[云账户与云空间](docs/guide/cloud-guide.md)、[作品市场](docs/guide/market-guide.md)。
+- 深入实现：[运行器、编辑器与快应用打包原理](docs/guide/how-jslab-works.md)。
 
 ## 项目组成
 
-```text
-JSLab/
-├─ vela-quickapp/          手环端 Vela 快应用（.rpk）
-├─ vela-rpk-template/      独立脚本快应用的预编译引擎模板
-├─ astrobox-plugin-sync/   AstroBox 同步插件（.abp）
-├─ ccicc-plugin-cloud/     ccicc.icu 云端插件与开发 Kit（.zip）
-├─ vela-luawatchface/      JSLab Helper Lua 表盘（.face）
-└─ docs/                   架构、职责和交付说明
+本仓库采用多项目结构，各端独立安装依赖、构建和发布。根目录不安装所有平台的工具链。
+
+| 目录 | 职责 | 开发入口 |
+| --- | --- | --- |
+| [vela-quickapp](vela-quickapp/README.md) | Vela 设备端编辑器、运行器与原生 UI | [快应用开发](docs/development/quickapp.md) |
+| [android-sync](android-sync/README.md) | 原生 Android 同步器与代码编辑器 | [Android 开发](docs/development/android.md) |
+| [astrobox-plugin-sync](astrobox-plugin-sync/README.md) | AstroBox v2 WASI 同步插件 | [AstroBox 开发](docs/development/astrobox.md) |
+| [ccicc-plugin-cloud](ccicc-plugin-cloud/README.md) | ccicc.icu 的 JSLab Cloud 插件 | [云端开发与部署](docs/development/cloud.md) |
+| [vela-rpk-template](vela-rpk-template/README.md) | 独立快应用的预编译引擎模板 | [模板维护](docs/development/rpk-template.md) |
+| [vela-luawatchface](vela-luawatchface/README.md) | JSLab Helper Lua 表盘 | [表盘开发](docs/development/watchface.md) |
+| [docs](docs/README.md) | 使用指南、接口、架构、协议与开发文档 | 按读者和任务组织 |
+| [types](types/runtime-api.d.ts) | 脚本环境的 TypeScript 类型声明 | 在编辑器中提供补全 |
+| [examples](examples/README.md) | 独立脚本示例与人工验收脚本 | 可导入设备运行 |
+| [scripts](scripts/check-repository.cjs) | 仓库结构检查与本地清理 | 不连接设备 |
+
+## 从源码开始
+
+```sh
+git clone https://github.com/cciccicu/JSLab.git
+cd JSLab
+node scripts/check-repository.cjs
 ```
 
-```mermaid
-flowchart LR
-    Watch["小米 Vela 手环<br/>JSLab 快应用"] <-->|Interconnect| AB["AstroBox<br/>同步插件"]
-    Watch <-->|手动上传 / 下载| Cloud["ccicc.icu<br/>JSLab Cloud"]
-    Cloud --> Market[JS 市场]
-    Face["JSLab Helper<br/>Lua 表盘"] -.后台服务与字体检测.- Watch
-```
+JavaScript 构建与检查使用 Node.js 24；依赖版本由各项目的锁文件固定。按需要选择一个项目，无需一次安装全部工具链。
 
-四个主要项目各自维护构建系统和运行时边界。`vela-rpk-template` 从手环端同步脚本引擎，
-在开发时编译一次，云端使用其静态模板完成内存打包与签名，详见[模板说明](vela-rpk-template/README.md)。
-详细的所有权关系与交付产物见[项目架构](docs/architecture.md)。
-
-## 快速开始
-
-### 构建手环端
-
-```powershell
+```sh
+# 设备端：安装依赖、检查并构建 Pro 调试包
 cd vela-quickapp
-npm install
-npm run lint
-npm run release
+npm ci
+npm run check:contract
+npm run check:devices
+npm run build:bandpro
 ```
 
-输出为 `dist/*.rpk`。需要 Node.js 和 AIoT 快应用工具链。
+RW 构建、社区版、签名与产物位置见[设备布局与构建](docs/development/device-layouts.md)。Android 需要 JDK 17 或 21、Android SDK 36 和官方穿戴 SDK；AstroBox 需要 Rust 与 `wasm32-wasip2`；表盘编译器由开发者自行准备。各项目 README 提供对应的最短构建步骤。
 
-### 构建 AstroBox 插件
+云端插件可直接使用仓库内的预编译 RPK 模板，普通云端开发无需先编译设备端。更改运行引擎后，必须按[模板维护说明](docs/development/rpk-template.md)重新生成两种模板。
 
-```powershell
-cd ..\astrobox-plugin-sync
-.\build.ps1
-```
+## 开发与发布
 
-输出为 `dist/JSLab-Sync-<版本>.abp`。Rust 工具链需要安装 `wasm32-wasip2` target。
+阅读[架构与模块边界](docs/development/architecture.md)、[贡献指南](CONTRIBUTING.md)和[发布流程](docs/development/releasing.md)。仓库检查与 CI 验证文档、运行契约及可在主机执行的测试；设备安装、模拟器和生产部署需要单独执行。
 
-### 打包云端插件
+所有人工维护的长文档集中在 `docs/`。云端帮助从 `docs/guide/` 和 `types/` 生成，发布包自带所需资源。生成文件、本地工具、私钥、SDK 二进制和安装包不作为源码提交，具体边界见[文档与仓库维护](docs/development/repository.md)。
 
-```powershell
-cd ..\ccicc-plugin-cloud\jslab-cloud
-npm install
-npm test
-npm run pack -- .\ ..\dist\jslab-cloud-2.0.1.zip
-```
+## 许可证与第三方组件
 
-云端插件安装到 ccicc.icu 后，可在 `/jslab-cloud/workspace` 使用云空间和市场功能。
-内置使用指南位于 `/jslab-cloud/docs`，通过小例子学习脚本、交互界面、云空间和作品分享。
-
-### 构建 Lua 表盘
-
-```powershell
-cd ..\..\vela-luawatchface
-python -m pip install -r requirements.txt
-.\scripts\build_face.ps1
-```
-
-输出为 `bin\JSLab Helper.face`。`pushlua.ps1` 可用于 ADB 部署和热重载。
-
-## 开发边界
-
-- 手环与云端之间没有自动同步，所有文件传输都由用户明确发起；
-- AstroBox 通过 Host API 和 Interconnect 工作，不读取快应用私有目录；
-- 云端市场条目是独立发布快照，删除云空间文件不会删除已发布内容；
-- 生成 API 和审核 API 分开配置，服务端不会把服务商密钥、系统提示词或设备 Token 下发到脚本；
-- Lua 表盘是独立运行时资源，不会打入手环 `.rpk` 或 AstroBox `.abp`；
-
-### 清理本地产物
-
-在仓库根目录执行 `./scripts/clean-local-artifacts.ps1` 预览，传入 `-Apply` 执行清理，
-或传入 `-Apply -WhatIf` 检查执行计划。脚本仅清理 Git 已忽略且未跟踪的临时目录、
-构建缓存、历史归档和旧安装包，保留当前 manifest 版本的包、依赖、签名和宣传素材。
-构建目录、安装包、Python 缓存及 `vela-quickapp/output/` 不纳入 Git。
-
-## 文档
-
-- [项目架构与职责边界](docs/architecture.md)
-- [手环端 UI API](vela-quickapp/docs/UI_API.md)
-- [统一脚本运行契约](vela-quickapp/docs/runtime-api.md)
-- [手环端开发说明](vela-quickapp/README.md)
-- [AstroBox 同步插件](astrobox-plugin-sync/README.md)
-- [云端插件与市场](ccicc-plugin-cloud/README.md)
-- [Lua 表盘](vela-luawatchface/README.md)
-
-## 许可证
-
-JSLab 采用 [GPL-3.0](LICENSE) 许可证。使用、修改或分发本项目及其衍生作品时，请遵守许可证条款。
+项目采用 [GPL-3.0](LICENSE)。第三方代码、字体、语法文件与工具保留各自许可，详见[第三方组件说明](THIRD_PARTY_NOTICES.md)。官方穿戴 SDK 和表盘编译器由开发者按上游条件自行获取，不随本仓库源码重新授权。

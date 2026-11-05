@@ -1,0 +1,76 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+      - run: node scripts/check-repository.cjs
+
+  javascript:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            vela-quickapp/package-lock.json
+            vela-rpk-template/package-lock.json
+            ccicc-plugin-cloud/jslab-cloud/package-lock.json
+      - run: npm ci
+        working-directory: vela-quickapp
+      - run: npm ci
+        working-directory: vela-rpk-template
+      - run: npm ci
+        working-directory: ccicc-plugin-cloud/jslab-cloud
+      - run: npm run check:devices
+        working-directory: vela-quickapp
+      - run: npm run lint
+        working-directory: vela-quickapp
+      - run: npm test
+        working-directory: vela-quickapp
+      - run: npm test
+        working-directory: vela-rpk-template
+      - run: npm test
+        working-directory: ccicc-plugin-cloud/jslab-cloud
+      - run: npm run pack
+        working-directory: ccicc-plugin-cloud/jslab-cloud
+
+  astrobox:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: astrobox-plugin-sync
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo +stable test --locked
+      - run: rustup target add wasm32-wasip2 --toolchain stable
+      - run: cargo +stable build --locked --release --target wasm32-wasip2

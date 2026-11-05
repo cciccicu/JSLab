@@ -20,7 +20,7 @@ use waki::{Client as HttpClient, Method as HttpMethod};
 
 const PACKAGE_NAME: &str = "icu.ccicc.jslab";
 const PROTOCOL_VERSION: u64 = 2;
-const MAX_SCRIPT_BYTES: usize = 48 * 1024;
+const SCRIPT_STORAGE_PROTOCOL: u64 = 1;
 const MAX_FONT_BYTES: usize = 2 * 1024 * 1024;
 const FONT_CHANGE_ENABLED: bool = false;
 const FONT_CHUNK_BYTES: usize = 3 * 1024;
@@ -38,6 +38,12 @@ struct Plugin;
 enum ActivePage {
     Files,
     Fonts,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EditorKind {
+    Script,
+    ScriptData,
 }
 
 enum Pending {
@@ -58,18 +64,22 @@ enum Pending {
         name: String,
     },
     Read {
+        kind: EditorKind,
+        transfer_id: Option<String>,
         name: String,
         content: String,
         offset: usize,
         total: Option<usize>,
     },
     WriteStart {
+        kind: EditorKind,
         name: String,
         content: String,
         success_message: String,
         update_editor_clean: bool,
     },
     WriteChunk {
+        kind: EditorKind,
         transfer_id: String,
         name: String,
         content: String,
@@ -79,6 +89,7 @@ enum Pending {
         update_editor_clean: bool,
     },
     WriteFinish {
+        kind: EditorKind,
         name: String,
         content: String,
         success_message: String,
@@ -142,6 +153,7 @@ struct AppState {
     devices: Vec<DeviceInfo>,
     selected_device: Option<String>,
     channel_ready: bool,
+    script_storage_supported: bool,
     files: Vec<FileMeta>,
     font_draft: Option<FontDraft>,
     active_page: ActivePage,
@@ -150,6 +162,9 @@ struct AppState {
     editor_text: String,
     editor_original: String,
     editor_dirty: bool,
+    editor_kind: EditorKind,
+    storage_base: String,
+    storage_device: Option<String>,
     status: String,
     error: Option<String>,
     busy: bool,
@@ -179,12 +194,15 @@ struct ViewState {
     devices: Vec<(String, String)>,
     selected_device: Option<String>,
     channel_ready: bool,
+    script_storage_supported: bool,
     files: Vec<FileMeta>,
     font_draft: Option<FontDraftView>,
     active_page: ActivePage,
     selected_file: Option<String>,
     editor_name: String,
     editor_text: String,
+    editor_kind: EditorKind,
+    storage_owner_matches: bool,
     status: String,
     error: Option<String>,
     busy: bool,
@@ -198,6 +216,7 @@ impl Default for AppState {
             devices: Vec::new(),
             selected_device: None,
             channel_ready: false,
+            script_storage_supported: false,
             files: Vec::new(),
             font_draft: None,
             active_page: ActivePage::Files,
@@ -206,6 +225,9 @@ impl Default for AppState {
             editor_text: String::new(),
             editor_original: String::new(),
             editor_dirty: false,
+            editor_kind: EditorKind::Script,
+            storage_base: String::new(),
+            storage_device: None,
             status: "正在发现设备".into(),
             error: None,
             busy: false,
@@ -241,6 +263,7 @@ fn snapshot() -> ViewState {
             .collect(),
         selected_device: state.selected_device.clone(),
         channel_ready: state.channel_ready,
+        script_storage_supported: state.script_storage_supported,
         files: state.files.clone(),
         font_draft: state.font_draft.as_ref().map(|draft| FontDraftView {
             source_name: draft.source_name.clone(),
@@ -255,6 +278,8 @@ fn snapshot() -> ViewState {
         selected_file: state.selected_file.clone(),
         editor_name: state.editor_name.clone(),
         editor_text: state.editor_text.clone(),
+        editor_kind: state.editor_kind,
+        storage_owner_matches: state.storage_device.is_some() && state.storage_device == state.selected_device,
         status: state.status.clone(),
         error: state.error.clone(),
         busy: state.busy,
@@ -305,6 +330,7 @@ fn set_transfer_progress(current: usize, total: usize, stage: impl Into<String>)
 
 fn invalidate_device_session(state: &mut AppState) -> Vec<u64> {
     state.channel_ready = false;
+    state.script_storage_supported = false;
     state.pending.clear();
     state.busy = false;
     state.transfer_progress = None;
@@ -385,7 +411,7 @@ fn render(element_id: &str) {
     let view = snapshot();
     let device_online = view.selected_device.is_some();
     let connected = view.channel_ready;
-    let editor_open = view.selected_file.is_some();
+    let editor_open = view.selected_file.is_some() || (view.editor_kind == EditorKind::ScriptData && !view.editor_name.is_empty());
     let fonts_page = FONT_CHANGE_ENABLED && view.active_page == ActivePage::Fonts;
 
     let status_badge = Element::new(
@@ -690,25 +716,33 @@ fn render(element_id: &str) {
         }
         root = root.child(list_toolbar).child(file_list);
     } else {
-        let file_name = view
+        let file_name = if view.editor_kind == EditorKind::ScriptData { view.editor_name.clone() } else { view
             .selected_file
             .clone()
-            .unwrap_or_else(|| "正在载入".into());
-        let editor_actions = action_grid()
+            .unwrap_or_else(|| "正在载入".into()) };
+        let storage_editor = view.editor_kind == EditorKind::ScriptData;
+        let editor_actions = if storage_editor {
+            action_grid()
+                .child(button("返回列表", "editor-close", false, view.busy).width_full())
+                .child(button("查看源码", "file-code", false, view.busy || !connected).width_full())
+                .child(button("重新读取数据", "storage-reload", false, view.busy || !connected).width_full())
+                .child(button("下载 JSON", "storage-download", false, view.busy).width_full())
+        } else { action_grid()
             .child(button("返回列表", "editor-close", false, view.busy).width_full())
             .child(button("重命名", "file-rename", false, view.busy).width_full())
             .child(button("下载", "file-download", false, view.busy).width_full())
-            .child(button("删除", "file-delete", false, view.busy).width_full());
+            .child(button("删除", "file-delete", false, view.busy).width_full())
+            .child(button("脚本数据", "file-storage", false, view.busy || !connected || !view.script_storage_supported).width_full()) };
         let editor_toolbar = Element::new(ElementType::Div, None)
             .flex()
             .flex_direction(FlexDirection::Column)
             .gap(8)
             .width_full()
-            .child(label("当前文件", "#7F8998", 13))
+            .child(label(if storage_editor { "脚本保存的数据" } else { "当前文件" }, "#7F8998", 13))
             .child(label(file_name, "#DCE2EA", 17).width_full())
             .child(editor_actions);
         let editor = Element::new(ElementType::Textarea, Some(&view.editor_text))
-            .prop("placeholder", "正在从手环读取文件…")
+            .prop("placeholder", if storage_editor { "包含 data 和 config 两个对象的 JSON" } else { "正在从手环读取文件…" })
             .prop("spellcheck", "false")
             .width_full()
             .height(380)
@@ -719,12 +753,20 @@ fn render(element_id: &str) {
             .border(1, "#343B46")
             .on(Event::Input, "editor-input");
         let editor = if view.busy { editor.disabled() } else { editor };
-        root = root.child(editor_toolbar).child(editor).child(
+        root = root.child(editor_toolbar);
+        if storage_editor {
+            root = root.child(label("以 JSON 编辑 data 和 config。设备数据变化时会拒绝覆盖并保留当前修改，可先下载 JSON，再重新读取。", "#AEB8C6", 14));
+            if !view.storage_owner_matches { root = root.child(label("此数据草稿属于原设备，请切回原设备后保存，或先下载 JSON 保留修改。", "#FFB3B3", 14)); }
+        } else if !view.script_storage_supported {
+            root = root.child(label("当前手环未声明脚本数据编辑能力；升级 JSLab 后可用，源码同步不受影响。", "#AEB8C6", 14));
+        }
+        root = root.child(editor).child(
             button(
-                "保存到手环",
+                if storage_editor { "保存数据到手环" } else { "保存到手环" },
                 "editor-save",
                 true,
-                view.busy || !connected || view.editor_name.is_empty(),
+                view.busy || !connected || view.editor_name.is_empty() ||
+                    (storage_editor && (!view.script_storage_supported || !view.storage_owner_matches)),
             )
             .width_full(),
         );
@@ -742,12 +784,11 @@ fn format_size(bytes: usize) -> String {
 
 fn valid_script_name(name: &str) -> bool {
     !name.is_empty()
-        && name.len() <= 128
+        && name.encode_utf16().count() <= 128
         && name.to_ascii_lowercase().ends_with(".js")
-        && !name.contains("..")
         && !name
             .chars()
-            .any(|c| c.is_control() || c == '/' || c == '\\')
+            .any(|c| c <= '\u{1f}' || c == '\u{7f}' || c == '/' || c == '\\')
 }
 
 fn valid_font_name(name: &str) -> bool {
@@ -1186,6 +1227,15 @@ async fn send_request(action: &str, payload: Value, pending: Pending) -> Result<
     Ok(())
 }
 
+fn cloud_proxy_carries_source(url: &str) -> bool {
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let Some((_, route)) = path.rsplit_once("/api/cloud/") else { return false; };
+    let route = route.strip_prefix("device/").unwrap_or(route);
+    // Only source-bearing APIs need larger bodies; retain existing limits elsewhere.
+    route == "scripts" || route.starts_with("scripts/") || route == "market/submit" ||
+        route == "ai/generate" || (route.starts_with("market/") && route.ends_with("/source"))
+}
+
 fn cloud_proxy_request(payload: &Value) -> Result<(HttpMethod, String, Vec<(String, String)>, Vec<u8>), String> {
     let url = payload
         .get("url")
@@ -1207,7 +1257,7 @@ fn cloud_proxy_request(payload: &Value) -> Result<(HttpMethod, String, Vec<(Stri
         .unwrap_or_default()
         .as_bytes()
         .to_vec();
-    if body.len() > MAX_CLOUD_REQUEST_BYTES {
+    if !cloud_proxy_carries_source(url) && body.len() > MAX_CLOUD_REQUEST_BYTES {
         return Err("cloud proxy request body is too large".into());
     }
     let mut headers = Vec::new();
@@ -1232,6 +1282,7 @@ fn cloud_proxy_request(payload: &Value) -> Result<(HttpMethod, String, Vec<(Stri
 
 fn forward_cloud_request(payload: &Value) -> Result<Value, String> {
     let (method, url, headers, body) = cloud_proxy_request(payload)?;
+    let carries_source = cloud_proxy_carries_source(&url);
     let mut request = HttpClient::new().request(method, &url);
     for (name, value) in headers {
         request = if name.eq_ignore_ascii_case("authorization") {
@@ -1258,7 +1309,7 @@ fn forward_cloud_request(payload: &Value) -> Result<Value, String> {
         .chunk(8 * 1024)
         .map_err(|_| "cloud proxy response read failed".to_string())?
     {
-        if body.len() + chunk.len() > MAX_CLOUD_RESPONSE_BYTES {
+        if !carries_source && body.len() + chunk.len() > MAX_CLOUD_RESPONSE_BYTES {
             return Err("cloud proxy response is too large".into());
         }
         body.append(&mut chunk);
@@ -1426,9 +1477,6 @@ fn validate_read_chunk(
         .and_then(Value::as_bool)
         .ok_or_else(|| "读取回包缺少有效的 done".to_string())?;
 
-    if total > MAX_SCRIPT_BYTES {
-        return Err("手环返回的脚本超过 48 KiB".into());
-    }
     if previous_total.is_some_and(|previous| previous != total) {
         return Err("读取过程中脚本总大小发生变化".into());
     }
@@ -1494,9 +1542,6 @@ fn parse_file_list(result: &Value) -> Result<Vec<FileMeta>, String> {
         };
         let size =
             usize::try_from(size_u64).map_err(|_| format!("文件 {name} 的大小超出支持范围"))?;
-        if size > MAX_SCRIPT_BYTES {
-            return Err(format!("文件 {name} 超过 48 KiB"));
-        }
         files.push(FileMeta {
             name: name.to_string(),
             size,
@@ -1518,11 +1563,20 @@ fn apply_completed_editor_save(
 }
 
 async fn request_read(name: String) -> Result<(), String> {
+    request_read_kind(name, EditorKind::Script).await
+}
+
+async fn request_read_kind(name: String, kind: EditorKind) -> Result<(), String> {
+    if kind == EditorKind::ScriptData && !with_state(|state| state.channel_ready && state.script_storage_supported) {
+        return Err("当前手环不支持编辑脚本数据，请升级 JSLab".into());
+    }
     set_status(format!("正在读取 {name}"), true);
     send_request(
-        "read",
+        if kind == EditorKind::ScriptData { "storageRead" } else { "read" },
         json!({ "name": name, "offset": 0 }),
         Pending::Read {
+            kind,
+            transfer_id: None,
             name,
             content: String::new(),
             offset: 0,
@@ -1542,14 +1596,12 @@ async fn request_write(
     if !valid_script_name(&name) {
         return Err("文件名必须是不含路径的 .js 文件名".into());
     }
-    if content.len() > MAX_SCRIPT_BYTES {
-        return Err("脚本不能超过 48 KiB".into());
-    }
     set_status(format!("正在准备写入 {name}"), true);
     send_request(
         "writeStart",
         json!({ "name": name, "size": content.len(), "overwrite": overwrite }),
         Pending::WriteStart {
+            kind: EditorKind::Script,
             name,
             content,
             success_message,
@@ -1567,12 +1619,14 @@ async fn send_next_write_chunk(
     index: usize,
     success_message: String,
     update_editor_clean: bool,
+    kind: EditorKind,
 ) -> Result<(), String> {
     if offset >= content.len() {
         return send_request(
-            "writeFinish",
+            if kind == EditorKind::ScriptData { "storageWriteFinish" } else { "writeFinish" },
             json!({ "transferId": transfer_id }),
             Pending::WriteFinish {
+                kind,
                 name,
                 content,
                 success_message,
@@ -1592,9 +1646,10 @@ async fn send_next_write_chunk(
         true,
     );
     send_request(
-        "writeChunk",
+        if kind == EditorKind::ScriptData { "storageWriteChunk" } else { "writeChunk" },
         json!({ "transferId": transfer_id, "index": index, "content": chunk }),
         Pending::WriteChunk {
+            kind,
             transfer_id,
             name,
             content,
@@ -1605,6 +1660,44 @@ async fn send_next_write_chunk(
         },
     )
     .await
+}
+
+fn compatible_sync_hello(result: &Value) -> bool {
+    // Disabled font capabilities must not gate ordinary script synchronization.
+    result.get("protocol").and_then(Value::as_u64) == Some(PROTOCOL_VERSION)
+}
+
+fn supports_script_storage(result: &Value) -> bool {
+    compatible_sync_hello(result) && result.get("scriptStorageProtocol").and_then(Value::as_u64) == Some(SCRIPT_STORAGE_PROTOCOL)
+}
+
+fn validate_storage_document(content: &str) -> Result<(), String> {
+    let value: Value = serde_json::from_str(content).map_err(|_| "脚本数据不是有效的 JSON".to_string())?;
+    let object = value.as_object().ok_or("脚本数据必须是 JSON 对象")?;
+    if object.len() != 2 || !object.get("data").is_some_and(Value::is_object) || !object.get("config").is_some_and(Value::is_object) {
+        return Err("脚本数据必须包含 data 和 config 两个对象".into());
+    }
+    Ok(())
+}
+
+fn storage_write_envelope(base: &str, content: &str) -> Result<String, String> {
+    validate_storage_document(base)?;
+    validate_storage_document(content)?;
+    Ok(json!({ "base": base, "content": content }).to_string())
+}
+
+async fn request_storage_write(name: String, base: String, content: String) -> Result<(), String> {
+    if !with_state(|state| state.storage_device.is_some() && state.storage_device == state.selected_device) {
+        return Err("此数据草稿属于另一台设备，请切回原设备或先下载 JSON".into());
+    }
+    if !with_state(|state| state.channel_ready && state.script_storage_supported) {
+        return Err("当前手环不支持编辑脚本数据，请升级 JSLab".into());
+    }
+    let envelope = storage_write_envelope(&base, &content)?;
+    set_status(format!("正在保存 {name} 的数据"), true);
+    send_request("storageWriteStart", json!({ "name": name, "size": envelope.len() }), Pending::WriteStart {
+        kind: EditorKind::ScriptData, name, content: envelope, success_message: "脚本数据已保存".into(), update_editor_clean: true,
+    }).await
 }
 
 async fn process_interconnect_message(payload: &str) -> Result<(), String> {
@@ -1700,20 +1793,14 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
 
     match pending {
         Pending::Hello => {
-            let compatible = result.get("protocol").and_then(Value::as_u64)
-                == Some(PROTOCOL_VERSION)
-                && result
-                    .get("fontUploadResumeSupported")
-                    .and_then(Value::as_bool)
-                    == Some(true)
-                && result.get("fontChunkBytes").and_then(Value::as_u64)
-                    == Some(FONT_CHUNK_BYTES as u64)
-                && result.get("fontChecksumAlgorithm").and_then(Value::as_str) == Some("adler32");
-            if !compatible {
+            if !compatible_sync_hello(&result) {
                 with_state(|state| state.channel_ready = false);
                 return Err("JSLab 同步协议版本不兼容".into());
             }
-            with_state(|state| state.channel_ready = true);
+            with_state(|state| {
+                state.channel_ready = true;
+                state.script_storage_supported = supports_script_storage(&result);
+            });
             set_status("握手成功，正在读取文件", true);
             request_list().await?;
         }
@@ -1728,7 +1815,7 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                 {
                     state.selected_file = None;
                 }
-                if !state.editor_name.is_empty()
+                if state.editor_kind == EditorKind::Script && !state.editor_name.is_empty()
                     && !state
                         .files
                         .iter()
@@ -1793,6 +1880,8 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
             );
         }
         Pending::Read {
+            kind,
+            mut transfer_id,
             name,
             mut content,
             offset,
@@ -1802,10 +1891,21 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                 return Err("读取脚本的本地分块状态不一致".into());
             }
             let (chunk, total, done) = validate_read_chunk(&result, offset, total)?;
+            if kind == EditorKind::ScriptData {
+                if result.get("name").and_then(Value::as_str) != Some(name.as_str()) { return Err("读取的脚本数据名称不匹配".into()); }
+                let returned = result.get("transferId").and_then(Value::as_str).filter(|id| !id.is_empty()).ok_or("数据读取回包缺少会话 ID")?;
+                if transfer_id.as_deref().is_some_and(|previous| previous != returned) { return Err("数据读取会话发生变化".into()); }
+                transfer_id = Some(returned.to_string());
+            }
             content.push_str(chunk);
             let next_offset = content.len();
             if done {
+                if kind == EditorKind::ScriptData { validate_storage_document(&content)?; }
                 with_state(|state| {
+                    state.editor_kind = kind;
+                    state.storage_base = if kind == EditorKind::ScriptData { content.clone() } else { String::new() };
+                    state.storage_device = if kind == EditorKind::ScriptData { state.selected_device.clone() } else { None };
+                    if kind == EditorKind::Script { state.selected_file = Some(name.clone()); }
                     state.editor_name = name;
                     state.editor_original = content.clone();
                     state.editor_text = content;
@@ -1824,10 +1924,14 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                     ),
                     true,
                 );
+                let mut payload = json!({ "name": name, "offset": next_offset });
+                if kind == EditorKind::ScriptData { payload["transferId"] = json!(transfer_id); }
                 send_request(
-                    "read",
-                    json!({ "name": name, "offset": next_offset }),
+                    if kind == EditorKind::ScriptData { "storageRead" } else { "read" },
+                    payload,
                     Pending::Read {
+                        kind,
+                        transfer_id,
                         name,
                         content,
                         offset: next_offset,
@@ -1838,6 +1942,7 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
             }
         }
         Pending::WriteStart {
+            kind,
             name,
             content,
             success_message,
@@ -1856,10 +1961,12 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                 0,
                 success_message,
                 update_editor_clean,
+                kind,
             )
             .await?;
         }
         Pending::WriteChunk {
+            kind,
             transfer_id,
             name,
             content,
@@ -1877,18 +1984,30 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
                 index,
                 success_message,
                 update_editor_clean,
+                kind,
             )
             .await?;
         }
         Pending::WriteFinish {
+            kind,
             name,
             content,
             success_message,
             update_editor_clean,
         } => {
+            if kind == EditorKind::ScriptData && (result.get("name").and_then(Value::as_str) != Some(name.as_str()) || required_usize(&result, "size", "数据保存回包")? != content.len()) {
+                return Err("脚本数据保存结果不匹配，请重新读取检查".into());
+            }
+            let stored_content = if kind == EditorKind::ScriptData {
+                let document: Value = serde_json::from_str(&content).map_err(|_| "数据保存状态无效")?;
+                document.get("content").and_then(Value::as_str).ok_or("缺少已保存数据")?.to_string()
+            } else { content.clone() };
             with_state(|state| {
                 state.status = success_message;
-                apply_completed_editor_save(state, &name, &content, update_editor_clean);
+                if kind == state.editor_kind {
+                    apply_completed_editor_save(state, &name, &stored_content, update_editor_clean);
+                    if kind == EditorKind::ScriptData && state.editor_name == name { state.storage_base = stored_content; }
+                }
                 state.busy = !state.pending.is_empty();
             });
             request_list().await?;
@@ -1905,10 +2024,14 @@ async fn process_interconnect_message(payload: &str) -> Result<(), String> {
 }
 
 async fn save_download(name: &str, data: &[u8]) -> Result<(), String> {
+    save_download_as(name, data, "js").await
+}
+
+async fn save_download_as(name: &str, data: &[u8], extension: &str) -> Result<(), String> {
     set_status(format!("请选择 {} 的保存位置", name), true);
     let session = dialog::save_file_start(&FilterConfig {
         multiple: false,
-        extensions: vec!["js".into()],
+        extensions: vec![extension.into()],
         default_directory: String::new(),
         default_file_name: name.into(),
     })
@@ -2145,6 +2268,8 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
             state.editor_text.clear();
             state.editor_original.clear();
             state.editor_dirty = false;
+            state.editor_kind = EditorKind::Script;
+            state.storage_base.clear();
             name
         })
         .ok_or_else(|| "文件列表已变化，请重试".to_string())?;
@@ -2246,6 +2371,26 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
         .ok_or_else(|| "请先选择字体".to_string())?;
         return request_font_upload(source_name, data, profile).await;
     }
+    if matches!(event_id, "file-storage" | "storage-reload" | "file-code") {
+        let (name, dirty, busy, device) = with_state(|state| (state.editor_name.clone(), state.editor_dirty, state.busy, state.selected_device.clone()));
+        if busy || name.is_empty() { return Err("文件仍在载入，请稍候".into()); }
+        if with_state(|state| state.editor_kind == EditorKind::ScriptData && state.storage_device != state.selected_device) {
+            return Err("此数据草稿属于另一台设备，请切回原设备或先下载 JSON".into());
+        }
+        if event_id != "file-code" && !with_state(|state| state.script_storage_supported) {
+            return Err("当前手环不支持编辑脚本数据，请升级 JSLab".into());
+        }
+        if dirty && !confirm_discard_changes(&name).await { return Ok(()); }
+        if !with_state(|state| state.selected_device == device && state.channel_ready && state.editor_name == name) {
+            return Err("设备连接已变化，请重新操作".into());
+        }
+        return request_read_kind(name, if event_id == "file-code" { EditorKind::Script } else { EditorKind::ScriptData }).await;
+    }
+    if event_id == "storage-download" {
+        let (name, content, kind) = with_state(|state| (state.editor_name.clone(), state.editor_text.clone(), state.editor_kind));
+        if kind != EditorKind::ScriptData || name.is_empty() { return Err("请先读取脚本数据".into()); }
+        return save_download_as(&format!("{name}.data.json"), content.as_bytes(), "json").await;
+    }
     if event_id == "editor-close" {
         let (name, dirty) = with_state(|state| (state.editor_name.clone(), state.editor_dirty));
         if dirty && !confirm_discard_changes(&name).await {
@@ -2257,6 +2402,9 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
             state.editor_text.clear();
             state.editor_original.clear();
             state.editor_dirty = false;
+            state.editor_kind = EditorKind::Script;
+            state.storage_base.clear();
+            state.storage_device = None;
             state.status = format!("已同步 {} 个文件", state.files.len());
         });
         render_current();
@@ -2345,9 +2493,6 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
             )
             .await;
             if !picked.name.is_empty() {
-                if picked.data.len() > MAX_SCRIPT_BYTES {
-                    return Err("上传文件不能超过 48 KiB".into());
-                }
                 let content = String::from_utf8(picked.data)
                     .map_err(|_| "上传文件必须是 UTF-8 文本".to_string())?;
                 let name = if let Some(name) = picker_script_name(&picked.name) {
@@ -2391,12 +2536,12 @@ async fn handle_ui_event(event_id: &str, payload: &str) -> Result<(), String> {
             save_download(&name, content.as_bytes()).await?;
         }
         "editor-save" => {
-            let (name, content) =
-                with_state(|state| (state.editor_name.clone(), state.editor_text.clone()));
+            let (name, content, kind, base) = with_state(|state| (state.editor_name.clone(), state.editor_text.clone(), state.editor_kind, state.storage_base.clone()));
             if name.is_empty() {
                 return Err("编辑器中没有已打开文件".into());
             }
-            request_write(name.clone(), content, format!("已保存 {name}"), true, true).await?;
+            if kind == EditorKind::ScriptData { request_storage_write(name, base, content).await?; }
+            else { request_write(name.clone(), content, format!("已保存 {name}"), true, true).await?; }
         }
         _ => {}
     }
@@ -2532,6 +2677,88 @@ astrobox_ng_wit::export!(Plugin);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepts_shared_sync_compatibility_cases() {
+        let cases: Value = serde_json::from_str(include_str!("../test-data/sync-compatibility.json")).unwrap();
+        for name in cases["validScriptNames"].as_array().unwrap() {
+            assert!(valid_script_name(name.as_str().unwrap()));
+        }
+        for name in cases["invalidScriptNames"].as_array().unwrap() {
+            assert!(!valid_script_name(name.as_str().unwrap()));
+        }
+        for hello in cases["acceptedHello"].as_array().unwrap() {
+            assert!(compatible_sync_hello(hello));
+        }
+        for hello in cases["rejectedHello"].as_array().unwrap() {
+            assert!(!compatible_sync_hello(hello));
+        }
+        for case in cases["storageCapabilities"].as_array().unwrap() {
+            assert!(compatible_sync_hello(&case["hello"]));
+            assert_eq!(supports_script_storage(&case["hello"]), case["supported"].as_bool().unwrap());
+        }
+        let files = parse_file_list(&cases["fileList"]).unwrap();
+        assert_eq!(files[0].size, 1024);
+        assert_eq!(files[1].size, 50700);
+        assert!(valid_script_name(&format!("{}.js", "中".repeat(125))));
+        assert!(!valid_script_name(&format!("{}.js", "中".repeat(126))));
+    }
+
+    #[test]
+    fn storage_edit_preserves_json_types_and_original_snapshot_in_chunked_frame() {
+        let base = r#"{"data":{"count":1},"config":{"enabled":true}}"#;
+        let content = json!({"data": {"text": "中文🌏\\\"\n".repeat(1200), "values": [1, true, null, {"nested": "中"}]}, "config": {"enabled": false}}).to_string();
+        let envelope = storage_write_envelope(base, &content).unwrap();
+        let name = "中文.ui.JS";
+        let mut requests = vec![json!({"action": "storageWriteStart", "payload": {"name": name, "size": envelope.len()}})];
+        let mut offset = 0;
+        let mut index = 0;
+        let mut reconstructed = String::new();
+        while offset < envelope.len() {
+            let (chunk, next) = next_utf8_chunk(&envelope, offset);
+            assert!(chunk.len() <= 4096);
+            reconstructed.push_str(chunk);
+            requests.push(json!({"action": "storageWriteChunk", "payload": {"transferId": "rust-storage", "index": index, "content": chunk}}));
+            offset = next;
+            index += 1;
+        }
+        requests.push(json!({"action": "storageWriteFinish", "payload": {"transferId": "rust-storage"}}));
+        assert_eq!(envelope, reconstructed);
+        let decoded: Value = serde_json::from_str(&reconstructed).unwrap();
+        assert_eq!(decoded["base"], base);
+        assert_eq!(decoded["content"], content);
+        assert!(index > 1);
+        for invalid in ["[]", r#"{"data":[],"config":{}}"#, r#"{"data":{},"config":{},"other":1}"#, r#"{"data":{}}"#] {
+            assert!(storage_write_envelope(base, invalid).is_err());
+        }
+        let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/test-vectors");
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("rust-storage-write.json"), json!({"name":name,"base":base,"content":content,"requests":requests}).to_string()).unwrap();
+    }
+
+    #[test]
+    fn accepts_sync_hello_without_enabled_font_capabilities() {
+        assert!(compatible_sync_hello(&json!({ "protocol": 2 })));
+        assert!(compatible_sync_hello(&json!({
+            "protocol": 2,
+            "fontUploadResumeSupported": false,
+            "fontChunkBytes": 0,
+            "fontChecksumAlgorithm": "unsupported",
+        })));
+    }
+
+    #[test]
+    fn font_capabilities_do_not_bypass_sync_protocol_validation() {
+        for protocol in [json!(1), json!(3), json!("2"), Value::Null] {
+            assert!(!compatible_sync_hello(&json!({
+                "protocol": protocol,
+                "fontUploadResumeSupported": true,
+                "fontChunkBytes": FONT_CHUNK_BYTES,
+                "fontChecksumAlgorithm": "adler32",
+            })));
+        }
+        assert!(!compatible_sync_hello(&json!({})));
+    }
 
     #[test]
     fn validates_script_names() {
@@ -2698,6 +2925,33 @@ mod tests {
             validate_read_chunk(&second, 3, Some(6)).unwrap(),
             ("文", 6, true)
         );
+    }
+
+    #[test]
+    fn accepts_large_script_metadata_and_read_chunks() {
+        let content = "中文".repeat(64 * 1024);
+        let size = content.len();
+        let files = parse_file_list(&json!({ "files": [{ "name": "large.js", "size": size }] })).unwrap();
+        assert_eq!(files[0].size, size);
+        let result = json!({ "content": content, "nextOffset": size, "size": size, "done": true });
+        assert_eq!(validate_read_chunk(&result, 0, None).unwrap().1, size);
+        assert_eq!(validate_read_chunk(&result, 0, None).unwrap().0, content);
+    }
+
+    #[test]
+    fn cloud_proxy_lifts_body_caps_only_for_source_apis() {
+        for route in ["scripts", "scripts/1", "market/submit", "market/1/source?mine=1", "ai/generate"] {
+            for prefix in ["/api/cloud/", "/jslab-cloud/api/cloud/device/"] {
+                let url = format!("https://example.test{prefix}{route}");
+                assert!(cloud_proxy_carries_source(&url));
+                let request = json!({ "url": url, "method": "POST", "body": "中".repeat(64 * 1024) });
+                assert!(cloud_proxy_request(&request).is_ok());
+            }
+        }
+        let url = "https://example.test/api/cloud/device/entitlements";
+        assert!(!cloud_proxy_carries_source(url));
+        assert!(cloud_proxy_request(&json!({ "url": url, "body": "x".repeat(64 * 1024 + 1) })).is_err());
+        assert!(cloud_proxy_request(&json!({ "url": url, "body": "{}" })).is_ok());
     }
 
     #[test]

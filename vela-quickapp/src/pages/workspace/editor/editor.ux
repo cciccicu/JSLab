@@ -502,7 +502,7 @@ export default {
     const clientX = Number(detail.clientX);
     const clientY = Number(detail.clientY);
     const x = detail.offsetX != null && isFinite(offsetX) ? offsetX :
-      clientX + position.left - 6;
+      clientX + position.left - SCREEN.side;
     const y = detail.offsetY != null && isFinite(offsetY) ? offsetY :
       clientY + position.top - CODE_TOP_SPACER_HEIGHT;
     if (!isFinite(x) || !isFinite(y)) return;

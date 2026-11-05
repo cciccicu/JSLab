@@ -2,6 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const manifest = require('../src/manifest.json');
+const versionQuery = '?jslabVersion=' + encodeURIComponent(manifest.versionName) + '&jslabVersionCode=' + manifest.versionCode;
 
 test("cloudClients", async () => {
   let loadSequence = 0;
@@ -17,10 +19,15 @@ test("cloudClients", async () => {
     globalThis.__cloudUserError = await import('data:text/javascript;base64,' + Buffer.from(userErrorSource).toString('base64') + '#user-error-' + (++loadSequence));
     const transportSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'cloud', 'cloudTransport.js'), 'utf8')
       .replace("import fetch from '@system.fetch';", 'const fetch = globalThis.__cloudFetch;')
+      .replace("import app from '@system.app';", 'const app = globalThis.__cloudApp;')
+      .replace("import manifest from '../../manifest.json';", 'const manifest = ' + JSON.stringify(manifest) + ';')
+      .replace("import device from '@system.device';", 'const device = globalThis.__cloudDevice;')
       .replace("import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;')
       .replace("import { cleanDetail, createNativeError } from '../core/userError.js';", 'const { cleanDetail, createNativeError } = globalThis.__cloudUserError;')
       .replace("import { IS_COMMUNITY_EDITION } from '../core/buildConfig.js';", 'const IS_COMMUNITY_EDITION = globalThis.__cloudCommunityEdition;');
     globalThis.__cloudFetch = harness.fetch;
+    globalThis.__cloudApp = harness.app;
+    globalThis.__cloudDevice = harness.device;
     globalThis.__cloudConfig = harness.config;
     globalThis.__cloudJsManager = harness.jsManager;
     globalThis.__cloudCommunityEdition = harness.communityEdition === true;
@@ -50,7 +57,7 @@ test("cloudClients", async () => {
     ]);
     globalThis.__cloudAccount = (await loadCloudModule('deviceAccount.js', [
       ["import configManager from '../core/configManager.js';", 'const configManager = globalThis.__cloudConfig;'],
-      ["import { request, normalizeTransport } from './cloudTransport.js';", 'const { request, normalizeTransport } = globalThis.__cloudTransport;']
+      ["import { request, getTransport, getDefaultTransport } from './cloudTransport.js';", 'const { request, getTransport, getDefaultTransport } = globalThis.__cloudTransport;']
     ])).default;
     const ai = (await loadCloudModule('deviceAi.js', [
       ["import { RUNTIME_CONTRACT } from '../runtime/runtimeContract.js';", "const RUNTIME_CONTRACT = 'jslab-unified-open-ui';"],
@@ -62,7 +69,11 @@ test("cloudClients", async () => {
       ["import { request } from './cloudTransport.js';", 'const { request } = globalThis.__cloudTransport;'],
       ["import { scriptList, verifySourceChecksum } from './cloudResponse.js';", 'const { scriptList, verifySourceChecksum } = globalThis.__cloudResponse;']
     ];
+    globalThis.__cloudMarketDevices = await loadCloudModule('marketDevices.js', [
+      ["import { SCREEN } from '../core/screen.js';", "const SCREEN = { id: 'bandpro' };"]
+    ]);
     const market = (await loadCloudModule('marketClient.js', domainImports.concat([
+      ["import { marketDevices, marketDeviceLabel } from './marketDevices.js';", 'const { marketDevices, marketDeviceLabel } = globalThis.__cloudMarketDevices;'],
       ["import { normalizeMarketSaveName } from './marketFilename.js';", 'const { normalizeMarketSaveName } = globalThis.__cloudMarketFilename;']
     ]))).default;
     const files = (await loadCloudModule('cloudFilesClient.js', domainImports)).default;
@@ -76,9 +87,11 @@ test("cloudClients", async () => {
     const files = Object.assign({}, options.files || {});
     const configValues = Object.assign({ 'cloud.origin': 'https://cloud.test', 'cloud.token': 'token', 'cloud.transport': 'fetch' }, options.configValues || {});
     const calls = []; const configGets = []; const proxyCalls = [];
-    let canIUseCalls = 0;
+    let canIUseCalls = 0; let deviceInfoCalls = 0;
     const cloudScripts = options.cloudScripts || [{ id: 7, name: 'cloud.js' }];
     const fetch = { fetch(request) {
+      assert.equal(new URL(request.url).searchParams.get('jslabVersion'), manifest.versionName);
+      assert.equal(new URL(request.url).searchParams.get('jslabVersionCode'), String(manifest.versionCode));
       calls.push(request);
       if (options.pendingFetch) return;
       if (options.httpFailure) {
@@ -87,7 +100,7 @@ test("cloudClients", async () => {
           : options.httpFailure.body;
         return request.fail(body, options.httpFailure.status);
       }
-      if (options.fetchFailure) return request.fail(null, options.fetchFailure);
+      if (options.fetchFailure) return request.fail(options.fetchFailureDetail || null, options.fetchFailure);
       const pathname = new URL(request.url).pathname;
       if (options.responses && Object.prototype.hasOwnProperty.call(options.responses, pathname)) {
         return request.success({ code: 200, data: options.responses[pathname] });
@@ -111,8 +124,18 @@ test("cloudClients", async () => {
     } };
     return {
       files, calls, configValues, configGets, fetch, proxyCalls, communityEdition: options.communityEdition === true,
-      app: { canIUse() { canIUseCalls += 1; return options.fetchSupported !== false; } },
+      app: { canIUse(capability) {
+        canIUseCalls += 1;
+        assert.equal(capability, '@system.fetch.fetch');
+        return options.fetchSupported !== false;
+      } },
       getCanIUseCalls() { return canIUseCalls; },
+      device: { getInfo(request) {
+        deviceInfoCalls += 1;
+        if (options.deviceInfoFailure) return request.fail();
+        request.success(options.deviceInfo || {});
+      } },
+      getDeviceInfoCalls() { return deviceInfoCalls; },
       config: {
         get(key, fallback) { configGets.push(key); return Promise.resolve(Object.prototype.hasOwnProperty.call(configValues, key) ? configValues[key] : fallback); },
         set(key, value) { configValues[key] = value; return Promise.resolve(true); }
@@ -123,6 +146,8 @@ test("cloudClients", async () => {
         write(name, source) { files[name] = source; return Promise.resolve(true); }
       },
       companionBridge: { requestCloud(request, timeoutMs) {
+        assert.equal(new URL(request.url).searchParams.get('jslabVersion'), manifest.versionName);
+        assert.equal(new URL(request.url).searchParams.get('jslabVersionCode'), String(manifest.versionCode));
         proxyCalls.push({ request, timeoutMs });
         const body = options.responses && options.responses[new URL(request.url).pathname];
         return options.proxyFailure ? Promise.reject(new Error(options.proxyFailure)) : Promise.resolve({ status: 200, body: JSON.stringify(body || { ok: true, request }) });
@@ -162,18 +187,18 @@ test("cloudClients", async () => {
     assert.equal(community.configValues['cloud.token'], '');
     assert.deepEqual(pageConfigValues, {}, 'Server selection must use the app config instance, not the page cache');
     await communityService.listMarketScripts('');
-    assert.equal(community.calls[0].url, 'https://community.test/jslab-cloud/api/cloud/device/market');
+    assert.equal(community.calls[0].url, 'https://community.test/jslab-cloud/api/cloud/device/market' + versionQuery);
     assert.equal(await selection.selectedServer(owner), 'https://community.test/jslab-cloud');
     assert.equal(await selection.chooseServer(owner), true, 'An already selected server must not prompt again');
     choices.push({ action: 'confirm', value: 'official' });
     assert.equal(await selection.chooseServer(owner, true), true);
     assert.equal(community.configValues['cloud.origin'], 'http://jslab-api.ccicc.icu');
     await communityService.listMarketScripts('');
-    assert.equal(community.calls.at(-1).url, 'http://jslab-api.ccicc.icu/api/cloud/device/market');
+    assert.equal(community.calls.at(-1).url, 'http://jslab-api.ccicc.icu/api/cloud/device/market' + versionQuery);
     const previousOfficial = createHarness({ communityEdition: true, configValues: { 'cloud.origin': 'https://jslab-api.ccicc.icu', 'cloud.communityServerChosen': true } });
     const previousOfficialService = await loadService(previousOfficial);
     await previousOfficialService.listMarketScripts('');
-    assert.equal(previousOfficial.calls[0].url, 'http://jslab-api.ccicc.icu/api/cloud/device/market');
+    assert.equal(previousOfficial.calls[0].url, 'http://jslab-api.ccicc.icu/api/cloud/device/market' + versionQuery);
     const previousOwner = { $app: { $def: { getConfigManager: () => previousOfficial.config } } };
     assert.equal(await selection.selectedServer(previousOwner), 'http://jslab-api.ccicc.icu');
 
@@ -232,19 +257,35 @@ test("cloudClients", async () => {
       [202, 'cloud_fetch_invalid_parameters', 'fetch 直连参数无效（Vela 202）'],
       [203, 'cloud_fetch_unavailable', '当前设备不支持 fetch 直连，请切换 AstroBox 网络桥接（Vela 203）'],
       [204, 'cloud_fetch_timeout', 'fetch 直连请求超时（Vela 204）'],
-      [300, 'cloud_fetch_io_error', 'fetch 直连发生网络 I/O 错误（Vela 300）']
+      [300, 'cloud_fetch_io_error', '您的设备可能未联网（Vela 300）'],
+      [6, 'cloud_fetch_unsupported', '设备可能不支持 fetch 直连，或域名解析失败，请检查网络或尝试网络桥接（Vela 6）']
     ]) {
       const nativeHarness = createHarness({ fetchFailure: code });
       const nativeService = await loadService(nativeHarness);
       const nativeError = await nativeService.startPairing('Band Pro').catch(error => error);
       assert.equal(nativeError.message, key);
       assert.equal(nativeService.errorMessage(nativeError, '生成配对二维码'), '生成配对二维码：' + text);
+      const marker = /（(Vela \d+)）/.exec(text);
+      assert.equal(nativeService.errorMessage(nativeError, '读取 JS 市场', { codeFirst: true }),
+        marker[1] + '：读取 JS 市场：' + text.replace(marker[0], ''));
     }
+
+    const unsupportedFetch = createHarness({ fetchFailure: 6, fetchFailureDetail: "Couldn't resolve host name" });
+    const unsupportedService = await loadService(unsupportedFetch);
+    const unsupportedError = await unsupportedService.listMarketScripts('').catch(error => error);
+    assert.equal(unsupportedError.nativeCode, 6);
+    assert.equal(unsupportedError.detail, "Couldn't resolve host name");
+    assert.equal(unsupportedService.isNetworkError(unsupportedError), false);
+    assert.equal(unsupportedService.errorMessage(unsupportedError, '读取市场'),
+      '读取市场：设备可能不支持 fetch 直连，或域名解析失败，请检查网络或尝试网络桥接（Vela 6）');
+    assert.equal(unsupportedFetch.configValues['cloud.transport'], 'fetch', 'Unsupported fetch must not overwrite the saved transport');
 
     const unknownNativeHarness = createHarness({ fetchFailure: 999 });
     const unknownNativeService = await loadService(unknownNativeHarness);
     const unknownNativeError = await unknownNativeService.listMarketScripts('').catch(error => error);
     assert.equal(unknownNativeService.errorMessage(unknownNativeError, '读取市场'), '读取市场：fetch 直连请求未完成（Vela 999）');
+    assert.equal(unknownNativeService.errorMessage(unknownNativeError, '读取市场', { codeFirst: true }),
+      'Vela 999：读取市场：fetch 直连请求未完成');
 
     const stalled = createHarness({ pendingFetch: true });
     const stalledService = await loadService(stalled);
@@ -270,6 +311,81 @@ test("cloudClients", async () => {
     const directFetchService = await loadService(directFetch);
     assert.equal(directFetchService.isDirectFetchSupported(), true);
     assert.equal(directFetch.getCanIUseCalls(), 0);
+
+    for (const supported of [true, false]) {
+      const automatic = createHarness({ fetchSupported: supported, configValues: { 'cloud.transport': '' } });
+      const automaticService = await loadService(automatic);
+      const expected = supported ? 'fetch' : 'interconnect';
+      assert.equal((await automaticService.getState()).transport, expected);
+      await automaticService.request('/api/cloud/device/market');
+      assert.equal(automatic.calls.length, supported ? 1 : 0);
+      assert.equal(automatic.proxyCalls.length, supported ? 0 : 1);
+      assert.equal(automatic.configValues['cloud.transport'], '', 'Automatic defaults must not become saved choices');
+      assert.equal(automatic.getDeviceInfoCalls(), 1, 'Device information must be shared by settings and requests');
+    }
+    for (const [deviceInfo, expected] of [
+      [{ deviceType: 'band' }, 'interconnect'],
+      [{ deviceType: 'watch', model: 'Xiaomi Smart Band 9 Pro' }, 'fetch'],
+      [{ deviceType: 'band', model: 'Xiaomi Smart Band 9 Pro' }, 'fetch'],
+      [{ deviceType: 'band', model: '小米手环 9 Pro' }, 'fetch'],
+      [{ deviceType: 'band', brand: 'Xiaomi', model: 'Smart Band 9 Pro' }, 'fetch'],
+      [{ deviceType: 'band', product: 'Smart Band 9 Pro' }, 'fetch'],
+      [{ deviceType: 'band', model: 'XIAOMI Band 9 pRo NFC' }, 'fetch'],
+      [{ deviceType: 'band', product: 'PRO-BAND-9-CHINA' }, 'fetch'],
+      [{ deviceType: 'band', model: 'Xiaomi Smart Band 9' }, 'interconnect'],
+      [{ deviceType: 'band', model: 'Xiaomi Smart Band 8 Pro' }, 'interconnect'],
+      [{ product: 'Redmi Watch 4' }, 'interconnect'],
+      [{ model: 'REDMI Watch 5' }, 'fetch'],
+      [{ brand: 'REDMI', model: 'Watch 6' }, 'fetch'],
+      [{ model: 'Xiaomi Watch S4' }, 'fetch']
+    ]) {
+      const inferred = createHarness({ deviceInfo, fetchSupported: expected !== 'fetch', configValues: { 'cloud.transport': '' } });
+      const inferredService = await loadService(inferred);
+      assert.equal((await inferredService.getState()).transport, expected);
+      await inferredService.request('/api/cloud/device/market');
+      assert.equal(inferred.calls.length, expected === 'fetch' ? 1 : 0);
+      assert.equal(inferred.proxyCalls.length, expected === 'interconnect' ? 1 : 0);
+      assert.equal(inferred.getCanIUseCalls(), 0, 'Recognized devices use the device-information hint');
+      assert.equal(inferred.getDeviceInfoCalls(), 1);
+    }
+    for (const transport of ['fetch', 'interconnect']) {
+      const manual = createHarness({ deviceInfo: { deviceType: 'band' }, fetchSupported: transport !== 'fetch', configValues: { 'cloud.transport': transport } });
+      const manualService = await loadService(manual);
+      assert.equal((await manualService.getState()).transport, transport);
+      await manualService.request('/api/cloud/device/market');
+      assert.equal(manual.calls.length, transport === 'fetch' ? 1 : 0);
+      assert.equal(manual.proxyCalls.length, transport === 'interconnect' ? 1 : 0);
+      assert.equal(manual.getCanIUseCalls(), 0, 'Saved choices must bypass capability detection');
+      assert.equal(manual.getDeviceInfoCalls(), 0, 'Saved choices must bypass device guessing');
+    }
+    for (const device of [{ getInfo(options) { options.fail(); } }, {}, { getInfo() { throw new Error('unavailable'); } }]) {
+      const unavailableInfo = createHarness({ fetchSupported: false, configValues: { 'cloud.transport': '' } });
+      unavailableInfo.device = device;
+      const unavailableInfoService = await loadService(unavailableInfo);
+      assert.equal((await unavailableInfoService.getState()).transport, 'interconnect');
+    }
+    const stalledInfo = createHarness({ configValues: { 'cloud.transport': '' } });
+    let lateDeviceInfo;
+    stalledInfo.device = { getInfo(options) { lateDeviceInfo = options.success; } };
+    const stalledInfoService = await loadService(stalledInfo);
+    assert.equal((await stalledInfoService.getState()).transport, 'fetch', 'A missing callback must fall back without blocking requests');
+    lateDeviceInfo({ deviceType: 'band' });
+    assert.equal((await stalledInfoService.getState()).transport, 'fetch', 'Late callbacks must not change the settled default');
+    for (const app of [null, {}, { canIUse() { throw new Error('unsupported query'); } }, { canIUse() {} }]) {
+      const legacy = createHarness({ configValues: { 'cloud.transport': '' } });
+      legacy.app = app;
+      const legacyService = await loadService(legacy);
+      assert.equal((await legacyService.getState()).transport, 'fetch');
+      await legacyService.request('/api/cloud/device/market');
+      assert.equal(legacy.calls.length, 1);
+    }
+    const missingFetch = createHarness({ configValues: { 'cloud.transport': '' } });
+    missingFetch.fetch = {};
+    const missingFetchService = await loadService(missingFetch);
+    assert.equal((await missingFetchService.getState()).transport, 'interconnect');
+    await missingFetchService.request('/api/cloud/device/market');
+    assert.equal(missingFetch.proxyCalls.length, 1);
+    assert.equal(missingFetch.getCanIUseCalls(), 0);
 
     const proxyOffline = createHarness({
       configValues: { 'cloud.origin': 'https://cloud.test', 'cloud.token': 'token', 'cloud.transport': 'interconnect' },
@@ -305,6 +421,8 @@ test("cloudClients", async () => {
     const invalidResponseService = await loadService(invalidResponse);
     const invalidResponseError = await invalidResponseService.listMarketScripts('').catch(error => error);
     assert.equal(invalidResponseService.errorMessage(invalidResponseError, '读取市场'), '读取市场：云服务返回了无法解析的响应（HTTP 502）');
+    assert.equal(invalidResponseService.errorMessage(invalidResponseError, '读取市场', { codeFirst: true }),
+      'HTTP 502：读取市场：云服务返回了无法解析的响应');
 
     assert.notEqual(unknownHttpService.errorMessage(new Error('unmapped_cloud_error'), '读取市场'), '通用提示');
 
@@ -321,13 +439,13 @@ test("cloudClients", async () => {
       const production = createHarness({ configValues: { 'cloud.origin': origin } });
       const productionService = await loadService(production);
       await productionService.listCloudScripts();
-      assert.equal(production.calls[0].url, 'http://jslab-api.ccicc.icu/api/cloud/device/scripts');
+      assert.equal(production.calls[0].url, 'http://jslab-api.ccicc.icu/api/cloud/device/scripts' + versionQuery);
     }
 
     const customOrigin = createHarness({ configValues: { 'cloud.origin': 'https://private-cloud.example/base/' } });
     const customOriginService = await loadService(customOrigin);
     await customOriginService.listCloudScripts();
-    assert.equal(customOrigin.calls[0].url, 'https://private-cloud.example/base/api/cloud/device/scripts');
+    assert.equal(customOrigin.calls[0].url, 'https://private-cloud.example/base/api/cloud/device/scripts' + versionQuery);
 
     const upload = createHarness({ files: { 'cloud.js': 'console.log("local")' } });
     const uploadService = await loadService(upload);
@@ -341,18 +459,33 @@ test("cloudClients", async () => {
     } });
     const marketUploadService = await loadService(marketUpload);
     const marketResult = await marketUploadService.submitMarketScript('local.js', {
-      name: '公开名称', description: '用途说明', tags: '工具, 示例'
+      name: '公开名称', description: '用途说明', tags: '工具, 示例', supportedDevices: ['pro']
     });
     assert.equal(marketResult.marketId, 17);
-    const marketCall = marketUpload.calls.find((call) => call.url.endsWith('/api/cloud/device/market/submit'));
+    const marketCall = marketUpload.calls.find((call) => new URL(call.url).pathname.endsWith('/api/cloud/device/market/submit'));
     assert.equal(marketCall.method, 'POST');
     assert.deepEqual(JSON.parse(marketCall.data), {
-      marketName: '公开名称', marketDescription: '用途说明', marketTags: '工具, 示例', source: 'console.log("watch")'
+      marketName: '公开名称', marketDescription: '用途说明', marketTags: '工具, 示例', supportedDevices: ['pro'], source: 'console.log("watch")'
     });
-    const bridgedMarket = createHarness({ files: { 'local.js': 'console.log(1)' },
+    const bridgedMarket = createHarness({ files: { 'local.js': 'console.log(1)' }, responses: {
+      '/api/cloud/device/market/submit': { status: 'pending', marketId: 17 }
+    },
       configValues: { 'cloud.transport': 'interconnect' } });
-    await (await loadService(bridgedMarket)).submitMarketScript('local.js', { name: '工具', description: '说明' });
+    await (await loadService(bridgedMarket)).submitMarketScript('local.js', { name: '工具', description: '说明', supportedDevices: ['pro'] });
     assert.equal(bridgedMarket.proxyCalls[0].timeoutMs, 330000);
+    const rejectedStatus = createHarness({ responses: {
+      '/api/cloud/device/market/3/source': { script: { id: 3, source: 'console.log(1)', status: 'rejected', statusText: '更新被拒绝，旧版仍已发布', review: { decision: 'reject', reason: '请说明用途' } } }
+    } });
+    const reviewState = await (await loadService(rejectedStatus)).getMarketScript(3, true);
+    assert.equal(reviewState.reviewReason, '请说明用途');
+    assert.equal(reviewState.statusText, '更新被拒绝，旧版仍已发布');
+    const unpairedStatus = createHarness({ configValues: { 'cloud.token': '' } });
+    await assert.rejects((await loadService(unpairedStatus)).getMarketScript(3, true), /not_paired/);
+    assert.equal(unpairedStatus.calls.length, 0);
+    const invalidSubmit = createHarness({ files: { 'local.js': 'console.log(1)' }, responses: {
+      '/api/cloud/device/market/submit': { ok: true }
+    } });
+    await assert.rejects((await loadService(invalidSubmit)).submitMarketScript('local.js', { name: 'name', description: 'description', supportedDevices: ['pro'] }), /invalid_market_script/);
 
     const chineseName = '中文工具（测试）.ui.js';
     const chineseUpload = createHarness({ files: { [chineseName]: 'console.log("你好")' }, cloudScripts: [{ id: 7, name: chineseName }] });
@@ -360,7 +493,7 @@ test("cloudClients", async () => {
     await chineseService.uploadScript(chineseName);
     const chineseUploadCall = chineseUpload.calls.find(call => call.method === 'PUT');
     assert.deepEqual(JSON.parse(chineseUploadCall.data), { name: chineseName, source: 'console.log("你好")' });
-    assert(chineseUploadCall.url.endsWith('/api/cloud/device/scripts/7'), 'Chinese overwrite matching must use the original filename');
+    assert(new URL(chineseUploadCall.url).pathname.endsWith('/api/cloud/device/scripts/7'), 'Chinese overwrite matching must use the original filename');
 
     const download = createHarness({ files: {} }); const downloadService = await loadService(download);
     await downloadService.downloadScript(7, 'cloud.js', false);
@@ -385,13 +518,16 @@ test("cloudClients", async () => {
     await marketService.downloadMarketScript(3, '自选名称.js', true);
     await marketService.downloadMarketScript(3, '第二份.js', false);
     assert.equal(market.files['第二份.js'], 'console.log("中文🙂")');
+    await assert.rejects(marketService.downloadMarketScript(3, '取消的下载.js', false, false, () => false), /market_download_cancelled/);
+    assert.equal(market.files['取消的下载.js'], undefined, 'Canceling compatibility warning must not write a file');
+    await assert.rejects(marketService.submitMarketScript('local.js', {name:'name',description:'description'}), /请选择适配设备/);
 
     await marketService.listMarketScripts('中文 标签', true);
     assert.equal(new URL(market.calls.at(-1).url).searchParams.get('mine'), '1');
     assert.equal(new URL(market.calls.at(-1).url).searchParams.get('q'), '中文 标签');
     const ownSource = await marketService.getMarketScript(3, true);
     assert.equal(ownSource.source, 'console.log("中文🙂")');
-    assert.ok(market.calls.at(-1).url.endsWith('/3/source?mine=1'));
+    assert.ok(new URL(market.calls.at(-1).url).pathname.endsWith('/3/source') && new URL(market.calls.at(-1).url).searchParams.get('mine') === '1');
     await marketService.downloadMarketScript(3, '自己的.js', false, true);
     assert.equal(market.files['自己的.js'], ownSource.source);
     await marketService.reportMarketScript(3, '  需要审核  ');

@@ -63,7 +63,10 @@
   flex:1;
   flex-direction: column;
   justify-content: space-between;
+  align-items: center;
 }
+
+.donation-qrcode { width:280px; height:280px; flex-shrink:0; }
 
 .btn {
   position: absolute;

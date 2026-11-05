@@ -1,4 +1,4 @@
-import { countWideCharacters, getCharacterWidth, getCodeWidth, getLineHeight, isWideCharacter } from './codeEditor.js';
+import { countWideCharacters, getCharacterWidth, getCodeWidth, getLineHeight, nextCharacterEnd, previousCharacterStart } from './codeEditor.js';
 
 // Plain JS state, never a page data object. Widths derive from integer counts so
 // insert/delete round trips cannot accumulate floating point cursor drift.
@@ -66,13 +66,14 @@ export function createCodeDocument(source, fontProfile, fontSize, cursorOffset =
   const document = {
     lines: [],
     sourceLength: code.length,
+    fontProfile: fontProfile || {},
     nextLineId: 0,
     asciiWidth: getCharacterWidth('a', fontProfile, fontSize),
     wideWidth: getCharacterWidth('中', fontProfile, fontSize),
     maxLineWidth: -1,
     maxWidthCount: 0,
     widthRemainder: null,
-    width: 0,
+    width: 336,
     preferredX: null,
     cursor: { offset: clamp(cursorOffset, code.length), line: 0, column: 0,
       wideCount: 0, x: 0, y: 0, height: getLineHeight(fontProfile, fontSize) }
@@ -81,13 +82,21 @@ export function createCodeDocument(source, fontProfile, fontSize, cursorOffset =
   let start = 0;
   for (let index = 0; index < texts.length; index += 1) {
     const text = texts[index];
-    const wideCount = countWideCharacters(text);
+    const wideCount = countWideCharacters(text, 0, text.length, document.fontProfile);
     document.lines.push(createLine(document, text, wideCount));
     if (document.cursor.offset >= start && document.cursor.offset <= start + text.length) {
       document.cursor.line = index;
       document.cursor.column = document.cursor.offset - start;
+      if (document.fontProfile.emojiCatalog && document.cursor.column < text.length && document.cursor.column > 0) {
+        const column = document.cursor.column;
+        if ((/[\uDC00-\uDFFF]/.test(text[column]) && /[\uD800-\uDBFF]/.test(text[column - 1])) ||
+            (document.fontProfile.zeroWidthCharacters && document.fontProfile.zeroWidthCharacters.indexOf(text[column]) !== -1)) {
+          document.cursor.column = previousCharacterStart(text, column + 1, document.fontProfile);
+          document.cursor.offset = start + document.cursor.column;
+        }
+      }
       document.cursor.wideCount = document.cursor.column === text.length ? wideCount :
-        countWideCharacters(text, 0, document.cursor.column);
+        countWideCharacters(text, 0, document.cursor.column, document.fontProfile);
     }
     start += text.length + 1;
   }
@@ -106,7 +115,7 @@ export function insertCodeText(document, value) {
   const after = line.text.slice(cursor.column);
   const addedLines = [];
   if (text.indexOf('\n') === -1) {
-    const wideCount = countWideCharacters(text);
+    const wideCount = countWideCharacters(text, 0, text.length, document.fontProfile);
     updateLine(document, line, before + text + after, line.wideCount + wideCount);
     cursor.column += text.length;
     cursor.wideCount += wideCount;
@@ -114,10 +123,10 @@ export function insertCodeText(document, value) {
     document.widthRemainder = null;
     const parts = text.split('\n');
     const suffixWideCount = line.wideCount - cursor.wideCount;
-    updateLine(document, line, before + parts[0], cursor.wideCount + countWideCharacters(parts[0]));
+    updateLine(document, line, before + parts[0], cursor.wideCount + countWideCharacters(parts[0], 0, parts[0].length, document.fontProfile));
     for (let index = 1; index < parts.length; index += 1) {
       const part = parts[index];
-      const wideCount = countWideCharacters(part);
+      const wideCount = countWideCharacters(part, 0, part.length, document.fontProfile);
       const last = index === parts.length - 1;
       addedLines.push(createLine(document, last ? part + after : part,
         wideCount + (last ? suffixWideCount : 0)));
@@ -143,11 +152,14 @@ export function deleteCodeBackward(document) {
   const line = document.lines[cursor.line];
   if (document.widthRemainder && document.widthRemainder.line !== line) document.widthRemainder = null;
   const removedLines = [];
+  let removedLength = 1;
   if (cursor.column) {
-    const wideCount = isWideCharacter(line.text, cursor.column - 1) ? 1 : 0;
-    updateLine(document, line, line.text.slice(0, cursor.column - 1) + line.text.slice(cursor.column),
+    const start = previousCharacterStart(line.text, cursor.column, document.fontProfile);
+    removedLength = cursor.column - start;
+    const wideCount = countWideCharacters(line.text, start, cursor.column, document.fontProfile);
+    updateLine(document, line, line.text.slice(0, cursor.column - removedLength) + line.text.slice(cursor.column),
       line.wideCount - wideCount);
-    cursor.column -= 1;
+    cursor.column -= removedLength;
     cursor.wideCount -= wideCount;
   } else {
     document.widthRemainder = null;
@@ -160,8 +172,8 @@ export function deleteCodeBackward(document) {
     removedLines.push(line);
     cursor.line -= 1;
   }
-  cursor.offset -= 1;
-  document.sourceLength -= 1;
+  cursor.offset -= removedLength;
+  document.sourceLength -= removedLength;
   document.preferredX = null;
   finishLayout(document, removedLines.length ? null : line);
   return { startLine: cursor.line, removedLines, addedLines: [] };
@@ -170,7 +182,8 @@ export function deleteCodeBackward(document) {
 function positionInLine(document, line, x) {
   const text = line.text;
   const target = Math.max(0, Math.min(line.width, Number(x) || 0));
-  if (!line.wideCount || line.wideCount === text.length) {
+  if ((!line.wideCount || line.wideCount === text.length) &&
+      (!document.fontProfile.emojiCatalog || !/[\uD800-\uDFFF\u200C\u200D\uFE0E\uFE0F]/.test(text))) {
     const width = line.wideCount ? document.wideWidth : document.asciiWidth;
     const column = clamp(target / width + 0.5, text.length);
     return { column, wideCount: line.wideCount ? column : 0 };
@@ -181,19 +194,21 @@ function positionInLine(document, line, x) {
   let width = column ? line.width : 0;
   if (!column) {
     while (column < text.length) {
-      const wide = isWideCharacter(text, column) ? 1 : 0;
-      const nextWidth = widthOf(document, column + 1, wideCount + wide);
+      const next = nextCharacterEnd(text, column, document.fontProfile);
+      const wide = countWideCharacters(text, column, next, document.fontProfile);
+      const nextWidth = widthOf(document, next, wideCount + wide);
       if ((width + nextWidth) / 2 > target) break;
-      column += 1;
+      column = next;
       wideCount += wide;
       width = nextWidth;
     }
   } else {
     while (column) {
-      const wide = isWideCharacter(text, column - 1) ? 1 : 0;
-      const previousWidth = widthOf(document, column - 1, wideCount - wide);
+      const previous = previousCharacterStart(text, column, document.fontProfile);
+      const wide = countWideCharacters(text, previous, column, document.fontProfile);
+      const previousWidth = widthOf(document, previous, wideCount - wide);
       if ((width + previousWidth) / 2 <= target) break;
-      column -= 1;
+      column = previous;
       wideCount -= wide;
       width = previousWidth;
     }
@@ -232,27 +247,32 @@ export function moveCodeCursor(document, direction) {
     return true;
   }
   document.preferredX = null;
+  let step = 1;
   if (direction === 'left' && cursor.offset) {
     if (cursor.column) {
-      cursor.column -= 1;
-      if (isWideCharacter(line.text, cursor.column)) cursor.wideCount -= 1;
+      const previous = previousCharacterStart(line.text, cursor.column, document.fontProfile);
+      step = cursor.column - previous;
+      cursor.wideCount -= countWideCharacters(line.text, previous, cursor.column, document.fontProfile);
+      cursor.column = previous;
     } else {
       cursor.line -= 1;
       const previous = document.lines[cursor.line];
       cursor.column = previous.text.length;
       cursor.wideCount = previous.wideCount;
     }
-    cursor.offset -= 1;
+    cursor.offset -= step;
   } else if (direction === 'right' && cursor.offset < document.sourceLength) {
     if (cursor.column < line.text.length) {
-      if (isWideCharacter(line.text, cursor.column)) cursor.wideCount += 1;
-      cursor.column += 1;
+      const next = nextCharacterEnd(line.text, cursor.column, document.fontProfile);
+      step = next - cursor.column;
+      cursor.wideCount += countWideCharacters(line.text, cursor.column, next, document.fontProfile);
+      cursor.column = next;
     } else {
       cursor.line += 1;
       cursor.column = 0;
       cursor.wideCount = 0;
     }
-    cursor.offset += 1;
+    cursor.offset += step;
   } else {
     return false;
   }

@@ -26,6 +26,10 @@
         <text class="field-label">{{replacingMarket ? '标签 · 保持不变' : '标签 · 可选'}}</text>
         <text class="field-value">{{tags || '用逗号分隔，最多 12 个'}}</text>
       </div>
+      <div class="field-card" @click="selectDevices">
+        <text class="field-label">适配设备 · 必填 · 可多选</text>
+        <text class="field-value">{{devicesLabel || '点击选择 Pro / RW'}}</text>
+      </div>
       <div class="note-card">
         <text class="note-text">{{replacingMarket ? '将替换当前市场脚本的源码，名称、说明和标签保持不变；审核通过后更新公开版本。' : '提交时读取本地脚本的当前源码。审核通过后，市场用户才能看到。'}}</text>
       </div>
@@ -55,12 +59,14 @@ import { showToast, vibrate } from '../../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../../utils/core/time.js';
 import { formatError } from '../../../../utils/core/userError.js';
 import { enterNetworkPage } from '../../../../utils/cloud/serverSelection.js';
+import { MARKET_DEVICES, marketDevices, marketDeviceLabel } from '../../../../utils/cloud/marketDevices.js';
 export default {
   protected: {
     marketId: '',
     marketTitle: '',
     marketDescription: '',
-    marketTags: ''
+    marketTags: '',
+    marketSupportedDevices: ''
   },
   private: {
     stage: 'choose',
@@ -76,6 +82,8 @@ export default {
     marketName: '',
     description: '',
     tags: '',
+    supportedDevices: [],
+    devicesLabel: '',
     submissionText: '',
     nowTime: '00:00',
     pageActive: true
@@ -88,6 +96,8 @@ export default {
       this.marketName = String(this.marketTitle || '');
       this.description = String(this.marketDescription || '');
       this.tags = this.normalizeMarketTags(this.marketTags);
+      this.supportedDevices = marketDevices(this.marketSupportedDevices);
+      this.devicesLabel = marketDeviceLabel(this.supportedDevices);
     }
   },
   onShow() {
@@ -128,10 +138,6 @@ export default {
   },
   selectScript(index) {
     if (this.loading || this.busy || !this.files[index]) return;
-    if (this.files[index].size > 48 * 1024) {
-      showToast('脚本超过市场的 48 KiB 上限');
-      return;
-    }
     vibrate('short');
     this.selectedName = this.files[index].name;
     if (this.replacingMarket) {
@@ -145,6 +151,20 @@ export default {
     }
     this.submissionText = '';
     this.stage = 'details';
+    this.supportedDevices = this.replacingMarket ? marketDevices(this.marketSupportedDevices) : [];
+    this.devicesLabel = marketDeviceLabel(this.supportedDevices);
+  },
+  selectDevices() {
+    if (this.busy || this.stage !== 'details') return;
+    vibrate('short');
+    this.$app.$def.openDialog('select', {
+      title: '适配设备', message: '选择已适配的设备，可多选', items: MARKET_DEVICES,
+      multiple: true, minSelected: 1, value: this.supportedDevices
+    }, this).then(result => {
+      if (!this.pageActive || result.action !== 'confirm') return;
+      this.supportedDevices = marketDevices(result.value);
+      this.devicesLabel = marketDeviceLabel(this.supportedDevices);
+    }).catch(error => { if (this.pageActive) showToast(error.message || '无法选择适配设备'); });
   },
   normalizeMarketTags(value) {
     let tags = value;
@@ -199,6 +219,7 @@ export default {
     const name = this.marketName.trim();
     const description = this.description.trim();
     const tags = this.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+    if (!this.supportedDevices.length) { showToast('请选择适配设备'); return; }
     if (!name) {
       showToast('请填写市场名称');
       return;
@@ -225,11 +246,13 @@ export default {
         this.busy = false;
         return null;
       }
-      startNetworkFeedback(this, '正在提交市场审核');
+      this.stage = 'submitting';
+      startNetworkFeedback(this, '正在提交并等待审核结果');
       const metadata = {
         name,
         description,
-        tags: tags.join(', ')
+        tags: tags.join(', '),
+        supportedDevices: this.supportedDevices.slice()
       };
       if (this.replacingMarket) metadata.marketId = Number(this.marketId);
       return this.$app.$def.getCloudClients().marketClient.submitMarketScript(this.selectedName, metadata);
@@ -237,19 +260,15 @@ export default {
       if (!this.pageActive || !result) return;
       stopNetworkFeedback(this);
       this.busy = false;
-      if (result.status === 'rejected') {
-        this.submissionText = '审核未通过：' + (result.review && result.review.reason || '请修改后重试');
-        return;
-      }
       this.$app.$def.marketRefreshNeeded = true;
-      showToast(this.replacingMarket
-        ? '已重新提交审核'
-        : result.status === 'published' ? '已发布到 JS 市场' : '已提交市场审核');
+      this.$app.$def.marketSubmissionResult = result;
+      showToast(result.statusText || (result.status === 'published' ? '已发布到 JS 市场' : result.status === 'rejected' ? '审核未通过' : '已提交市场审核'));
       back();
     }).catch(error => {
       if (!this.pageActive) return;
       stopNetworkFeedback(this);
       this.busy = false;
+      this.stage = 'details';
       this.submissionText = errorMessage(error, '提交市场脚本');
       showToast(this.submissionText);
     });

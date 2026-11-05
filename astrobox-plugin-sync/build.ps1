@@ -1,3 +1,5 @@
+param([switch]$Offline)
+
 $ErrorActionPreference = 'Stop'
 
 $pluginRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $MyInvocation.MyCommand.Path))
@@ -23,7 +25,9 @@ if (-not (Test-Path -LiteralPath $cargoExe -PathType Leaf)) {
     throw "cargo is missing; install the Rust stable toolchain first"
 }
 
-& $cargoExe build --offline --manifest-path (Join-Path $pluginRoot 'Cargo.toml') --target wasm32-wasip2 --release
+$cargoArguments = @('build', '--locked', '--manifest-path', (Join-Path $pluginRoot 'Cargo.toml'), '--target', 'wasm32-wasip2', '--release')
+if ($Offline) { $cargoArguments += '--offline' }
+& $cargoExe @cargoArguments
 if ($LASTEXITCODE -ne 0) {
     throw "cargo build failed with exit code $LASTEXITCODE"
 }

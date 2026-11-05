@@ -371,15 +371,19 @@ describe("scriptData", () => {
     assert.deepEqual(await reloaded.data.all(), { normal: true });
   });
 
-  test('queued namespace-size validation rejects only the overflowing mutation', async () => {
+  test('large values and namespaces survive queued writes and file reload without size caps', async () => {
     const db = database(); const storage = db.load()('limits.ui.js');
-    const value = 'x'.repeat(15 * 1024);
+    const value = '中文'.repeat(32 * 1024);
     const results = await Promise.allSettled(Array.from({ length: 5 }, (_, i) => storage.data.set('key' + i, value)));
-    assert.deepEqual(results.map(result => result.status), ['fulfilled', 'fulfilled', 'fulfilled', 'fulfilled', 'rejected']);
-    assert.equal(db.stats.writes, 4);
+    assert.ok(results.every(result => result.status === 'fulfilled'));
+    assert.equal(db.stats.writes, 5);
+    await storage.config.set('large', value);
+    const reloaded = db.load()('limits.ui.js');
+    for (let i = 0; i < 5; i++) assert.equal(await reloaded.data.get('key' + i), value);
+    assert.equal(await reloaded.config.get('large'), value);
     await storage.data.delete('key0'); await storage.data.set('small', 1);
     assert.equal(await storage.data.get('small'), 1);
-    assert.equal(await storage.data.get('key4', null), null);
+    assert.equal(await storage.data.get('key4'), value);
   });
 
   test('deleting a script removes its data and config namespace without affecting another script', async () => {

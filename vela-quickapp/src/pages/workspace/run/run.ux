@@ -6,33 +6,22 @@
           <text class="empty-title">{{emptyTitle}}</text>
           <text class="empty-detail">{{emptyDetail}}</text>
         </div>
-        <div for="{{node in uiNodes}}" tid="id" class="node-wrap" style="{{ { left: '' + (node.x) + 'px', top: '' + (node.y) + 'px', width: '' + (node.width) + 'px', height: '' + (node.height) + 'px', backgroundColor: '' + (node.background), borderRadius: '' + (node.radius) + 'px' } }}">
+        <div for="{{node in uiNodes}}" tid="id" class="node-wrap {{'node-' + node.kind}}" style="{{ { left: '' + (node.x) + 'px', top: '' + (node.y) + 'px', width: '' + (node.width) + 'px', height: '' + (node.height) + 'px', backgroundColor: '' + (node.background), borderRadius: '' + (node.radius) + 'px' } }}" @click="onNodePress(node.id, node.kind)">
           <text if="{{node.kind === 'heading' || node.kind === 'text'}}" class="ui-text" style="{{ { color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', fontWeight: '' + (node.bold), textAlign: '' + (node.align), lines: '' + (node.lines) } }}">{{node.text}}</text>
-          <div elif="{{node.kind === 'button'}}" class="ui-button" @click="onButtonPress(node.id)">
-            <text class="ui-text" style="{{ { color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', lines: '' + (node.lines), fontWeight: '' + 'bold', textAlign: '' + 'center' } }}">{{node.text}}</text>
+          <text elif="{{node.kind === 'button'}}" class="ui-text" style="{{ { width: '' + (node.width > 16 ? node.width - 16 : 0) + 'px', color: '' + (node.color), fontSize: '' + (node.size) + 'px', lineHeight: '' + (node.lineHeight) + 'px', lines: '' + (node.lines), fontWeight: '' + 'bold', textAlign: '' + 'center' } }}">{{node.text}}</text>
+          <div elif="{{node.kind === 'switch'}}" class="control-copy" style="{{ { width: '' + (node.copyWidth) + 'px' } }}">
+            <text class="control-label" style="{{ { width: '' + (node.copyWidth) + 'px', color: '' + (node.color) } }}">{{node.text}}</text>
+            <text if="{{node.detail}}" class="control-detail" style="{{ { width: '' + (node.copyWidth) + 'px', color: '' + (node.detailColor) } }}">{{node.detail}}</text>
           </div>
-          <div elif="{{node.kind === 'switch'}}" class="control-card">
-            <div class="control-copy" style="{{ { width: '' + (node.copyWidth) + 'px' } }}">
-              <text class="control-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
-              <text if="{{node.detail}}" class="control-detail" style="{{ { color: '' + (node.detailColor) } }}">{{node.detail}}</text>
-            </div>
-            <switch class="ui-switch" checked="{{node.checked}}" style="{{ { trackColor: '' + (node.accent), thumbColor: '' + (node.thumbColor) } }}" @change="onSwitchChange(node.id)"></switch>
-          </div>
-          <div elif="{{node.kind === 'slider'}}" class="value-card">
-            <div class="value-header">
-              <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
-              <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.value}}</text>
-            </div>
-            <slider class="ui-slider" min="{{node.min}}" max="{{node.max}}" step="{{node.step}}" value="{{node.value}}" style="{{ { color: '' + (node.trackColor), selectedColor: '' + (node.accent), blockColor: '' + (node.thumbColor) } }}" onchange="onSliderChange(node.id)"></slider>
-          </div>
-          <div elif="{{node.kind === 'progress'}}" class="value-card">
-            <div class="value-header">
-              <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
-              <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.percent}}%</text>
-            </div>
-            <progress class="ui-progress" percent="{{node.percent}}" style="{{ { color: '' + (node.accent), layerColor: '' + (node.trackColor) } }}"></progress>
+          <div elif="{{node.kind === 'slider' || node.kind === 'progress'}}" class="value-header" style="{{ { width: '' + (node.width - 32) + 'px' } }}">
+            <text class="value-label" style="{{ { color: '' + (node.color) } }}">{{node.text}}</text>
+            <text class="value-text" style="{{ { color: '' + (node.accent) } }}">{{node.kind === 'progress' ? node.percent + '%' : node.value}}</text>
           </div>
           <qrcode elif="{{node.kind === 'qrcode'}}" value="{{node.value}}" style="{{ { width: '' + (node.qrSize) + 'px', height: '' + (node.qrSize) + 'px', color: '' + (node.color), backgroundColor: '' + (node.background) } }}"></qrcode>
+          <image elif="{{(node.kind === 'image' || node.kind === 'canvas') && node.src}}" class="ui-image" src="{{node.src}}" style="{{ { width: '' + (node.width) + 'px', height: '' + (node.height) + 'px', objectFit: '' + (node.fit) } }}" @complete="onImageLoaded(node.id, node.src)" @error="onImageError(node.id, node.src)"></image>
+          <switch if="{{node.kind === 'switch'}}" class="ui-switch" checked="{{node.checked}}" style="{{ { trackColor: '' + (node.accent), thumbColor: '' + (node.thumbColor) } }}" @change="onSwitchChange(node.id)"></switch>
+          <slider elif="{{node.kind === 'slider'}}" class="ui-slider" min="{{node.min}}" max="{{node.max}}" step="{{node.step}}" value="{{node.value}}" style="{{ { width: '' + (node.width - 32) + 'px', height: '' + (node.height - 60) + 'px', color: '' + (node.trackColor), selectedColor: '' + (node.accent), blockColor: '' + (node.thumbColor) } }}" onchange="onSliderChange(node.id)"></slider>
+          <progress elif="{{node.kind === 'progress'}}" class="ui-progress" percent="{{node.percent}}" style="{{ { width: '' + (node.width - 32) + 'px', color: '' + (node.accent), layerColor: '' + (node.trackColor) } }}"></progress>
         </div>
         <div if="{{error}}" class="error-card" style="{{ { top: '' + (errorTop) + 'px' } }}">
           <text class="error-title">运行错误</text>
@@ -56,6 +45,7 @@
 </template>
 
 <script>
+import file from '@system.file';
 import { back, replace } from '../../../utils/core/routeManager.js';
 import { vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
@@ -79,6 +69,8 @@ export default {
     runs.set(this, state);
     state.logs = createConsoleBuffer(() => this.queueLogs());
     state.session = createUiSession({
+      files:file,
+      mediaReady:this.$app.$def.uiMediaReady,
       top:() => state.header ? SCREEN.header : SCREEN.topInset,
       title:value => { state.uiTitle=value; if (this.view === 'ui') this.pageTitle=value; },
       header:value => { if (state.header === value) return false; state.header=value; if (this.view === 'ui') { this.showTopBar=value; this.contentTopPadding=value ? SCREEN.header : SCREEN.topInset; } return true; },
@@ -188,6 +180,10 @@ export default {
       element.scrollTo({ top:target === 'bottom' ? this.layoutHeight : target === 'top' ? 0 : Number(target)||0, left:0, behavior:'smooth' });
     });
   },
+  onImageLoaded(id,src) { const state=runs.get(this); if (state && state.session) state.session.imageLoaded(id,src); },
+  onImageError(id,src) { this.onImageLoaded(id,src); this.reportError(new Error('图片加载失败：' + id + '，请检查图片格式和地址')); },
+  // Native controls can bubble clicks; only buttons use the root click target.
+  onNodePress(id,kind) { if (kind === 'button') this.onButtonPress(id); },
   onButtonPress(id) { const state=runs.get(this); if (state && state.session.invoke(id)) vibrate('short'); },
   onSwitchChange(id,event) { const data=event && event.detail ? event.detail : event; const state=runs.get(this); if (state) state.session.invoke(id,!!(data && data.checked)); },
   onSliderChange(id,event) { const data=event && event.detail ? event.detail : event; if (data && data.isFromUser === false) return; const state=runs.get(this); if (state) state.session.invoke(id,Number(data && data.progress)||0); }

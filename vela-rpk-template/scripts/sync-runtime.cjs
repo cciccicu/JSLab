@@ -1,14 +1,14 @@
 // Keep the existing script API, UI, storage and dialogs byte-for-byte compatible.
 const fs = require('node:fs');
 const path = require('node:path');
+const { normalizeSource } = require('./source-content.cjs');
 const root = path.resolve(__dirname, '..');
 const source = path.resolve(root, '../vela-quickapp/src');
 const check = process.argv.includes('--check');
 function write(relative, data) {
   const target = path.join(root, 'src', relative);
   if (check) {
-    const normalized=value=>/\.(js|ux|css|json|md|txt)$/i.test(relative) ? Buffer.from(Buffer.from(value).toString('utf8').replace(/\r\n/g,'\n')) : Buffer.from(value);
-    if (!fs.existsSync(target) || !normalized(fs.readFileSync(target)).equals(normalized(data))) throw new Error('模板源码需要同步：' + relative);
+    if (!fs.existsSync(target) || !normalizeSource(relative, fs.readFileSync(target)).equals(normalizeSource(relative, data))) throw new Error('模板源码需要同步：' + relative);
   } else { fs.mkdirSync(path.dirname(target), { recursive:true }); fs.writeFileSync(target, data); }
 }
 function copy(relative) {
@@ -18,9 +18,9 @@ function copy(relative) {
   } else write(relative, fs.readFileSync(from));
 }
 // Keep the RPK-specific black code-sheet icon with its JSLab badge; do not copy the regular app logo here.
-for (const relative of ['utils/runtime', 'utils/files/scriptData.js', 'utils/core/dialogState.js',
+for (const relative of ['utils/runtime', 'utils/files/scriptData.js', 'utils/files/textEncoding.js', 'utils/core/dialogState.js',
   'utils/core/routeManager.js', 'utils/core/runtimeCompat.js', 'utils/core/uiFeedback.js', 'utils/core/time.js', 'utils/core/screen.js',
-  'pages/overlay', 'components/InputMethod', 'common/styles/dialog.css', 'pages/workspace/run/run.css',
+  'pages/overlay', 'components/InputMethod', 'common/fonts', 'common/styles/dialog.css', 'pages/workspace/run/run.css',
   ...['hd','back','conform','check','info'].map(name => 'common/images/' + name + '.png')]) copy(relative);
 let run = fs.readFileSync(path.join(source, 'pages/workspace/run/run.ux'), 'utf8').replace(/\r\n/g, '\n');
 function change(before, after) {

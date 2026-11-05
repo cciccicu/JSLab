@@ -19,6 +19,7 @@ const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
   ai_provider_unavailable: '上游 AI 服务拒绝请求或暂时不可达',
   ai_invalid_response: 'AI 服务返回的内容缺少可用脚本代码',
   invalid_market_script: '市场脚本响应缺少名称或源代码',
+  invalid_market_engagement: '云服务返回的点赞状态或数量无效',
   invalid_cloud_script: '云空间文件响应缺少脚本资料或源代码',
   checksum_mismatch: '下载内容的校验值与服务器记录不一致，文件未写入',
   file_exists: '本地已有同名文件，未覆盖现有内容',
@@ -30,7 +31,8 @@ const CLOUD_ERROR_MESSAGES = Object.assign(Object.create(null), {
   cloud_fetch_timeout: 'fetch 直连请求超时（Vela 204）',
   cloud_fetch_deadline: 'fetch 直连请求超过本次等待时限',
   cloud_fetch_invalid_parameters: 'fetch 直连参数无效（Vela 202）',
-  cloud_fetch_io_error: 'fetch 直连发生网络 I/O 错误（Vela 300）',
+  cloud_fetch_io_error: '您的设备可能未联网（Vela 300）',
+  cloud_fetch_unsupported: '设备可能不支持 fetch 直连，或域名解析失败，请检查网络或尝试网络桥接（Vela 6）',
   cloud_fetch_system_error: 'fetch 直连触发 Vela 系统内部错误（Vela 200）',
   cloud_fetch_rejected: 'fetch 直连请求被用户拒绝',
   cloud_fetch_duplicate: 'fetch 直连请求被系统判定为重复提交（Vela 205）',
@@ -47,7 +49,7 @@ function contextualMessage(operation, reason) {
   return String(operation || '云服务请求').replace(/[：:，,。\s]+$/g, '') + '：' + reason;
 }
 
-export function errorMessage(error, operation) {
+function formatCloudError(error, operation) {
   const value = error || {};
   const key = String(value.message || '');
   let reason = CLOUD_ERROR_MESSAGES[key];
@@ -66,4 +68,18 @@ export function errorMessage(error, operation) {
       (serverMessage ? '：' + serverMessage : serverCode ? '（错误标识 ' + serverCode + '）' : '，且未提供错误标识'));
   }
   return formatError(value, operation || '云服务请求');
+}
+
+export function errorMessage(error, operation, options) {
+  const message = formatCloudError(error, operation);
+  if (!options || !options.codeFirst) return message;
+  // Keep the full explanation, but show the code before any operation text.
+  const marker = /（((?:Vela|HTTP) -?\d+)(：[^）]*)?）/.exec(message);
+  if (marker) {
+    const detail = marker[2] ? '（' + marker[2].slice(1) + '）' : '';
+    return marker[1] + '：' + message.replace(marker[0], detail);
+  }
+  // Unmapped HTTP responses already include their code within the sentence.
+  const http = /HTTP -?\d+/.exec(message);
+  return http ? http[0] + '：' + message : message;
 }

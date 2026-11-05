@@ -4,6 +4,8 @@ import { SCREEN } from '../core/screen.js';
 // Guidance for watch-sized screens, not limits enforced by the compiler.
 export const UI_PERFORMANCE_GUIDE = { declarations: 40, paintedNodes: 160, depth: 4, qrcodes: 2 };
 
+export function getUiWidth() { return SCREEN.contentWidth; }
+
 export function number(value, min, max, fallback) {
   if (value === undefined || value === null) return fallback;
   const result = Number(value);
@@ -11,7 +13,7 @@ export function number(value, min, max, fallback) {
 }
 
 export function text(value) {
-  return String(value == null ? '' : value).slice(0, 1024);
+  return String(value == null ? '' : value);
 }
 
 export function color(value, fallback) {
@@ -37,6 +39,11 @@ function offset(align, spare) { return align === 'center' ? spare / 2 : align ==
 function background(raw, fallback) { return color(raw.background, fallback); }
 const GRID_TONES = { primary: '#1769d2', success: '#16845b', warning: '#a55d16', danger: '#b93838' };
 const BUTTON_TONES = { primary: '#0d6eff', neutral: '#34373d', danger: '#d94343' };
+// Geometry belongs to an accepted compilation, not to mutable script objects.
+// Weak keys release it together with the existing leaf cache on session exit.
+const groupCaches = new WeakMap();
+const GROUP_INPUTS = ['height', 'padding', 'gap', 'columns', 'cellHeight', 'align', 'justify'];
+function primitive(value) { return value === null || (typeof value !== 'object' && typeof value !== 'function'); }
 function tone(raw, grid) {
   const colors = grid ? GRID_TONES : BUTTON_TONES;
   const selected = colors[raw.tone];
@@ -56,13 +63,16 @@ export function sameNode(a, b) {
   return true;
 }
 
-export function compileUi(source, top, previous, cache) {
+export function compileUi(source, top, previous, cache, resolveNode) {
   const nodes = [];
   const handlers = Object.create(null);
   const ids = Object.create(null);
   let old = null;
   const nextCache = Object.create(null);
+  const groups = cache && groupCaches.get(cache);
+  const nextGroups = Object.create(null);
   let count = 0;
+  let placed = [], stablePlacement = true;
 
   // Stable trees find their previous nodes by position (or the leaf cache).
   // Build an ID index only when insertion, deletion or reordering needs it.
@@ -102,7 +112,7 @@ export function compileUi(source, top, previous, cache) {
         value === before.text && sizeInput === before.size && lineInput === before.lineHeight &&
         colorInput === before.color && bgInput === before.background && toneInput === before.tone) {
       nextCache[id] = cached;
-      return { id, kind: 'text', w, h, node: cached.node, cached };
+      return cached.box;
     }
     const input = { text: value, size: sizeInput, lineHeight: lineInput, color: colorInput, background: bgInput, tone: toneInput };
     const oldNode = cached && cached.node;
@@ -111,43 +121,69 @@ export function compileUi(source, top, previous, cache) {
       id, kind: 'text', width: Math.round(w),
       background: before && bgInput === before.background && toneInput === before.tone ? oldNode.background : tone(input, true),
       radius: 12,
-      text: before && value === before.text ? oldNode.text : text(value).slice(0, 8),
+      text: before && value === before.text ? oldNode.text : text(value),
       color: before && colorInput === before.color ? oldNode.color : color(colorInput, '#ffffff'),
       size, align: 'center', bold: 'bold',
       lineHeight: before && lineInput === before.lineHeight && size === oldNode.size
         ? oldNode.lineHeight : number(lineInput, size, 64, Math.max(size + 4, 32)),
-      lines: 1, x: oldNode && oldNode.x, y: oldNode && oldNode.y, height: Math.ceil(h)
+      lines: 1, x: oldNode && oldNode.x, y: oldNode && oldNode.y, height: h
     };
     let cacheable = true;
     for (const key in input) {
       if (input[key] !== null && (typeof input[key] === 'object' || typeof input[key] === 'function')) cacheable = false;
     }
-    const next = { grid: true, availableWidth: w, width: w, height: h, input: cacheable ? input : null, node };
+    const box = { id, kind: 'text', w, h, node };
+    const next = { grid: true, availableWidth: w, width: w, height: h, input: cacheable ? input : null, node, box };
     nextCache[id] = next;
-    return { id, kind: 'text', w, h, node, cached: next };
+    return box;
   }
 
   function finishLayout(box, layout) {
-    const { raw, kind, padding, inner, gap, columns, cellHeight, horizontal, remaining, weight, children } = layout;
-    let natural = 0;
-    if (horizontal) box.children.forEach(child => { natural = Math.max(natural, child.h); });
+    const { padding, cached, stack } = layout;
+    // Child positions are owned by the group, so unchanged leaf boxes can be
+    // shared even when an ancestor moves. Recheck dimensions and order first.
+    const positions = cached && cached.positions;
+    let matched = !!positions && positions.length === box.children.length * 4;
+    for (let i = 0; matched && i < box.children.length; i += 1) {
+      const child = box.children[i], index = i * 4;
+      matched = child.id === cached.childIds[i] && child.w === positions[index] && child.h === positions[index + 1] &&
+        (!stack || (stack[i * 2] + padding === positions[index + 2] && stack[i * 2 + 1] + padding === positions[index + 3]));
+    }
+    if (matched) {
+      box.h = cached.height;
+      box.positions = positions;
+    } else {
+      stablePlacement = false;
+      placeChildren(box, layout);
+    }
+    const geometry = layout.geometry;
+    nextGroups[box.id] = matched && cached.allocation === geometry.allocation ? cached
+      : Object.assign({}, geometry, { height: box.h, positions: box.positions, childIds: box.children.map(child => child.id) });
+  }
+
+  function placeChildren(box, layout) {
+    const { raw, kind, padding, inner, gap, columns, cellHeight, horizontal, children, stack } = layout;
+    let natural = 0, usedWidth = gap * Math.max(0, children.length - 1);
+    if (horizontal) box.children.forEach(child => { natural = Math.max(natural, child.h); usedWidth += child.w; });
     else if (kind === 'grid') natural = Math.ceil(children.length / columns) * (cellHeight + gap) - (children.length ? gap : 0);
-    else if (kind === 'stack') box.children.forEach(child => { natural = Math.max(natural, child.h + number(child.raw.y, 0, 4096, 0)); });
+    else if (kind === 'stack') box.children.forEach((child, i) => { natural = Math.max(natural, child.h + stack[i * 2 + 1]); });
     else box.children.forEach((child, i) => { natural += child.h + (i ? gap : 0); });
-    box.h = Math.max(natural + padding * 2, number(raw.height, 0, 8192, natural + padding * 2));
+    box.h = Math.ceil(Math.max(natural + padding * 2, number(raw.height, 0, 8192, natural + padding * 2)));
     const extra = Math.max(0, box.h - padding * 2 - natural);
     let cursor = padding + (!horizontal && kind === 'column' ? offset(raw.justify, extra) : 0);
-    const freeX = horizontal && !weight ? remaining : 0;
+    // Intrinsic leaves such as QR codes may shrink after width allocation.
+    const freeX = horizontal ? Math.max(0, inner - usedWidth) : 0;
     if (horizontal) cursor += offset(raw.justify, freeX);
     const between = raw.justify === 'between' && children.length > 1 ? (horizontal ? freeX : extra) / (children.length - 1) : 0;
+    box.positions = [];
     box.children.forEach((child, i) => {
-      child.x = horizontal ? cursor : padding + offset(raw.align, inner - child.w);
-      child.y = horizontal ? padding + offset(raw.align, box.h - padding * 2 - child.h) : cursor;
-      if (kind === 'grid') { child.x = padding + (i % columns) * (child.w + gap); child.y = padding + Math.floor(i / columns) * (child.h + gap); }
-      if (kind === 'stack') { child.x = padding + number(child.raw.x, 0, Math.max(0, inner - child.w), 0); child.y = padding + number(child.raw.y, 0, 4096, 0); }
+      let x = horizontal ? cursor : padding + offset(raw.align, inner - child.w);
+      let y = horizontal ? padding + offset(raw.align, box.h - padding * 2 - child.h) : cursor;
+      if (kind === 'grid') { x = padding + (i % columns) * (child.w + gap); y = padding + Math.floor(i / columns) * (child.h + gap); }
+      if (kind === 'stack') { x = padding + stack[i * 2]; y = padding + stack[i * 2 + 1]; }
+      box.positions.push(child.w, child.h, x, y);
       cursor += (horizontal ? child.w : child.h) + gap + between;
     });
-    box.radius = number(raw.radius, 0, 80, 0);
   }
 
   // Explicit enter/exit frames keep layout depth independent of the JS call stack.
@@ -156,19 +192,24 @@ export function compileUi(source, top, previous, cache) {
     const active = new Set();
     const frames = [{ input, available, path, forcedWidth, generated, parent: null, index: 0 }];
     let rootBox = null;
-    function attach(frame, box) {
+    function attach(frame, box, raw) {
       if (frame.parent) frame.parent.children[frame.index] = box;
       else rootBox = box;
+      if (frame.stack) {
+        frame.stack[frame.index * 2] = number(raw.x, 0, Math.max(0, frame.available - box.w), 0);
+        frame.stack[frame.index * 2 + 1] = number(raw.y, 0, 4096, 0);
+      }
     }
     while (frames.length) {
       const frame = frames.pop();
       if (frame.exit) {
         finishLayout(frame.box, frame.layout);
         active.delete(frame.raw);
-        attach(frame, frame.box);
+        attach(frame, frame.box, frame.raw);
         continue;
       }
-      const raw = frame.input && typeof frame.input === 'object' ? frame.input : { kind: 'text', text: frame.input };
+      let raw = frame.input && typeof frame.input === 'object' ? frame.input : { kind: 'text', text: frame.input };
+      if (resolveNode) raw = resolveNode(raw);
       if (active.has(raw)) throw new Error('UI 布局不能循环引用');
       count += 1;
       const id = frame.generated || identity(raw, frame.path);
@@ -178,41 +219,73 @@ export function compileUi(source, top, previous, cache) {
       }
       const kind = raw.kind || 'text';
       const w = frame.forcedWidth == null ? widthOf(raw.width, frame.available, frame.available) : frame.forcedWidth;
-      const box = { id, kind, w, h: 0, raw };
       if (kind !== 'row' && kind !== 'column' && kind !== 'stack' && kind !== 'buttonRow' && kind !== 'grid') {
-        attach(frame, measureLeaf(box, raw, id, kind, w));
+        const box = measureLeaf(raw, id, kind, w);
+        // Reserve the same integer height that the native node will paint.
+        if (box.h !== Math.ceil(box.h)) box.h = Math.ceil(box.h);
+        if (kind !== 'spacer') placed.push(box);
+        attach(frame, box, raw);
         continue;
       }
       active.add(raw);
+      const box = { id, kind, w, h: 0 };
       box.background = background(raw, 'transparent');
-      const padding = number(raw.padding, 0, Math.min(48, (w - 1) / 2), 0);
-      const inner = w - padding * 2;
-      const gap = number(raw.gap, 0, 48, kind === 'grid' || kind === 'buttonRow' ? 6 : 8);
+      box.radius = number(raw.radius, 0, 80, 0);
+      if (box.background !== 'transparent') placed.push(box);
+      let cached = groups && groups[id];
+      if (cached && (cached.kind !== kind || cached.w !== w || !cached.input)) cached = null;
+      for (let i = 0; cached && i < GROUP_INPUTS.length; i += 1) {
+        if (raw[GROUP_INPUTS[i]] !== cached.input[i]) cached = null;
+      }
+      let geometry = cached;
+      if (!geometry) {
+        const values = GROUP_INPUTS.map(key => raw[key]);
+        const padding = number(raw.padding, 0, Math.min(48, (w - 1) / 2), 0);
+        geometry = { kind, w, input: values.every(primitive) ? values : null, padding, inner: w - padding * 2,
+          gap: number(raw.gap, 0, 48, kind === 'grid' || kind === 'buttonRow' ? 6 : 8),
+          columns: Math.round(number(raw.columns, 2, 4, 4)),
+          cellHeight: kind === 'grid' ? Math.ceil(number(raw.cellHeight, 44, 72, 52)) : 0 };
+      }
+      const { padding, inner, gap, columns, cellHeight } = geometry;
       const children = list(kind === 'buttonRow' ? raw.buttons : kind === 'grid' ? raw.items : raw.children)
         .filter(child => child != null && child !== false);
-      const columns = Math.round(number(raw.columns, 2, 4, 4));
-      const cellHeight = kind === 'grid' ? number(raw.cellHeight, 44, 72, 52) : 0;
       const cellWidth = (inner - gap * (columns - 1)) / columns;
       if (kind === 'grid' && children.length && cellWidth < 1) throw new Error('grid 宽度不足：减小 columns、padding 或 gap');
       const horizontal = kind === 'row' || kind === 'buttonRow';
-      let remaining = inner - gap * Math.max(0, (kind === 'grid' ? columns : children.length) - 1);
-      let weight = 0;
-      const widths = [];
+      let allocation = geometry.allocation;
       if (horizontal) {
-        children.forEach((child, i) => {
-          const item = child && typeof child === 'object' ? child : {};
-          if (item.width != null) { widths[i] = widthOf(item.width, inner, inner); remaining -= widths[i]; }
-          else { widths[i] = null; weight += number(item.flex, 0.1, 100, 1); }
-        });
-        if (remaining < 0 || (weight && remaining < children.length)) throw new Error('row 宽度不足：减小 width、padding 或 gap');
+        let matched = !!allocation && !!allocation.input && allocation.widths.length === children.length;
+        for (let i = 0; matched && i < children.length; i += 1) {
+          const item = children[i] && typeof children[i] === 'object' ? children[i] : {};
+          matched = item.width === allocation.input[i * 2] && (item.width == null ? item.flex : undefined) === allocation.input[i * 2 + 1];
+        }
+        if (!matched) {
+          let remaining = inner - gap * Math.max(0, children.length - 1), weight = 0;
+          const widths = [], values = [];
+          children.forEach((child, i) => {
+            const item = child && typeof child === 'object' ? child : {};
+            values.push(item.width, item.width == null ? item.flex : undefined);
+            if (item.width != null) { widths[i] = widthOf(item.width, inner, inner); remaining -= widths[i]; }
+            else { widths[i] = null; weight += number(item.flex, 0.1, 100, 1); }
+          });
+          if (remaining < 0) throw new Error('row 宽度不足：减小 width、padding 或 gap');
+          children.forEach((child, i) => {
+            if (widths[i] == null) widths[i] = remaining * number(child && child.flex, 0.1, 100, 1) / weight;
+            if (widths[i] < 1) throw new Error('row 子项宽度不足：调整 flex、width、padding 或 gap');
+          });
+          allocation = { widths, input: values.every(primitive) ? values : null };
+          geometry = Object.assign({}, geometry, { allocation });
+        }
       }
       box.children = new Array(children.length);
-      const layout = { raw, kind, padding, inner, gap, columns, cellHeight, horizontal, remaining, weight, children };
-      frames.push({ exit: true, box, layout, raw, parent: frame.parent, index: frame.index });
+      const stack = kind === 'stack' ? [] : null;
+      const layout = { raw, kind, padding, inner, gap, columns, cellHeight, horizontal, children, cached, geometry, stack };
+      frames.push({ exit: true, box, layout, raw, parent: frame.parent, index: frame.index, available: frame.available, stack: frame.stack });
       if (kind === 'grid') {
         children.forEach((child, i) => {
           const cell = child && typeof child === 'object' ? child : { text: child };
           box.children[i] = measureGridCell(cell, cellWidth, cellHeight, id + '/cell/' + i);
+          placed.push(box.children[i]);
         });
         continue;
       }
@@ -222,25 +295,24 @@ export function compileUi(source, top, previous, cache) {
         let childWidth;
         let generatedId;
         if (horizontal) {
-          childWidth = widths[i] == null ? remaining * number(child && child.flex, 0.1, 100, 1) / weight : widths[i];
-          if (childWidth < 1) throw new Error('row 子项宽度不足：调整 flex、width、padding 或 gap');
+          childWidth = allocation.widths[i];
         }
         if (kind === 'buttonRow') {
           const button = child && typeof child === 'object' ? child : { text: child };
-          item = Object.assign({}, button, { kind: 'button', text: text(button.text).slice(0, 8), height: 60 });
+          item = Object.assign({}, button, { kind: 'button', text: text(button.text), height: 60 });
           if (button.id == null) generatedId = id + '/button/' + i;
         }
         // Compact the path when deeply nested, without limiting nesting itself.
         const childPath = frame.path.length < 48 ? frame.path + '.' + i : '#' + count + '.' + i;
         frames.push({ input: item, available: inner, path: childPath, forcedWidth: childWidth,
-          generated: generatedId, parent: box, index: i });
+          generated: generatedId, parent: box, index: i, stack });
       }
     }
     return rootBox;
   }
 
-  function measureLeaf(box, raw, id, kind, w) {
-    if (kind === 'spacer') { box.h = number(raw.size, 0, 480, 12); return box; }
+  function measureLeaf(raw, id, kind, w) {
+    if (kind === 'spacer') return { id, kind, w, h: number(raw.size, 0, 480, 12) };
     if (kind === 'button' && raw.disabled !== true && typeof raw.onPress === 'function') handlers[id] = raw.onPress;
     if ((kind === 'switch' || kind === 'slider') && typeof raw.onChange === 'function') handlers[id] = raw.onChange;
     // Cache only leaf inputs, never factories or callbacks. The next cache is
@@ -255,8 +327,7 @@ export function compileUi(source, top, previous, cache) {
     }
     if (matched && keyCount === cached.keyCount) {
       nextCache[id] = cached;
-      box.w = cached.width; box.h = cached.height; box.node = cached.node; box.cached = cached;
-      return box;
+      return cached.box;
     }
     let inputCopy = {};
     // Check cache eligibility only on misses. Mutable coercible values must be
@@ -268,13 +339,20 @@ export function compileUi(source, top, previous, cache) {
       inputCopy[key] = value;
     }
     const node = { id, kind, width: Math.round(w), background: background(raw, 'transparent'), radius: number(raw.radius, 0, 80, 0) };
-    box.node = node;
-    box.cached = { availableWidth: w, input: inputCopy, keyCount, node };
-    nextCache[id] = box.cached;
+    const box = { id, kind, w, h: 0, node };
+    nextCache[id] = { availableWidth: w, input: inputCopy, keyCount, node, box };
     if (kind === 'divider') { box.h = number(raw.height, 1, 32, 2); node.background = color(raw.color, '#34373d'); return box; }
+    if (kind === 'image' || kind === 'canvas') {
+      node.src = text(raw.src);
+      node.fit = raw.fit === undefined ? 'contain' : raw.fit;
+      if (['contain', 'cover', 'none', 'scale-down'].indexOf(node.fit) < 0) throw new Error('图片 fit 无效：' + node.fit);
+      const naturalHeight = kind === 'canvas' ? w * raw.pixelHeight / raw.pixelWidth : w;
+      box.h = number(raw.height, 1, 8192, naturalHeight);
+      return box;
+    }
     if (kind === 'qrcode') {
       const value = String(raw.value == null ? '' : raw.value);
-      if (!value || value.length > 256) throw new Error('二维码内容需为 1–256 字符');
+      if (!value) throw new Error('二维码内容不能为空');
       if (w < 96) throw new Error('二维码需要至少 96px 宽度');
       box.w = Math.min(w, number(raw.size, 96, 288, 160));
       box.h = box.w;
@@ -285,7 +363,7 @@ export function compileUi(source, top, previous, cache) {
       node.qrSize = Math.max(80, Math.round(box.w - 16));
       return box;
     }
-    if (['heading', 'text', 'button', 'switch', 'slider', 'progress'].indexOf(kind) === -1) throw new Error('不支持的 UI 组件：' + kind);
+    if (['heading', 'text', 'button', 'switch', 'slider', 'progress'].indexOf(kind) === -1) throw new Error('JSLab 版本可能过老，无法识别 UI 组件：' + kind + '。请更新客户端或重新导出独立应用；若已是最新版，请检查组件名称。');
     node.text = text(raw.text);
     node.color = color(raw.color, '#ffffff');
     node.size = number(raw.size, 16, 36, kind === 'heading' ? 30 : 24);
@@ -342,27 +420,41 @@ export function compileUi(source, top, previous, cache) {
       const x = Math.round(frame.left);
       const y = Math.round(frame.topPosition);
       if (box.children) {
-        if (box.background !== 'transparent') add({ id: box.id, kind: 'background', x, y, width: Math.round(box.w), height: Math.ceil(box.h), background: box.background, radius: box.radius });
+        const geometry = nextGroups[box.id];
+        if (geometry.left !== frame.left || geometry.top !== frame.topPosition) {
+          nextGroups[box.id] = Object.assign({}, geometry, { left: frame.left, top: frame.topPosition });
+        }
+        if (box.background !== 'transparent') paint(box, x, y);
         for (let i = box.children.length - 1; i >= 0; i -= 1) {
           const child = box.children[i];
-          frames.push({ box: child, left: frame.left + child.x, topPosition: frame.topPosition + child.y });
+          frames.push({ box: child, left: frame.left + box.positions[i * 4 + 2], topPosition: frame.topPosition + box.positions[i * 4 + 3] });
         }
       } else if (box.kind !== 'spacer') {
-        let node = box.node;
-        if (node.x !== x || node.y !== y || node.height !== Math.ceil(box.h)) {
-          // A fresh measurement is private to this compilation. Only cache hits
-          // share nodes with a prior frame and need a copy before moving them.
-          if (cache && cache[box.id] && node === cache[box.id].node) node = Object.assign({}, node);
-          node.x = x; node.y = y; node.height = Math.ceil(box.h);
-        }
-        const paintedNode = add(node);
-        if (box.cached && (box.cached.width !== box.w || box.cached.height !== box.h || box.cached.node !== paintedNode)) {
-          // Keep previous cache entries valid even if a later node fails to
-          // compile. Store the canonical reused node, not an equal new object.
-          const entry = cache && box.cached === cache[box.id] ? Object.assign({}, box.cached) : box.cached;
-          entry.width = box.w; entry.height = box.h; entry.node = paintedNode;
-          nextCache[box.id] = entry;
-        }
+        paint(box, x, y);
+      }
+    }
+  }
+
+  function paint(box, x, y) {
+    if (box.children) {
+      add({ id: box.id, kind: 'background', x, y, width: Math.round(box.w), height: box.h, background: box.background, radius: box.radius });
+    } else {
+      let node = box.node;
+      if (node.x !== x || node.y !== y || node.height !== box.h) {
+        // A fresh measurement is private to this compilation. Only cache hits
+        // share nodes with a prior frame and need a copy before moving them.
+        if (cache && cache[box.id] && node === cache[box.id].node) node = Object.assign({}, node);
+        node.x = x; node.y = y; node.height = box.h;
+      }
+      const paintedNode = add(node);
+      const cached = nextCache[box.id];
+      if (cached && (cached.width !== box.w || cached.height !== box.h || cached.node !== paintedNode)) {
+        // Keep previous cache entries valid even if a later node fails to
+        // compile. Store the canonical reused node, not an equal new object.
+        const entry = cache && cached === cache[box.id] ? Object.assign({}, cached) : cached;
+        entry.width = box.w; entry.height = box.h; entry.node = paintedNode;
+        entry.box = box.node === paintedNode ? box : Object.assign({}, box, { node: paintedNode });
+        nextCache[box.id] = entry;
       }
     }
   }
@@ -377,9 +469,22 @@ export function compileUi(source, top, previous, cache) {
   let y = top;
   roots.forEach((raw, i) => {
     if (raw == null || raw === false) return;
+    placed = []; stablePlacement = true;
     const box = measure(raw, SCREEN.contentWidth, String(i));
-    emit(box, SCREEN.side, y);
+    const before = box.children ? groups && groups[box.id] : cache && cache[box.id];
+    const sameOrigin = before && (box.children ? before.left === SCREEN.side && before.top === y
+      : before.width === box.w && before.height === box.h && before.node.x === SCREEN.side && before.node.y === Math.round(y));
+    if (stablePlacement && sameOrigin) {
+      // Measurement already visited leaves in paint order. With unchanged
+      // geometry, reuse absolute coordinates without a second tree traversal.
+      placed.forEach(item => {
+        const entry = item.children ? groups[item.id] : cache[item.id];
+        if (!item.children && item.node === entry.node && previous && previous[nodes.length] === item.node) nodes.push(item.node);
+        else paint(item, item.children ? Math.round(entry.left) : entry.node.x, item.children ? Math.round(entry.top) : entry.node.y);
+      });
+    } else emit(box, SCREEN.side, y);
     y += box.h + 10;
   });
+  groupCaches.set(nextCache, nextGroups);
   return { nodes, handlers, height: Math.max(SCREEN.height, Math.ceil(y + SCREEN.bottom)), end: y, count, cache: nextCache };
 }

@@ -13,14 +13,14 @@
       <div class="item item-wechat">
         <div class="item-content">
           <text class="itemtext">微信</text>
-          <qrcode value="wxp://f2f0AckffT-6mnt3W3WdSmrvD82JyHqET2FeEt3qvEOqrdgLV_6fbGJ60GABwcyBZ1we"></qrcode>
+          <qrcode class="donation-qrcode" value="wxp://f2f0AckffT-6mnt3W3WdSmrvD82JyHqET2FeEt3qvEOqrdgLV_6fbGJ60GABwcyBZ1we"></qrcode>
         </div>
       </div>
 
       <div class="item item-alipay">
         <div class="item-content">
           <text class="itemtext">支付宝</text>
-          <qrcode value="https://qr.alipay.com/fkx161225lhz9nmrjfsnt71"></qrcode>
+          <qrcode class="donation-qrcode" value="https://qr.alipay.com/fkx161225lhz9nmrjfsnt71"></qrcode>
         </div>
       </div>
     </scroll>

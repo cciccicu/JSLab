@@ -30,7 +30,7 @@
     var update = function () {
       var bytes = new TextEncoder().encode(source.value).length;
       if (count) count.textContent = bytes.toLocaleString() + ' 字节';
-      if (state) state.textContent = bytes > 48 * 1024 ? '源码超过 48 KiB' : '草稿已保存到本地';
+      if (state) state.textContent = '草稿已保存到本地';
       try { window.localStorage.setItem(draftKey, source.value); } catch (_) {}
     };
     source.addEventListener('input', update);
@@ -96,6 +96,36 @@
     feedback.classList.toggle('d-none', !reason);
   }
 
+  function showPublishStatus(message, type, form) {
+    var page = document.querySelector('.jslab-cloud-page');
+    if (!page) return;
+    var status = page.querySelector('[data-cloud-publish-status]');
+    if (!status) {
+      status = document.createElement('div');
+      status.setAttribute('data-cloud-publish-status', '');
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      var header = page.querySelector('.plugin-page-header');
+      if (header) header.insertAdjacentElement('afterend', status);
+      else page.prepend(status);
+    }
+    status.className = 'alert alert-' + type;
+    status.textContent = message;
+    if (form) {
+      var retry = document.createElement('button');
+      retry.type = 'button';
+      retry.setAttribute('data-cloud-publish-retry', '');
+      retry.className = 'btn btn-sm btn-outline-secondary ms-3';
+      retry.textContent = '返回修改';
+      retry.addEventListener('click', function () {
+        form.hidden = false;
+        var modal = form.closest('.modal');
+        if (modal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(modal).show();
+      });
+      status.appendChild(retry);
+    }
+  }
+
   async function refreshCsrf(form) {
     var response;
     try {
@@ -155,59 +185,118 @@
     return result;
   }
 
+  var submittingForms = new WeakSet();
   async function submitAjaxForm(form, confirmed, retried) {
+    if (submittingForms.has(form)) return;
     var submit = form.querySelector('[type="submit"]');
+    var publish = form.matches('[data-cloud-publish-form]');
     var data = new URLSearchParams(new FormData(form));
-    data.set('ajax', '1');
-    if (form.matches('[data-cloud-publish-form]') && form.dataset.marketId) data.set('marketId', form.dataset.marketId);
-    if (confirmed) data.set('confirm', '1');
-    if (submit) submit.setAttribute('aria-busy', 'true');
-    try {
-      var response;
-      try {
-        response = await fetch(form.action, { method: (form.method || 'post').toUpperCase(), body: data, headers: { Accept: 'application/json' } });
-      } catch (error) {
-        throw new Error(requestFailure(error, '提交 JSLab Cloud 表单', form.action));
-      }
-      var result;
-      try {
-        result = await response.json();
-      } catch (error) {
-        throw new Error('提交 JSLab Cloud 表单：服务器返回 HTTP ' + response.status + '，但响应不是有效 JSON（' + (error && error.name || '解析错误') + '）。');
-      }
-      if (response.status === 403 && !retried && await refreshCsrf(form)) return submitAjaxForm(form, confirmed, true);
-      if (response.status === 409 && result.confirm && !confirmed) {
-        if (await confirmAction(result.message || '确定继续吗？')) return submitAjaxForm(form, true);
+    if (publish && !data.getAll('supportedDevices').length) {
+      showToast('请至少选择一项适配设备。', true);
+      form.querySelector('[name="supportedDevices"]').focus();
+      return;
+    }
+    if (publish) {
+      var tags = (data.get('marketTags') || '').split(',').map(function (tag) { return tag.trim(); }).filter(Boolean);
+      if (tags.length > 12 || tags.some(function (tag) { return tag.length > 40; })) {
+        showToast('最多 12 个标签，每个不超过 40 字。', true);
+        form.querySelector('[name="marketTags"]')?.focus();
         return;
+      }
+    }
+    data.set('ajax', '1');
+    if (publish && form.dataset.marketId) data.set('marketId', form.dataset.marketId);
+    if (confirmed) data.set('confirm', '1');
+    submittingForms.add(form);
+    var disabled = submit && submit.disabled;
+    if (submit) { submit.disabled = true; submit.setAttribute('aria-busy', 'true'); }
+    var publishActions = publish ? Array.from(document.querySelectorAll('[data-cloud-publish-new], [data-cloud-publish], [data-cloud-market-edit]')).filter(function (button) { return !button.disabled; }) : [];
+    publishActions.forEach(function (button) { button.disabled = true; });
+    var navigating = false;
+    if (publish) {
+      form.hidden = true;
+      var publishModal = form.closest('.modal');
+      if (publishModal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(publishModal).hide();
+      showPublishStatus('正在提交脚本并等待审核结果，请稍候…', 'info');
+    }
+    try {
+      // Retries keep the same form lock and submitted values.
+      while (true) {
+        var response;
+        try {
+          response = await fetch(form.action, { method: (form.method || 'post').toUpperCase(), body: data, headers: { Accept: 'application/json' } });
+        } catch (error) {
+          throw new Error(requestFailure(error, '提交 JSLab Cloud 表单', form.action));
+        }
+        var result;
+        try {
+          result = await response.json();
+        } catch (error) {
+          throw new Error('提交 JSLab Cloud 表单：服务器返回 HTTP ' + response.status + '，但响应不是有效 JSON（' + (error && error.name || '解析错误') + '）。');
+        }
+        if (response.status === 403 && !retried && await refreshCsrf(form)) {
+          retried = true;
+          data.set('_csrf', form.querySelector('[name="_csrf"]').value);
+          continue;
+        }
+        if (response.status === 409 && result.confirm && !confirmed) {
+          if (!(await confirmAction(result.message || '确定继续吗？'))) return;
+          confirmed = true;
+          data.set('confirm', '1');
+          continue;
+        }
+        break;
       }
       if (!response.ok) {
         var responseError = new Error(errorMessage(result, response.status));
         responseError.cloudResponse = true;
         throw responseError;
       }
-      if (form.matches('[data-cloud-publish-form]') && result.status === 'rejected') {
+      if (form.matches('[data-cloud-market-like]')) {
+        var marketId = form.getAttribute('data-cloud-market-like');
+        document.querySelectorAll('[data-cloud-market-metrics="' + marketId + '"]').forEach(function (metrics) {
+          metrics.querySelector('[data-cloud-download-count]').textContent = result.downloadCount;
+          metrics.querySelector('[data-cloud-like-count]').textContent = result.likeCount;
+        });
+        document.querySelectorAll('[data-cloud-market-like="' + marketId + '"]').forEach(function (likeForm) {
+          likeForm.querySelector('[name="liked"]').value = result.liked ? '0' : '1';
+          var likeSubmit = likeForm.querySelector('[type="submit"]');
+          likeSubmit.textContent = result.liked ? '取消点赞' : '点赞';
+          likeSubmit.setAttribute('aria-pressed', String(result.liked));
+        });
+        showToast(result.message, false);
+        return;
+      }
+      if (publish) {
+        if (!Number.isSafeInteger(Number(result.marketId)) || Number(result.marketId) <= 0 || ['pending', 'published', 'rejected'].indexOf(result.status) < 0) {
+          throw new Error('无法确认提交结果，请先在“我的发布”中查看提交和审核状态。');
+        }
         form.dataset.marketId = result.marketId;
-        showReviewFeedback(form, result.review && result.review.reason && result.review.reason.trim() || '未记录具体原因，请修改后重新提交或联系管理员。');
-        showToast('审核未通过，请查看拒绝原因并修改后重新提交。', true);
+        var reason = result.review && result.review.reason && result.review.reason.trim();
+        var message = result.status === 'published' ? '提交成功，审核通过，脚本已发布。'
+          : result.status === 'rejected' ? '提交成功，审核未通过：' + (reason || '未记录具体原因，请在“我的发布”中查看并修改。')
+          : '提交成功，脚本正在等待审核。';
+        showPublishStatus(message, result.status === 'published' ? 'success' : result.status === 'rejected' ? 'danger' : 'warning');
+        navigating = true;
+        window.setTimeout(function () { window.location.href = '/jslab-cloud/workspace/market?tab=mine'; }, 650);
         return;
       }
       showToast(result.message || '操作已完成。', false);
       if (result.removeRow) form.closest('[data-cloud-row]')?.remove();
       if (result.removeCard) form.closest('.jslab-cloud-market-item')?.remove();
       if (form.matches('[data-cloud-editor-modal]')) result.reload = true;
-      if (form.matches('[data-cloud-publish-form]')) {
-        showReviewFeedback(form, '');
-        var publishModal = form.closest('.modal');
-        if (publishModal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(publishModal).hide();
-        form.reset();
-        window.setTimeout(function () { window.location.href = '/jslab-cloud/workspace/market?tab=mine'; }, 650);
-      }
       if (result.reload) window.setTimeout(function () { window.location.reload(); }, 700);
-      if (!result.reload && !form.matches('[data-cloud-publish-form]')) form.reset();
+      if (!result.reload) form.reset();
     } catch (error) {
-      showToast(error && error.message ? error.message : '提交 JSLab Cloud 表单：浏览器没有返回错误详情。', true);
+      var message = error && error.message ? error.message : '提交 JSLab Cloud 表单：浏览器没有返回错误详情。';
+      if (publish) showPublishStatus('提交未完成：' + message, 'danger', form);
+      else showToast(message, true);
     } finally {
-      if (submit) submit.removeAttribute('aria-busy');
+      if (!navigating) {
+        submittingForms.delete(form);
+        if (submit) { submit.disabled = disabled; submit.removeAttribute('aria-busy'); }
+        publishActions.forEach(function (button) { button.disabled = false; });
+      }
     }
   }
 
@@ -247,6 +336,8 @@
     if (newPublishButton) {
       var newPublishForm = document.querySelector('[data-cloud-publish-form]');
       if (newPublishForm) {
+        if (submittingForms.has(newPublishForm)) return;
+        newPublishForm.hidden = false;
         newPublishForm.reset();
         newPublishForm.dataset.marketId = '';
         showReviewFeedback(newPublishForm, '');
@@ -258,6 +349,8 @@
       var publishModal = document.getElementById('cloud-publish-modal');
       var sourceScript = document.querySelector('[data-cloud-script="' + publishButton.getAttribute('data-cloud-publish') + '"]');
       if (!publishForm || !publishModal || !sourceScript || !window.bootstrap) return;
+      if (submittingForms.has(publishForm)) return;
+      publishForm.hidden = false;
       publishForm.reset();
       showReviewFeedback(publishForm, '');
       publishForm.querySelector('[name="source"]').value = sourceScript.dataset.source || '';
@@ -268,15 +361,21 @@
       var editModal = document.getElementById('cloud-publish-modal');
       var editForm = document.querySelector('[data-cloud-publish-form]');
       if (!editModal || !editForm || !window.bootstrap) return;
+      if (submittingForms.has(editForm)) return;
       var marketManageUrl = '/jslab-cloud/api/cloud/market/' + marketEditButton.getAttribute('data-cloud-market-edit') + '/manage';
       fetchJson(marketManageUrl, { headers: { Accept: 'application/json' } }, '读取待编辑的市场脚本').then(function (result) {
         if (!result.script) throw new Error('读取待编辑的市场脚本：成功响应中缺少 script 字段。');
+        if (submittingForms.has(editForm)) return;
+        editForm.hidden = false;
         editForm.reset();
         editForm.dataset.marketId = result.script.id;
         showReviewFeedback(editForm, result.review && result.review.reason && result.review.reason.trim() || '');
         editForm.querySelector('[name="marketName"]').value = result.script.name || '';
         editForm.querySelector('[name="marketDescription"]').value = result.script.description || '';
         editForm.querySelector('[name="marketTags"]').value = Array.isArray(result.script.tags) ? result.script.tags.join(', ') : String(result.script.tags || '').replace(/[\[\]"]+/g, '');
+        editForm.querySelectorAll('[name="supportedDevices"]').forEach(function (input) {
+          input.checked = (result.script.supportedDevices || ['pro']).indexOf(input.value) >= 0;
+        });
         editForm.querySelector('[name="source"]').value = result.script.source || '';
         window.bootstrap.Modal.getOrCreateInstance(editModal).show();
       }).catch(function (error) { showToast(error && error.message ? error.message : '读取待编辑的市场脚本：浏览器没有返回错误详情。', true); });
@@ -303,6 +402,55 @@
   });
 
   document.querySelectorAll('[data-cloud-editor]').forEach(initEditor);
+
+  // Follow pending reviews only while the publications page is visible.
+  var marketGrid = document.querySelector('[data-cloud-market-states]');
+  if (marketGrid) {
+    var marketStates = JSON.parse(marketGrid.dataset.cloudMarketStates);
+    var marketPollTimer = null;
+    var marketPollBusy = false;
+    var marketPollStopped = false;
+    var marketPollNote = null;
+    function marketFormOpen() {
+      return document.querySelector('.modal.show') || document.querySelector('[data-cloud-publish-retry]') || submittingForms.has(document.querySelector('[data-cloud-publish-form]'));
+    }
+    function scheduleMarketPoll() {
+      window.clearTimeout(marketPollTimer);
+      if (!marketPollStopped && marketStates.some(function (script) { return script.status === 'pending'; })) {
+        marketPollTimer = window.setTimeout(pollMarketStates, 15000);
+      }
+    }
+    async function pollMarketStates() {
+      if (marketPollStopped || marketPollBusy || !marketStates.some(function (script) { return script.status === 'pending'; })) return;
+      if (document.hidden || marketFormOpen()) { scheduleMarketPoll(); return; }
+      marketPollBusy = true;
+      try {
+        var result = await fetchJson('/jslab-cloud/api/cloud/market?mine=1&q=' + encodeURIComponent(marketGrid.dataset.query || ''), { headers: { Accept: 'application/json' }, cache: 'no-store' }, '刷新审核状态');
+        if (!Array.isArray(result.scripts)) throw new Error('审核状态响应中缺少脚本列表。');
+        if (marketPollStopped) return;
+        if (marketPollNote) marketPollNote.textContent = '';
+        var next = result.scripts.map(function (script) { return { id: script.id, status: script.status, reason: script.review && script.review.reason || '', revision: script.revision || '' }; });
+        if (!document.hidden && !marketFormOpen() && JSON.stringify(next) !== JSON.stringify(marketStates)) {
+          marketPollStopped = true;
+          window.location.reload();
+        }
+      } catch (error) {
+        if (!marketPollStopped) {
+          if (!marketPollNote) {
+            marketPollNote = document.createElement('p');
+            marketPollNote.className = 'small text-body-secondary';
+            marketPollNote.setAttribute('role', 'status');
+            marketGrid.insertAdjacentElement('beforebegin', marketPollNote);
+          }
+          marketPollNote.textContent = '审核状态暂时无法刷新，请刷新页面重试。';
+        }
+      } finally { marketPollBusy = false; scheduleMarketPoll(); }
+    }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) pollMarketStates(); });
+    window.addEventListener('pagehide', function () { marketPollStopped = true; window.clearTimeout(marketPollTimer); });
+    window.addEventListener('pageshow', function () { marketPollStopped = false; scheduleMarketPoll(); });
+    scheduleMarketPoll();
+  }
 
   var requestedPanelOpened = false;
   function openRequestedPanel() {

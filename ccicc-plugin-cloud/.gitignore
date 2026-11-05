@@ -1,8 +1,7 @@
-# Cloud plugin and development-kit dependencies and packages.
+# Cloud dependencies, generated help resources and local packages.
 /node_modules/
 /dist/
-/development-kit/node_modules/
-/development-kit/dist/
+/jslab-cloud/generated/
 /jslab-cloud/node_modules/
 /jslab-cloud/dist/
 /release-archive/

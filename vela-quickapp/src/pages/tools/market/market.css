@@ -12,8 +12,8 @@
   left: 0px;
   top: 164px;
   width: 336px;
-  height: 238px;
-  padding: 0px 6px 12px;
+  height: 316px;
+  padding: 0px 6px 0px;
   flex-direction: column;
 }
 
@@ -129,7 +129,6 @@
 
 .item, .status {
   width: 100%;
-  height: 112px;
   padding: 14px 20px;
   margin-bottom: 8px;
   border-radius: 36px;
@@ -140,7 +139,7 @@
 
 .script {
   width: 100%;
-  height: 144px;
+  height: 196px;
   padding: 14px 20px;
   margin-bottom: 8px;
   border-radius: 36px;
@@ -209,8 +208,18 @@
   background-color: transparent;
 }
 
+.action-compact {
+  width: 60px;
+  height: 60px;
+}
+
 .status {
+  min-height: 112px;
   justify-content: center;
+}
+
+.item {
+  height: 112px;
 }
 
 .status-text {
@@ -219,7 +228,8 @@
   color: rgba(255,255,255,0.6);
   font-size: 24px;
   line-height: 32px;
-  lines: 2;
+  lines: -1;
+  flex-shrink: 0;
 }
 
 .load-more {
@@ -246,3 +256,5 @@
   background-color: #303030;
   border-radius: 36px;
 }
+
+.footer-spacer { width:100%; height:86px; flex-shrink:0; }

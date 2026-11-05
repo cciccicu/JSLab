@@ -1,4 +1,4 @@
-const { buildAiSystemPrompt, buildAiUserPrompt } = require('./ai-prompts');
+const { buildAiSystemPrompt, buildAiUserPrompt, resolveAiPromptVersion } = require('./ai-prompts');
 const { DEFAULT_AI_MODEL } = require('./persistent-state');
 const { validScriptName } = require('./script-filename');
 const { identity: RUNTIME_CONTRACT } = require('./runtime-contract.json');
@@ -98,13 +98,13 @@ function createAiService(state) {
     });
     return settle();
   };
-  const generateAiSource = async (user, body) => {
+  const generateAiSource = async (user, body, jslabVersion) => {
     if (body?.runtimeContract !== RUNTIME_CONTRACT) return { error: 'runtime_contract_mismatch', status: 409 };
     const mode = body?.mode === 'rewrite' ? 'rewrite' : body?.mode === 'create' ? 'create' : '';
     const prompt = String(body?.prompt || '').trim();
     const source = sourceFromBody(body);
     const name = String(body?.name || '').trim();
-    if (!mode || !prompt || prompt.length > MAX_AI_PROMPT_CHARS || !validScriptName(name, mode === 'rewrite') || Buffer.byteLength(source, 'utf8') > MAX_SOURCE) {
+    if (!mode || !prompt || prompt.length > MAX_AI_PROMPT_CHARS || !validScriptName(name, mode === 'rewrite') || (MAX_SOURCE > 0 && Buffer.byteLength(source, 'utf8') > MAX_SOURCE)) {
       return { error: 'invalid_ai_request', status: 400 };
     }
     if (!hasAiAccess(user)) return { error: 'activation_required', status: 403 };
@@ -115,7 +115,8 @@ function createAiService(state) {
     if (!url || !key || !model || typeof fetch !== 'function') return { error: 'ai_not_configured', status: 503 };
     if (!consume(`ai:${user.id}`, 6, 60_000)) return { error: 'rate_limited', status: 429 };
     const userRequest = buildAiUserPrompt({ mode, name, prompt, source });
-    const systemPrompt = buildAiSystemPrompt();
+    const aiPromptVersion = resolveAiPromptVersion(jslabVersion);
+    const systemPrompt = buildAiSystemPrompt(aiPromptVersion);
     const prices = getTokenPrices();
     // Include message overhead and the configured maximum output. Prices are
     // fixed for this request even if an administrator updates them mid-flight.
@@ -160,7 +161,7 @@ function createAiService(state) {
       return { error: 'ai_credit_insufficient', status: 402 };
     }
     log(user.id, 'ai.generate', `${mode}:${billing.chargedCents}`);
-    return { runtimeContract: RUNTIME_CONTRACT, code, usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, chargedCents: billing.chargedCents }, remainingCreditCents: billing.remainingCreditCents };
+    return { runtimeContract: RUNTIME_CONTRACT, aiPromptVersion, code, usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, chargedCents: billing.chargedCents }, remainingCreditCents: billing.remainingCreditCents };
   };
   return { generateAiSource };
 }

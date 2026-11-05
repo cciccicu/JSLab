@@ -62,7 +62,7 @@ import { scheduleNextTick } from '../../../utils/core/runtimeCompat.js';
 import { HELP_ROOT, findHelpNode, getDirectoryItems } from '../../../data/helpDocs.js';
 
 const ROOT_TITLE = '帮助';
-const ROOT_DESCRIPTION = '先了解如何创建和运行脚本，再按需要查找界面、设备与云端功能。';
+const ROOT_DESCRIPTION = '从日常操作到云端同步，按需要查找使用步骤、常见问题和编写脚本的方法。';
 
 export default {
   private: {

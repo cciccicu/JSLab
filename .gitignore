@@ -2,6 +2,10 @@
 /watchfaces/
 .codex-temp/
 .mimocode/
+/.agents/
+/.codex/
+/.local-tools/
+/.temp_*/
 
 # Dependencies, intermediate builds and local release archives in every project.
 node_modules/
@@ -11,11 +15,36 @@ target/
 release-archive/
 sign/
 /vela-quickapp/output/
+/ccicc-plugin-cloud/jslab-cloud/generated/
+/android-sync/app/libs/*.aar
+/android-sync/third-party/*.zip
+/vela-luawatchface/watchface/tools/Compiler.exe
+
+# Local configuration, credentials and service data.
+.env
+.env.*
+!.env.example
+local.properties
+keystore.properties
+*.pem
+*.key
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
 
 # Generated installation packages and Python caches.
 *.rpk
 *.abp
 *.face
+*.apk
+*.aab
 *.zip
 !/ccicc-plugin-cloud/jslab-cloud/rpk-template/template.zip
 !/ccicc-plugin-cloud/jslab-cloud/rpk-template/redmi-watch5/template.zip

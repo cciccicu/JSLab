@@ -3,15 +3,18 @@ import file from '@system.file';
 const ACTIVE_DATA_URI = '/common/fonts/active.json';
 
 export const DEFAULT_FONT_PROFILE = {
-  version: 1,
-  name: 'Ubuntu Mono',
-  sourceName: 'UbuntuMono-MiSans-Editor-v4.ttf',
-  format: 'ttf',
-  family: 'JSLabActive',
-  lineHeightRatio: 1,
-  lineHeightOffset: 0,
-  asciiWidthRatio: 0.5,
-  wideWidthRatio: 1
+  "version": 1,
+  "name": "JSLab Wrist Mono",
+  "sourceName": "JSLabWristMono-Regular.ttf",
+  "format": "ttf",
+  "family": "JSLabActive",
+  "lineHeightRatio": 1,
+  "lineHeightOffset": 0,
+  "asciiWidthRatio": 0.5,
+  "wideWidthRatio": 1,
+  "fullWidthCharacters": "·—‘’“”…ℹ↔↕↩⌚⌛⏩⏪⏰⏱⏸⏹▶◀☀☁☎☔☕⚖⚙⚠⚡⚪⚫⚽⛅✂✅✈✉✏✖✨❄❌❓❗❤➕➖➡⬅⬆⬇⭐　、。〈〉《》「」『』【】〔〕〖〗〘〙〚〛",
+  "zeroWidthCharacters": "‌‍︎️",
+  "emojiCatalog": "jslab-wrist-mono-v2"
 };
 
 const LIMITS = {
@@ -42,7 +45,7 @@ function validateSourceName(name) {
 }
 
 export function normalizeFontProfile(value) {
-  const source = value && typeof value === 'object' ? value : {};
+  const source = value && typeof value === 'object' ? value : DEFAULT_FONT_PROFILE;
   let sourceName = DEFAULT_FONT_PROFILE.sourceName;
   try { sourceName = validateSourceName(source.sourceName); } catch (error) { sourceName = DEFAULT_FONT_PROFILE.sourceName; }
   const format = /\.otf$/i.test(sourceName) ? 'otf' : 'ttf';
@@ -52,6 +55,10 @@ export function normalizeFontProfile(value) {
     sourceName,
     format,
     family: 'JSLabActive',
+    // Optional metrics belong to this font; older/custom profiles keep their previous behavior.
+    fullWidthCharacters: cleanText(source.fullWidthCharacters, '', 256),
+    zeroWidthCharacters: cleanText(source.zeroWidthCharacters, '', 16),
+    emojiCatalog: cleanText(source.emojiCatalog, '', 64),
     lineHeightRatio: numberInRange(source.lineHeightRatio, LIMITS.lineHeightRatio, DEFAULT_FONT_PROFILE.lineHeightRatio),
     lineHeightOffset: numberInRange(source.lineHeightOffset, LIMITS.lineHeightOffset, DEFAULT_FONT_PROFILE.lineHeightOffset),
     asciiWidthRatio: numberInRange(source.asciiWidthRatio, LIMITS.asciiWidthRatio, DEFAULT_FONT_PROFILE.asciiWidthRatio),

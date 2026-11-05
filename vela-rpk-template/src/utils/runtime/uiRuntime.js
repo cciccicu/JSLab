@@ -1,4 +1,5 @@
-import { compileUi, text } from './uiLayout.js';
+import { compileUi, text, color, getUiWidth } from './uiLayout.js';
+import { createUiMedia } from './uiMedia.js';
 
 const nextTurn = Promise.resolve();
 function node(kind, props, options) { return Object.assign({}, props, options || {}, { kind }); }
@@ -19,6 +20,7 @@ export function createUiSession(host) {
   let hasFrame = false;
   let frameHeight = 480;
   let frameEnd = 84;
+  const media = createUiMedia({ files: host.files, mediaReady: host.mediaReady, color, rendering: () => rendering, refresh, error: error => { if (active) host.error(error); } });
 
   function flush() {
     queued = false;
@@ -27,7 +29,8 @@ export function createUiSession(host) {
     rendering = true;
     try {
       const view = typeof source === 'function' ? source() : source;
-      const result = compileUi(view, host.top(), nodes, cache);
+      media.begin();
+      const result = compileUi(view, host.top(), nodes, cache, media.resolve);
       const changed = forcePublish || nodes.length !== result.nodes.length || result.nodes.some((item, index) => item !== nodes[index]);
       if (visible) host.publish(changed ? result.nodes : nodes, result.height, result.end, changed);
       // Commit only after the host accepts the frame. A failed/partial publish
@@ -41,6 +44,8 @@ export function createUiSession(host) {
       frameEnd = result.end;
       dirty = false;
       forcePublish = !visible;
+      if (visible) media.present(result.nodes);
+      media.commit();
       return true;
     } catch (error) { forcePublish = true; host.error(error); }
     finally { rendering = false; }
@@ -58,6 +63,7 @@ export function createUiSession(host) {
 
   const ui = {
     version: 2,
+    getWidth() { return getUiWidth(); },
     render(view) {
       if (!active) return false;
       if (rendering) throw new Error('不要在 UI 渲染函数中调用 ui.render');
@@ -78,7 +84,7 @@ export function createUiSession(host) {
         dirty = previous.dirty; visible = previous.visible; forcePublish = true;
         // Restore a previous accepted frame after a partially rejected publish.
         if (visible && hasFrame) {
-          try { host.publish(nodes, frameHeight, frameEnd, true); forcePublish = false; }
+          try { host.publish(nodes, frameHeight, frameEnd, true); media.present(nodes); forcePublish = false; }
           catch (error) { host.error(error); }
         }
         if (dirty && visible && hasSource) refresh();
@@ -88,7 +94,7 @@ export function createUiSession(host) {
     show() { if (!active || !hasFrame) return false; return host.show ? host.show() !== false : true; },
     hide() { if (active && host.hide) host.hide(); },
     refresh,
-    setTitle(value) { if (active) host.title(text(value).slice(0, 80) || '脚本'); },
+    setTitle(value) { if (active) host.title(text(value) || '脚本'); },
     showHeader(visible) { if (active && host.header(visible !== false)) refresh(); },
     scrollTo(position) { if (active) host.scroll(position); },
     scrollTop() { if (active) host.scroll('top'); },
@@ -121,12 +127,20 @@ export function createUiSession(host) {
     row(children, options) { return node('row', { children }, options); },
     column(children, options) { return node('column', { children }, options); },
     stack(children, options) { return node('stack', { children }, options); },
-    qrcode(value, options) { return node('qrcode', { value }, options); }
+    qrcode(value, options) { return node('qrcode', { value }, options); },
+    image(source, options) { return node('image', { source }, options); },
+    canvas(options) {
+      const settings = options || {};
+      // Legacy calls use numeric layout dimensions as their pixel resolution.
+      const defaults = settings.pixelWidth === undefined && settings.pixelHeight === undefined ? { width: getUiWidth() } : {};
+      return media.canvas(Object.assign(defaults, settings));
+    }
   };
 
   return {
     ui,
     refresh,
+    imageLoaded(id, src) { if (active) media.loaded(id, src); },
     hasFrame() { return hasFrame; },
     setVisible(value) {
       const next = value !== false;
@@ -136,7 +150,7 @@ export function createUiSession(host) {
       if (visible && hasFrame) {
         forcePublish = true;
         if (dirty) return flush();
-        try { host.publish(nodes, frameHeight, frameEnd, true); forcePublish = false; return true; }
+        try { host.publish(nodes, frameHeight, frameEnd, true); media.present(nodes); forcePublish = false; return true; }
         catch (error) { host.error(error); return false; }
       }
       return true;
@@ -150,6 +164,6 @@ export function createUiSession(host) {
       } catch (error) { if (active) host.error(error); }
       return true;
     },
-    dispose() { active = false; queued = false; source = null; nodes = []; cache = null; handlers = Object.create(null); }
+    dispose() { active = false; queued = false; source = null; nodes = []; cache = null; handlers = Object.create(null); media.dispose(); }
   };
 }

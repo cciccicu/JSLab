@@ -54,22 +54,31 @@
 
 /* 创建流程字段 */
 .field-group {
+  position: absolute;
+  left: 6px;
   width: 324px;
-  margin-bottom: 10px;
-  flex-direction: column;
-  flex-shrink: 0;
+  height: 90px;
 }
 
+.filename-field { top:84px; }
+.template-field { top:184px; }
+
 .label {
+  position: absolute;
+  left: 0px;
+  top: 0px;
   width: 324px;
   height: 30px;
+  line-height: 30px;
   font-size: 22px;
   color: rgba(255,255,255,0.8);
-  margin-bottom: 4px;
   font-weight: bold;
 }
 
 .input-box {
+  position: absolute;
+  left: 0px;
+  top: 34px;
   width: 324px;
   height: 56px;
   background-color: #262626;
@@ -80,12 +89,20 @@
 }
 
 .input-text {
+  position: absolute;
+  left: 20px;
+  top: 0px;
   width: 284px;
+  height: 56px;
+  line-height: 56px;
   font-size: 24px;
   color: white;
 }
 
 .picker {
+  position: absolute;
+  left: 0px;
+  top: 34px;
   width: 324px;
   height: 56px;
   background-color: #262626;

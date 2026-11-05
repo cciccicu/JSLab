@@ -1,4 +1,6 @@
 <script>
+import file from '@system.file';
+import { clearUiMediaCache } from './utils/runtime/uiMediaCache.js';
 import { push } from './utils/core/routeManager.js';
 import companionBridge from './utils/bridge/companionBridge.js';
 import jsManager from './utils/files/jsManager.js';
@@ -14,8 +16,10 @@ import configManager from './utils/core/configManager.js';
 const cloudClients = { deviceAccount, deviceAi, marketClient, cloudFilesClient };
 
 export default {
+  uiMediaReady: null,
   runnerSource: null,
   marketRefreshNeeded: false,
+  marketSubmissionResult: null,
   editor: {
     name: '',
     code: '',
@@ -24,6 +28,7 @@ export default {
   },
 
   onCreate() {
+    this.uiMediaReady = clearUiMediaCache(file).catch(error => console.warn(error.message));
     configManager.init().catch((error) => {
       console.error('Failed to preload configuration:', error);
     });

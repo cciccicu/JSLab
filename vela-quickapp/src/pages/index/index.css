@@ -52,7 +52,7 @@
   position: absolute;
   top: 0px;
   left: 0px;
-  padding: 84px 6px 86px;
+  padding: 84px 6px 0px;
 }
 
 .item {
@@ -129,3 +129,5 @@
 .footer-second { left:90px; top:402px; }
 
 .footer-third { left:174px; top:402px; }
+
+.footer-spacer { width:100%; height:86px; flex-shrink:0; }

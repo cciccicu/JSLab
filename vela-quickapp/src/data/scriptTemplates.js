@@ -146,6 +146,66 @@ ui.render(() => ui.column([
 ], { padding: 12, gap: 12, background: '#20242a', radius: 24 }));`
   },
   {
+    label: '图片与 Canvas',
+    content: `// Base64 图片会由运行时写入缓存文件后显示。
+const icon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAYElEQVR4Ae3BSwqAMBBEwTdN7h3n5KMLNwE/QeyFYBWfF+xqoXhRLAQbYSbMhFljVi8GGcwQZsJMmDXO9OJSLwYZHBFmwkyYNc5kMOjFIIMZwkyYCbPGrAyeEGbCTPxurPGjC7KzFDZBAAAAAElFTkSuQmCC';
+// 内存保持 160×96 像素，显示铺满父容器，省略 height 时等比例缩放。
+const canvas = ui.canvas({ id: 'drawing', pixelWidth: 160, pixelHeight: 96, width: '100%', radius: 12 });
+const status = ui.signal('准备绘制');
+const busy = ui.signal(false);
+let frame = 0;
+let drawMs = 0;
+
+function draw() {
+  const started = Date.now();
+  frame += 1;
+  canvas.clear('#181818');
+  canvas.rect(8, 8, 52, 32, {
+    color: frame % 2 ? '#ff8000' : '#00aaff'
+  });
+  canvas.circle(canvas.pixelWidth - 30, 28, 16, {
+    color: '#ffffff', fill: false, lineWidth: 3
+  });
+  canvas.line(8, 58, canvas.pixelWidth - 8, 82, {
+    color: '#7dd3fc', lineWidth: 2
+  });
+  canvas.setPixel(8, 90, '#ffffff');
+  drawMs = Date.now() - started;
+  // 状态文字可以刷新；未提交的绘图仍然只在内存中。
+  status.set('第 ' + frame + ' 帧待提交，绘制 ' + drawMs + 'ms');
+}
+
+async function submit() {
+  busy.set(true);
+  try {
+    const started = Date.now();
+    // submit 写入图片文件，refresh 将最新 src 发布到界面。
+    await canvas.submit();
+    status.set('第 ' + frame + ' 帧：绘制 ' + drawMs + 'ms，提交 ' + (Date.now() - started) + 'ms');
+    ui.refresh();
+  } finally {
+    busy.set(false);
+  }
+}
+
+ui.setTitle('图片与 Canvas');
+ui.render(() => ui.column([
+  ui.row([
+    ui.image(icon, { id: 'icon', width: 24, height: 24 }),
+    ui.text('Base64 图片', { size: 20, lines: 1 })
+  ], { align: 'center', gap: 8 }),
+  canvas,
+  ui.text(status.get(), { id: 'status', size: 18, lines: 2 }),
+  ui.row([
+    ui.button('仅绘制', draw, { id: 'draw', disabled: busy.get() }),
+    ui.button('提交显示', submit, { id: 'submit', disabled: busy.get() })
+  ], { gap: 8 })
+], { gap: 8 }));
+
+draw();
+return submit();`
+  },
+  {
     label: 'UI 2048 游戏',
     content: ui2048Example
   },

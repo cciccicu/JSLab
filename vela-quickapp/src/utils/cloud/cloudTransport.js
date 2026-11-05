@@ -1,7 +1,10 @@
 import fetch from '@system.fetch';
+import app from '@system.app';
+import device from '@system.device';
 import configManager from '../core/configManager.js';
 import { cleanDetail, createNativeError } from '../core/userError.js';
 import { IS_COMMUNITY_EDITION } from '../core/buildConfig.js';
+import manifest from '../../manifest.json';
 
 // app.ux binds its single Interconnect sender for all cloud clients.
 let cloudProxyRequest = null;
@@ -29,8 +32,66 @@ export function isDirectFetchSupported() {
   return !!fetch && typeof fetch.fetch === 'function';
 }
 
-export function normalizeTransport(value) {
-  return value === 'interconnect' ? 'interconnect' : 'fetch';
+function guessFetchSupport(info) {
+  const value = info || {};
+  const identities = [value.model, value.product, String(value.brand || '') + String(value.model || '')]
+    .map(name => String(name || '').toLowerCase().replace(/[\s_-]+/g, ''));
+  // This is a default-selection hint, not an API guarantee for every firmware.
+  // User-requested 9 + Pro matching takes precedence over the generic band hint.
+  if (identities.some(name => name.indexOf('9') !== -1 && name.indexOf('pro') !== -1)) return true;
+  const supported = ['redmiwatch5', 'redmiwatch6', 'xiaomiwatchs3', 'xiaomiwatchs4', 'xiaomiwatchs5',
+    'xiaomis1pro', 'xiaomiwatchs1pro'];
+  if (identities.some(name => supported.indexOf(name) !== -1)) return true;
+  if (String(value.deviceType || '').toLowerCase() === 'band' ||
+      identities.some(name => /band|小米手环|redmiwatch4|红米手表4/.test(name))) return false;
+  return null;
+}
+
+export function normalizeTransport(value, info) {
+  // A saved choice always wins; capability detection only selects the default.
+  if (value === 'fetch' || value === 'interconnect') return value;
+  if (!isDirectFetchSupported()) return 'interconnect';
+  const supported = guessFetchSupport(info);
+  if (supported !== null) return supported ? 'fetch' : 'interconnect';
+  try {
+    if (app && typeof app.canIUse === 'function' && app.canIUse('@system.fetch.fetch') === false) {
+      return 'interconnect';
+    }
+  } catch (error) {
+    // Older runtimes may not implement capability queries. Keep their fallback.
+  }
+  return 'fetch';
+}
+
+let fetchDeviceInfoPromise = null;
+function readFetchDeviceInfo() {
+  if (!fetchDeviceInfoPromise) {
+    fetchDeviceInfoPromise = new Promise((resolve) => {
+      let settled = false;
+      const finish = (info) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(info || {});
+      };
+      const timer = setTimeout(() => finish({}), 1000);
+      try { device.getInfo({ success: finish, fail: () => finish({}) }); }
+      catch (error) { finish({}); }
+    });
+  }
+  return fetchDeviceInfoPromise;
+}
+
+export function getDefaultTransport() {
+  if (!isDirectFetchSupported()) return Promise.resolve('interconnect');
+  return readFetchDeviceInfo().then(info => normalizeTransport('', info));
+}
+
+export function getTransport() {
+  return configManager.get('cloud.transport', '').then((value) => {
+    if (value === 'fetch' || value === 'interconnect' || !isDirectFetchSupported()) return normalizeTransport(value);
+    return getDefaultTransport();
+  });
 }
 
 function requiresDeviceAuth(path, method) {
@@ -51,7 +112,7 @@ function requiresDeviceAuth(path, method) {
   if (pathname === '/api/cloud/device/ai/generate') return verb === 'POST';
   if (pathname === '/api/cloud/device/market') return verb === 'GET' && mine;
   if (/^\/api\/cloud\/device\/market\/[^/]+\/source$/.test(pathname)) return verb === 'GET' && mine;
-  if (/^\/api\/cloud\/device\/market\/[^/]+\/(?:report|delete)$/.test(pathname)) return verb === 'POST';
+  if (/^\/api\/cloud\/device\/market\/[^/]+\/(?:report|delete|like)$/.test(pathname)) return verb === 'POST';
   if (pathname === '/api/cloud/device/market/submit') return verb === 'POST';
   return false;
 }
@@ -83,7 +144,7 @@ export function request(path, options) {
   return Promise.all([
     configManager.get('cloud.origin', DEFAULT_ORIGIN),
     configManager.get('cloud.token', ''),
-    configManager.get('cloud.transport', ''),
+    getTransport(),
     IS_COMMUNITY_EDITION ? configManager.get('cloud.communityServerChosen', false) : Promise.resolve(true)
   ]).then((values) => {
     const hasDeviceToken = typeof values[1] === 'string' && values[1].trim().length > 0;
@@ -91,7 +152,12 @@ export function request(path, options) {
     if (!values[3]) throw new Error('server_not_selected');
     const headers = { 'Content-Type': 'application/json' };
     if (values[1]) headers.Authorization = 'Bearer ' + values[1];
-    const url = resolveOrigin(values[0]) + path;
+    // Query fields also pass through older companion proxies, which only allow
+    // three standard headers. Read the build manifest, not a duplicated version.
+    const separator = path.indexOf('?') === -1 ? '?' : '&';
+    const url = resolveOrigin(values[0]) + path + separator +
+      'jslabVersion=' + encodeURIComponent(manifest.versionName) +
+      '&jslabVersionCode=' + encodeURIComponent(manifest.versionCode);
     const handle = (status, rawBody) => {
       let body;
       try { body = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody; }
@@ -165,7 +231,9 @@ export function request(path, options) {
             return;
           }
           const nativeError = createNativeError('vela_fetch', data, status);
-          if (status === 200) nativeError.message = 'cloud_fetch_system_error';
+          // Code 6 can mean failed host resolution or unsupported fetch on tested devices.
+          if (status === 6) nativeError.message = 'cloud_fetch_unsupported';
+          else if (status === 200) nativeError.message = 'cloud_fetch_system_error';
           else if (status === 201 || status === 207) nativeError.message = 'cloud_fetch_rejected';
           else if (status === 202) nativeError.message = 'cloud_fetch_invalid_parameters';
           else if (status === 203) nativeError.message = 'cloud_fetch_unavailable';

@@ -15,5 +15,6 @@
   "color: {{node.accent}};",
   "color: {{node.accent}}; layer-color: {{node.trackColor}};",
   "width: {{node.qrSize}}px; height: {{node.qrSize}}px; color: {{node.color}}; background-color: {{node.background}};",
+  "width: 100%; height: 100%; object-fit: {{node.fit}};",
   "top: {{errorTop}}px;"
 ]

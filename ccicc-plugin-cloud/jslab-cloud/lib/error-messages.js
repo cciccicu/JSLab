@@ -22,7 +22,7 @@ const ERROR_MESSAGES = Object.freeze({
   ai_provider_unavailable: '上游 AI 服务拒绝请求、超时或暂时不可达。',
   ai_invalid_response: '上游 AI 响应中没有可用的脚本代码。',
   not_found: '请求的资源不存在，或当前账户无权访问。',
-  invalid_script: '脚本名称、内容或大小不符合要求；代码上限为 48 KiB。',
+  invalid_script: '脚本名称或内容不符合要求。',
   invalid_javascript: '脚本存在 JavaScript 语法错误。',
   script_name_exists: '当前云空间已经存在同名脚本。',
   file_exists: '目标位置已经存在同名文件。',

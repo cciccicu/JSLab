@@ -8,6 +8,7 @@
         <text class="itemmeta">大小：{{file.sizeText}}</text>
         <text class="itemmeta">最终修改日期：{{file.modifiedText}}</text>
       </list-item>
+      <list-item type="footer-spacer" class="footer-spacer"></list-item>
     </list>
 
     <img if="{{fileListReady && !fileListError && fileList.length == 0}}" src="/common/images/empty.png" class="empty-img" />
@@ -65,7 +66,9 @@ export default {
     fileListReady: false,
     fileListError: false,
     fileListErrorText: '脚本目录尚未读取，点击重新读取',
-    fileListRequestId: 0
+    fileListRequestId: 0,
+    transportNoticePending: false,
+    transportNoticeChecked: false
   },
   exit() {
     vibrate('short');
@@ -98,6 +101,35 @@ export default {
     this.pageVisible = true;
     if (this.$app.$def.deliverDialog(this)) { this.updateTime(); return; }
     this.loadFileList();
+    this.checkTransportNotice();
+  },
+  checkTransportNotice() {
+    if (this.transportNoticePending || this.transportNoticeChecked) return;
+    this.transportNoticePending = true;
+    const config = this.$app.$def.getConfigManager();
+    return config.get('cloud.fetchUnsupportedNoticeShown', false).then(shown => {
+      if (!this.pageActive) return null;
+      if (shown) { this.transportNoticeChecked = true; return null; }
+      return this.$app.$def.getCloudClients().deviceAccount.getDefaultTransport();
+    }).then(transport => {
+      if (!transport || !this.pageActive) return;
+      if (transport !== 'interconnect') { this.transportNoticeChecked = true; return; }
+      if (!this.pageVisible || this.fileActionBusy || this.cloudBusy) return;
+      return this.$app.$def.openDialog('alert', {
+        title: '网络传输提示',
+        message: '当前设备可能不支持 fetch 直连，已默认使用网络桥接。请连接配套端，也可在设置中切换传输方式。',
+        confirmText: '知道了'
+      }, this).then(() => {
+        if (!this.pageActive) return;
+        return config.set('cloud.fetchUnsupportedNoticeShown', true).then(() => {
+          if (this.pageActive) this.transportNoticeChecked = true;
+        });
+      });
+    }).catch(error => {
+      console.error('Failed to show transport notice:', error);
+    }).then(() => {
+      if (this.pageActive) this.transportNoticePending = false;
+    });
   },
   loadFileList(preserveSelection = false) {
     const requestId = this.fileListRequestId + 1;
@@ -146,15 +178,23 @@ export default {
     }
     const fileName = this.fileList[this.selectedFileIndex].name;
     this.fileActionBusy = true;
-    this.$app.$def.getScriptManager().read(fileName).then(content => {
+    return this.$app.$def.getScriptManager().read(fileName).then(content => {
       if (!this.pageActive || !this.pageVisible) return;
       if (action === 'run') { this.$app.$def.openRunner(fileName, content); return; }
-      if (utf8ByteLength(content) > 48 * 1024) {
-        showToast('脚本超过 48 KiB，无法在手环编辑器中打开');
-        return;
-      }
-      this.$app.$def.openEditor(fileName, content);
-      push('editor');
+      const bytes = utf8ByteLength(content);
+      const confirmation = bytes > 48 * 1024
+        ? this.$app.$def.openDialog('confirm', {
+          title: '大脚本编辑提醒',
+          message: '脚本大小为 ' + formatFileSize(bytes) + '，超过 48 KiB。打开编辑可能较慢、卡顿或因内存不足退出，是否继续？',
+          confirmText: '继续编辑',
+          cancelText: '取消'
+        }, this)
+        : Promise.resolve({ action: 'confirm' });
+      return confirmation.then(result => {
+        if (result.action !== 'confirm' || !this.pageActive || !this.pageVisible) return;
+        this.$app.$def.openEditor(fileName, content);
+        push('editor');
+      });
     }).catch(error => {
       if (!this.pageActive || !this.pageVisible) return;
       console.error(`读取文件 ${fileName} 失败:`, error.message);

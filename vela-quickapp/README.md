@@ -1,92 +1,28 @@
-# JSLab
+# JSLab Vela 快应用
 
-JSLab 是一款运行在小米 Vela 手环上的 JavaScript 实验环境。你可以直接在手环上编写、保存和运行脚本，把常用的小工具、数据展示或交互想法做成随手可用的程序。
+设备端 JavaScript 编辑器、脚本运行器、原生 UI、市场与云空间入口。Pro 与 RW 共用业务逻辑，布局在构建时选择；脚本接口保持向后兼容。
 
-## 你可以做什么
+## 构建
 
-- 新建、编辑、保存、重命名和删除 `.js` 脚本（保留已有 `.ui.js` 名字）；
-- 在一个运行器中查看日志、构建界面、主动切换 Console/UI，状态与日志保留；
-- 通过编辑器的语法高亮、字号和光标控制，更舒适地编辑中英文脚本；
-- 使用内置的 2048 和大文件示例，快速了解运行效果；
-- 从 JS 市场获取脚本，也可选择本地脚本填写资料后提交发布审核；或用 AI 生成功能起草代码；
-- 通过云空间在手环和已配对的服务之间主动上传、下载脚本；
-- 通过 AstroBox 传输脚本。字体更换入口目前显示“即将上线”。
+使用 Node.js 24，在本目录执行：
 
-## 快速开始
-
-1. 获取与设备兼容的 JSLab `.rpk` 安装包并安装到手环。
-2. 打开 JSLab，在工作区中新建脚本。
-3. 编写代码后运行；运行会执行当前内容，保存请点保存按钮。ui.render 成功显示界面，UI 返回查看日志，轻点日志恢复界面。
-4. 云空间文件传输需要配对并激活。JS 市场浏览和下载无需配对或激活；发布只需配对设备，选择本地脚本并填写资料后提交审核。
-
-脚本和云端内容由你主动操作，JSLab 不会在后台自动同步。
-
-## 统一运行器
-
-所有脚本注入 console、ui、dialog、script、system。没有文件名分流、运行菜单或停止按钮。
-右上按钮与 script.reload() 完整重建运行页，复用本次源码；script.exit() 直接退出。
-
-新建成功后进入编辑器，关闭编辑器回到首页。顶栏返回与系统返回都会先收起键盘或光标控制，
-再处理未保存修改。编辑器右上按钮展开菜单；云页面首次读取后用刷新按钮或状态卡片主动刷新。
-标准对话框返回 action/value，支持长文本、负数小数、多选与三动作确认。
-查看 [统一脚本 API](docs/runtime-api.md)、[UI API](docs/ui-api.md)和[类型声明](docs/runtime-api.d.ts)。
-AI 生成需要设备与云插件共同支持 jslab-unified-open-ui 契约；同版本覆盖安装不改变包版本号。
-
-## 配套服务
-
-- [AstroBox 同步插件](../astrobox-plugin-sync/README.md)：在 AstroBox 中传输脚本。
-- [ccicc.icu 云端插件](../ccicc-plugin-cloud/README.md)：提供云空间、JS 市场和 AI 生成功能。
-
-手环云端请求统一使用 `/api/cloud/device/` 路径；网页使用独立的会话接口。
-- [JSLab Helper 表盘](../vela-luawatchface/README.md)：配套的手表端辅助工具。
-
-## 开发者构建
-
-如需自行构建，请安装 Node.js 和 AIoT 快应用工具链，然后在本目录执行：
-
-```powershell
-npm install
+```sh
+npm ci
 npm run check:contract
+npm run check:devices
 npm run lint
-npm run release
+npm run build:bandpro
+# RW 调试包：npm run build:watch5
 ```
 
-发布包会生成在 `dist/` 目录。`npm run release` 默认启用 JSC。
+隔离构建的安装包位于 `release-archive/`，不改写工作区 manifest，也不连接设备。正式版使用 `release:bandpro` / `release:watch5`，社区版使用 `release:community` / `release:community:watch5`。签名放在已忽略的 `sign/`。
 
-REDMI Watch 5 使用独立的 432×514 静态布局和 `designWidth:432`。`npm run release:watch5` 构建完整版，`npm run release:community:watch5` 构建社区版；手环对应 `release:bandpro` 和 `release:community`。这些分设备构建在 `release-archive/` 保存安装包，不连接设备。样式维护、圆角边界与命令见 [设备适配说明](docs/device-targets.md)。
+## 文档
 
-社区版可运行 `npm run release:community` 单独构建，生成 `release-archive/JSLab-Community-<版本号>.rpk`。构建脚本只在临时源码副本的 `src/utils/core/buildConfig.js` 中启用社区版标记，不会改动完整版源码或清空现有 `dist/`。安装包显示名称为“JSLab社区版”，包名保持 `icu.ccicc.jslab`。首次进入联网页面时选择官方或第三方 JSLab Cloud 服务器；社区版的默认服务器地址为空，未选择前不会发起云请求。云账户页可更换服务器，更换后需在新服务器重新配对。
+- [快应用开发与验证](../docs/development/quickapp.md)
+- [设备布局与构建](../docs/development/device-layouts.md)
+- [公共模块边界](../docs/development/quickapp-modules.md)
+- [运行接口](../docs/reference/runtime-api.md) · [UI 接口](../docs/reference/ui-api.md)
+- [使用指南](../docs/guide/watch-guide.md) · [示例脚本](../examples/README.md)
 
-公共模块职责与限制见 [模块说明](src/utils/README.md)，UI 优化原则与本地验证见
-[UI 性能建议](docs/ui-performance.md)。
-
-## 目录导航
-
-| 目录 | 用途 |
-| --- | --- |
-| `src/pages/index/` | 本地脚本首页 |
-| `src/pages/workspace/` | 新建、编辑、AI 生成和统一运行器 |
-| `src/pages/tools/` | JS 市场及其查看、发布页，以及其他工具 |
-| `src/pages/settings/` | 应用、云账户、云文件和编辑器设置；字体、高亮设置位于 `editor/` 下 |
-| `src/pages/overlay/` | 输入、选择和确认对话框 |
-| `src/utils/` | 按领域划分的公共逻辑，职责见模块说明 |
-| `src/components/`、`src/common/`、`src/data/` | 输入法组件、共享资源、内置脚本和帮助资料 |
-| `tests/`、`scripts/`、`docs/` | 本地验证、构建与维护脚本、接口文档 |
-| `samples/`、`market-scripts/` | 独立示例和市场脚本素材 |
-| `diagnostics/` | 统一运行器验收脚本；旧性能实验源码已清理，本地历史产物不参与构建 |
-| `images/`、`output/` | 说明截图和宣传素材，主应用资源放在 `src/common/` |
-| `build/`、`dist/` | 工具链生成的临时内容和安装包 |
-| `release-archive/` | 本地历史产物；发布前需保留的文件放在这里，不能放入 `dist/` |
-
-页面路由以 `src/manifest.json` 为准，命名路由集中在 `src/utils/core/routeManager.js`。
-运行页统一为 `workspace/run/`；不要重建旧的 `run-console/`、`run-ui/` 或编辑器版本目录。
-旧运行页不再保留单独的历史复现测试；当前运行器回归测试直接验证 `workspace/run/`。
-
-页面保留显示状态和交互流程；跨页面服务由 `src/app.ux` 持有，通过 `$app.$def` 访问。
-云管理客户端位于 `utils/cloud/`，用户脚本的注入接口位于 `utils/runtime/`，两者保持分离。
-整理代码时优先使用现有领域目录，不为暂未实现的功能创建空目录，也不在项目内复制源码作为备份。
-
-本地测试统一执行 `npm test`，包含运行契约检查和五组回归测试。单独验证可使用
-`test:core`（配置、对话框、基础服务）、`test:files`（文件、数据、传输校验）、
-`test:editor`（文档、高亮、光标、字体）、`test:cloud`（设备云接口）、
-`test:runtime`（UI 引擎与运行器）。旧脚本兼容性夹具保留在 `tests/fixtures/`。
+机器协作约束见 [AGENTS.md](AGENTS.md)。安装与真机调试不属于构建命令。

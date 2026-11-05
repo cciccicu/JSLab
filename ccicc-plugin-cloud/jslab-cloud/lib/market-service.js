@@ -1,28 +1,84 @@
 const { DEFAULT_MARKET_MODERATION_PROMPT } = require('./persistent-state');
 const { scriptFilename } = require('./script-filename');
+const { normalizeSupportedDevices, storedSupportedDevices } = require('./market-devices');
 
 function createMarketService(state) {
   const { ctx, marketScripts, reviews, reports, json, wantsJson, currentUser, hash, checksum, log, consume, sourceFromBody, validJavaScript, getPositiveInteger, MAX_SOURCE } = state;
+  const downloads = ctx.db.table('market_downloads');
+  const likes = ctx.db.table('market_likes');
+  const marketEngagement = (id, user) => {
+    const result = ctx.db.prepare(`SELECT
+      COALESCE((SELECT download_count FROM ${downloads} WHERE script_id=?),0) AS downloadCount,
+      (SELECT COUNT(*) FROM ${likes} WHERE script_id=?) AS likeCount,
+      EXISTS(SELECT 1 FROM ${likes} WHERE script_id=? AND user_id=?) AS liked`).get(id, id, id, user?.id || 0);
+    return { ...result, liked: !!result.liked };
+  };
+  const recordMarketDownload = id => ctx.db.prepare(`INSERT INTO ${downloads} (script_id,download_count)
+    SELECT id,1 FROM ${marketScripts} WHERE id=? AND status='published'
+    ON CONFLICT(script_id) DO UPDATE SET download_count=download_count+1`).run(id).changes === 1;
+  const downloadMarket = (req, res, user) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0 || !recordMarketDownload(id)) return json(res, 404, { error: 'not_found' });
+    res.setHeader('Cache-Control', 'no-store');
+    return json(res, 200, { ...marketEngagement(id, user), downloaded: true });
+  };
+  const likeMarket = (req, res, user) => {
+    if (!user) return json(res, 401, { error: 'auth_required' });
+    const id = Number(req.params.id);
+    const value = req.body?.liked;
+    if (![true, false, '1', '0'].includes(value)) return json(res, 400, { error: 'invalid_like_state', message: '请指定点赞或取消点赞。' });
+    const liked = value === true || value === '1';
+    const result = ctx.db.transaction(() => {
+      if (!Number.isSafeInteger(id) || id <= 0 || !ctx.db.prepare(`SELECT id FROM ${marketScripts} WHERE id=? AND status='published'`).get(id)) return null;
+      if (liked) ctx.db.prepare(`INSERT OR IGNORE INTO ${likes} (script_id,user_id) VALUES (?,?)`).run(id, user.id);
+      else ctx.db.prepare(`DELETE FROM ${likes} WHERE script_id=? AND user_id=?`).run(id, user.id);
+      return marketEngagement(id, user);
+    })();
+    if (!result) return json(res, 404, { error: 'not_found' });
+    res.setHeader('Cache-Control', 'no-store');
+    if (req.body?._csrf && !wantsJson(req)) {
+      const returnTo = String(req.body.returnTo || '');
+      return res.redirect(/^\/jslab-cloud\/workspace\/(?:market(?:\/\d+)?|authors\/\d+)(?:\?[^\r\n]*)?$/.test(returnTo) ? returnTo : `/jslab-cloud/workspace/market/${id}`);
+    }
+    return json(res, 200, { ...result, marketId: id, message: liked ? '已点赞。' : '已取消点赞。' });
+  };
   const marketSnapshot = row => {
     const pending = row.pending_status != null;
     return { status: row.status, pendingStatus: row.pending_status,
       name: pending ? row.pending_name : row.name, description: pending ? row.pending_description : row.description,
-      tags: pending ? row.pending_tags : row.tags, hash: pending ? row.pending_hash : row.hash };
+      tags: pending ? row.pending_tags : row.tags, hash: pending ? row.pending_hash : row.hash,
+      supportedDevices: JSON.stringify(storedSupportedDevices(pending ? row.pending_supported_devices || row.supported_devices : row.supported_devices)) };
   };
   const sameMarketSnapshot = (row, snapshot) => {
     if (!row) return false;
     const current = marketSnapshot(row);
     return Object.keys(snapshot).every(key => current[key] === snapshot[key]);
   };
-  const reviewContentHash = snapshot => hash(JSON.stringify([snapshot.name, snapshot.description, snapshot.tags, snapshot.hash]));
+  const reviewContentHash = snapshot => {
+    const parts = [snapshot.name, snapshot.description, snapshot.tags, snapshot.hash];
+    // Preserve lookup of historical Pro-only reviews.
+    if (snapshot.supportedDevices && snapshot.supportedDevices !== '["pro"]') parts.push(snapshot.supportedDevices);
+    return hash(JSON.stringify(parts));
+  };
   const getMarketReview = row => ctx.db.prepare(`SELECT decision,reason FROM ${reviews} WHERE script_id=? AND content_hash=? ORDER BY id DESC LIMIT 1`).get(row.id, reviewContentHash(marketSnapshot(row))) || null;
+  const marketState = (row, mine = false) => {
+    const pending = mine && (row.pending_status === 'pending' || row.pending_status === 'rejected');
+    const status = pending ? row.pending_status : row.status;
+    const labels = { pending: '待审核', published: '已发布', rejected: '已拒绝', draft: '草稿' };
+    const statusText = pending && row.status === 'published'
+      ? (status === 'pending' ? '更新待审核，旧版仍已发布' : '更新被拒绝，旧版仍已发布')
+      : labels[status] || '状态未知';
+    const review = mine && status === 'rejected' ? getMarketReview(row) : null;
+    return { status, publishedStatus: row.status, pendingStatus: mine ? row.pending_status : null, statusText,
+      ...(mine ? { review: review?.decision === 'reject' ? review : null, revision: reviewContentHash(marketSnapshot(row)) } : {}) };
+  };
   const applyMarketDecision = (marketId, decision, snapshot) => ctx.db.transaction(() => {
     const row = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(marketId);
     if (!row) return null;
     if (snapshot && !sameMarketSnapshot(row, snapshot)) return null;
     if (row.pending_status === 'pending' || row.pending_status === 'rejected') {
       if (decision === 'approve') {
-        ctx.db.prepare(`UPDATE ${marketScripts} SET name=pending_name,description=pending_description,tags=pending_tags,source=pending_source,hash=pending_hash,checksum=pending_checksum,status='published',pending_name=NULL,pending_description=NULL,pending_tags=NULL,pending_source=NULL,pending_hash=NULL,pending_checksum=NULL,pending_status=NULL,updated_at=datetime('now') WHERE id=?`).run(marketId);
+        ctx.db.prepare(`UPDATE ${marketScripts} SET supported_devices=COALESCE(pending_supported_devices,supported_devices),name=pending_name,description=pending_description,tags=pending_tags,source=pending_source,hash=pending_hash,checksum=pending_checksum,status='published',pending_name=NULL,pending_description=NULL,pending_tags=NULL,pending_source=NULL,pending_hash=NULL,pending_checksum=NULL,pending_supported_devices=NULL,pending_status=NULL,updated_at=datetime('now') WHERE id=?`).run(marketId);
       } else {
         ctx.db.prepare(`UPDATE ${marketScripts} SET pending_status='rejected',updated_at=datetime('now') WHERE id=?`).run(marketId);
       }
@@ -69,19 +125,22 @@ function createMarketService(state) {
     }
     const marketName = String(req.body?.marketName || '').trim().slice(0, 124);
     const marketDescription = String(req.body?.marketDescription || '').trim().slice(0, 1000);
+    let supportedDevices;
+    try { supportedDevices = JSON.stringify(normalizeSupportedDevices(req.body?.supportedDevices)); }
+    catch (_) { return json(res, 400, { error: 'invalid_supported_devices', message: '适配设备只能选择 Pro、RW，支持多选。' }); }
     if (!marketName) return json(res, 400, { error: 'name_required', message: '请填写市场名称。' });
     if (!marketDescription) return json(res, 400, { error: 'description_required', message: '请填写市场说明。' });
-    if (!source || Buffer.byteLength(source, 'utf8') > MAX_SOURCE) return json(res, 400, { error: 'invalid_script', message: '代码不能为空且不能超过 48 KiB。' });
+    if (!source || (MAX_SOURCE > 0 && Buffer.byteLength(source, 'utf8') > MAX_SOURCE)) return json(res, 400, { error: 'invalid_script', message: '代码为空或大小不符合要求。' });
     if (!validJavaScript(source)) return json(res, 400, { error: 'invalid_javascript', message: '代码存在 JavaScript 语法错误。' });
     const marketTags = JSON.stringify((Array.isArray(req.body?.marketTags) ? req.body.marketTags : String(req.body?.marketTags || '').split(',')).map((tag) => String(tag).trim().slice(0, 40)).filter(Boolean).slice(0, 12));
     let submittedId;
     if (marketId) {
       const existing = ctx.db.prepare(`SELECT id,status,owner_user_id FROM ${marketScripts} WHERE id=? AND owner_user_id=?`).get(marketId, user.id);
       if (!existing) return json(res, 404, { error: 'not_found', message: '市场脚本不存在或无权编辑。' });
-      ctx.db.prepare(`UPDATE ${marketScripts} SET pending_name=?,pending_description=?,pending_tags=?,pending_source=?,pending_hash=?,pending_checksum=?,pending_status='pending',updated_at=datetime('now') WHERE id=?`).run(marketName, marketDescription, marketTags, source, hash(source), checksum(source), marketId);
+      ctx.db.prepare(`UPDATE ${marketScripts} SET pending_name=?,pending_description=?,pending_tags=?,pending_source=?,pending_hash=?,pending_checksum=?,pending_supported_devices=?,pending_status='pending',updated_at=datetime('now') WHERE id=?`).run(marketName, marketDescription, marketTags, source, hash(source), checksum(source), supportedDevices, marketId);
       submittedId = marketId;
     } else {
-      const inserted = ctx.db.prepare(`INSERT INTO ${marketScripts} (owner_user_id,name,description,tags,source,hash,checksum,status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`).run(user.id,marketName,marketDescription,marketTags,source,hash(source),checksum(source));
+      const inserted = ctx.db.prepare(`INSERT INTO ${marketScripts} (owner_user_id,name,description,tags,source,hash,checksum,supported_devices,status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`).run(user.id,marketName,marketDescription,marketTags,source,hash(source),checksum(source),supportedDevices);
       submittedId = inserted.lastInsertRowid;
     }
     log(user.id, 'market.submit', String(submittedId));
@@ -90,18 +149,21 @@ function createMarketService(state) {
       review = await llmReview(submittedId);
       if (review && !applyMarketDecision(submittedId, review.decision, review.snapshot)) review = null;
     }
-    const current = ctx.db.prepare(`SELECT status,pending_status FROM ${marketScripts} WHERE id=?`).get(submittedId);
-    const status = current?.pending_status === 'pending' || current?.pending_status === 'rejected' ? current.pending_status : current?.status || 'pending';
-    if (browserForm && req.body?._csrf && !wantsJson(req)) return res.redirect('/jslab-cloud/workspace?panel=publications');
-    return json(res, 200, { status, marketId: submittedId, review: review && { decision: review.decision, reason: review.reason }, message: '市场脚本已提交审核。' });
+    const current = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(submittedId);
+    if (!current) return json(res, 404, { error: 'not_found' });
+    const state = marketState(current, true);
+    if (browserForm && req.body?._csrf && !wantsJson(req)) return res.redirect('/jslab-cloud/workspace/market?tab=mine');
+    return json(res, 200, { ...state, marketId: submittedId,
+      review: state.review || (review && { decision: review.decision, reason: review.reason }), message: '市场脚本已提交审核。' });
   };
   const listMarket = (req, res, userOverride) => {
     const query = `%${String(req.query?.q || '').slice(0, 80)}%`;
     const mine = req.query?.mine === '1';
     if (mine && !userOverride) return json(res, 401, { error: 'device_auth_required' });
+    res.setHeader('Cache-Control', 'no-store');
     const rows = mine
-      ? ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,status,pending_name,pending_description,pending_tags,pending_status,updated_at FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (COALESCE(pending_name,name) LIKE ? OR COALESCE(pending_description,description) LIKE ? OR COALESCE(pending_tags,tags) LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(userOverride.id, query, query, query)
-      : ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,status,pending_name,pending_description,pending_tags,pending_status,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(query, query, query);
+      ? ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,hash,status,pending_name,pending_description,pending_tags,pending_hash,supported_devices,pending_supported_devices,pending_status,updated_at FROM ${marketScripts} WHERE owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL) AND (COALESCE(pending_name,name) LIKE ? OR COALESCE(pending_description,description) LIKE ? OR COALESCE(pending_tags,tags) LIKE ?) ORDER BY updated_at DESC,id DESC LIMIT 50`).all(userOverride.id, query, query, query)
+      : ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,status,pending_name,pending_description,pending_tags,supported_devices,pending_supported_devices,pending_status,updated_at FROM ${marketScripts} WHERE status='published' AND (name LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT 50`).all(query, query, query);
     const scripts = rows.map((row) => {
       const author = ctx.users.get(row.owner_user_id);
       const pending = mine && (row.pending_status === 'pending' || row.pending_status === 'rejected');
@@ -109,17 +171,20 @@ function createMarketService(state) {
       const description = pending ? row.pending_description || row.description : row.description;
       const tags = pending ? row.pending_tags || row.tags : row.tags;
       return { id: row.id, name, description, tags, updated_at: row.updated_at,
-        status: pending ? row.pending_status : row.status, publishedStatus: row.status,
-        pendingStatus: mine ? row.pending_status : null, authorName: author?.display_name || author?.username || `用户 ${row.owner_user_id}` };
+        ...marketEngagement(row.id, userOverride),
+        ...marketState(row, mine),
+        supportedDevices: storedSupportedDevices(pending ? row.pending_supported_devices || row.supported_devices : row.supported_devices),
+        authorName: author?.display_name || author?.username || `用户 ${row.owner_user_id}` };
     });
     return json(res, 200, { scripts });
   };
   const getMarketSource = (req, res, userOverride) => {
     const mine = req.query?.mine === '1';
     if (mine && !userOverride) return json(res, 401, { error: 'device_auth_required' });
+    res.setHeader('Cache-Control', 'no-store');
     const row = mine
       ? ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=? AND owner_user_id=? AND (status!='draft' OR pending_status IS NOT NULL)`).get(Number(req.params.id), userOverride.id)
-      : ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,source,hash,checksum,updated_at,status,pending_status FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
+      : ctx.db.prepare(`SELECT id,owner_user_id,name,description,tags,source,hash,checksum,updated_at,status,pending_status,supported_devices FROM ${marketScripts} WHERE id=? AND status='published'`).get(Number(req.params.id));
     if (!row) return json(res, 404, { error: 'not_found' });
     const pending = mine && (row.pending_status === 'pending' || row.pending_status === 'rejected');
     const source = pending ? row.pending_source : row.source;
@@ -128,10 +193,12 @@ function createMarketService(state) {
     if (typeof source !== 'string') return json(res, 404, { error: 'not_found' });
     const author = ctx.users.get(row.owner_user_id);
     return json(res, 200, { script: { id: row.id, owner_user_id: row.owner_user_id, name, description,
+      ...marketEngagement(row.id, userOverride),
       tags: pending ? row.pending_tags || row.tags : row.tags, source,
+      supportedDevices: storedSupportedDevices(pending ? row.pending_supported_devices || row.supported_devices : row.supported_devices),
       hash: pending ? row.pending_hash || hash(source) : row.hash,
       checksum: pending ? row.pending_checksum || checksum(source) : row.checksum,
-      updated_at: row.updated_at, status: pending ? row.pending_status : row.status,
+      updated_at: row.updated_at, ...marketState(row, mine),
       authorName: author?.display_name || author?.username || `用户 ${row.owner_user_id}`, filename: scriptFilename(name) } });
   };
   const deleteMarket = (req, res, userOverride) => {
@@ -161,7 +228,7 @@ function createMarketService(state) {
     if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`);
     return json(res, 200, { reported: true, message: '举报已提交。' });
   };
-  return { marketSnapshot, reviewContentHash, getMarketReview, applyMarketDecision, submitMarket, listMarket, getMarketSource, deleteMarket, reportMarket };
+  return { marketSnapshot, reviewContentHash, getMarketReview, marketState, marketEngagement, recordMarketDownload, downloadMarket, likeMarket, applyMarketDecision, submitMarket, listMarket, getMarketSource, deleteMarket, reportMarket };
 }
 
 module.exports = { createMarketService };

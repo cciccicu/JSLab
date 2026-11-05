@@ -1,13 +1,13 @@
 {
   "identity": "jslab-unified-open-ui",
-  "sourceBytes": 49152,
+  "sourceBytes": 0,
   "logs": { "entries": 64, "characters": 6144, "entryCharacters": 1024 },
   "dialogs": { "textCharacters": 8000, "items": 100 },
-  "ui": { "textCharacters": 1024, "titleCharacters": 80, "performanceGuidance": { "declarations": 40, "paintedNodes": 160, "depth": 4, "qrcodes": 2 } },
+  "ui": { "textCharacters": 0, "titleCharacters": 0, "performanceGuidance": { "declarations": 40, "paintedNodes": 160, "depth": 4, "qrcodes": 2 } },
   "methods": {
     "dialog": ["alert", "confirm", "text", "number", "select"],
     "script": ["canUse", "locale", "exit", "reload", "toast"],
-    "ui": ["render", "show", "hide", "refresh", "setTitle", "showHeader", "scrollTo", "scrollTop", "scrollBottom", "signal", "heading", "text", "button", "switch", "slider", "progress", "grid", "buttonRow", "divider", "spacer", "row", "column", "stack", "qrcode"],
+    "ui": ["getWidth", "render", "show", "hide", "refresh", "setTitle", "showHeader", "scrollTo", "scrollTop", "scrollBottom", "signal", "heading", "text", "button", "switch", "slider", "progress", "grid", "buttonRow", "divider", "spacer", "row", "column", "stack", "qrcode", "image", "canvas"],
     "console": ["log", "info", "warn", "error", "clear"]
   }
 }

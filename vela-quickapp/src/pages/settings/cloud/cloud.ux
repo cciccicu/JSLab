@@ -5,10 +5,6 @@
         <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">无法读取云账户</text>
         <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{loadErrorText}}</text>
       </div>
-      <div class="item transport-item {{busy || loading ? 'disabled-item' : ''}}" @click="selectTransport">
-        <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">传输方式</text>
-        <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{transportLabel}}</text>
-      </div>
       <div if="{{communityEdition}}" class="item transport-item {{busy || loading ? 'disabled-item' : ''}}" @click="changeServer">
         <text class="item-title {{busy || loading ? 'disabled-text' : ''}}">当前服务器</text>
         <text class="item-description {{busy || loading ? 'disabled-text' : ''}}">{{serverLabel}}</text>
@@ -57,7 +53,6 @@ import { startNetworkFeedback, updateNetworkFeedback, setNetworkFeedbackVisible,
 import { showToast, vibrate } from '../../../utils/core/uiFeedback.js';
 import { getCurrentClock, startPageClock, stopPageClock } from '../../../utils/core/time.js';
 import { getDeviceName } from '../../../utils/core/deviceInfo.js';
-import { formatError } from '../../../utils/core/userError.js';
 import { IS_COMMUNITY_EDITION } from '../../../utils/core/buildConfig.js';
 import { enterNetworkPage, chooseServer, selectedServer, OFFICIAL_ORIGIN } from '../../../utils/cloud/serverSelection.js';
 const ACCOUNT_CHECK_TIMEOUT_MS = 6000;
@@ -74,8 +69,6 @@ export default {
     networkStatus: '',
     networkStage: '',
     initialized: false,
-    transport: 'fetch',
-    transportLabel: 'fetch 直连',
     deviceName: '',
     loadError: false,
     loadErrorText: '云账户状态尚未读取，点击重新读取',
@@ -90,7 +83,6 @@ export default {
     pairingPollTick: 0,
     pageActive: true,
     pageVisible: false,
-    transportChangeId: 0,
     accountCheckId: 0
   },
   onInit() {
@@ -162,8 +154,6 @@ export default {
       this.paired = state.paired;
       this.activationPending = false;
       this.loadError = false;
-      this.transport = state.transport;
-      this.transportLabel = this.getTransportLabel(state.transport);
       this.loading = false;
       if (!state.paired) {
         this.activated = false;
@@ -326,45 +316,6 @@ export default {
     this.pairingPollBusy = false;
     this.pairingPollError = false;
     this.pairingPollTick = 0;
-  },
-  getTransportLabel(transport) {
-    return transport === 'interconnect' ? 'AstroBox 网络桥接' : 'fetch 直连';
-  },
-  selectTransport() {
-    if (this.busy || this.loading) return;
-    vibrate('short');
-    this.$app.$def.openDialog('select', {
-      title: '传输方式',
-      message: '选择云 API 的请求方式',
-      items: [{label:'fetch 直连',value:'fetch'},{label:'JSLabSync网络桥接',value:'interconnect'}],
-      value: this.transport
-    }, this).then(result => {
-      if (result.action === "confirm") {
-        this.saveTransport(result.value);
-      }
-    }).catch(error => {
-      showToast(error.message || "无法打开对话框");
-    });
-  },
-  saveTransport(transport) {
-    if (this.busy) return;
-    this.accountCheckId += 1;
-    this.activationPending = false;
-    const changeId = this.transportChangeId + 1;
-    this.transportChangeId = changeId;
-    this.busy = true;
-    this.$app.$def.getConfigManager().set('cloud.transport', transport).then(() => {
-      if (!this.pageActive || changeId !== this.transportChangeId) return;
-      this.transport = transport;
-      this.transportLabel = this.getTransportLabel(transport);
-      this.busy = false;
-      this.loadState();
-      showToast('已切换为' + this.transportLabel);
-    }).catch(error => {
-      if (this.pageActive && changeId === this.transportChangeId) showToast(formatError(error, '保存云服务传输方式'));
-    }).then(() => {
-      if (this.pageActive && changeId === this.transportChangeId) this.busy = false;
-    });
   },
   logout() {
     if (this.busy || this.loading) return;

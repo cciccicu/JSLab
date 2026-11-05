@@ -5,7 +5,7 @@
 .back { position:absolute; left:30px; top:30px; width:72px; height:72px; }
 .time-text { position:absolute; left:108px; top:16px; width:216px; line-height:32px; font-size:24px; font-weight:bold; color:rgba(255,255,255,0.6); text-align:center; }
 .heading { position:absolute; left:108px; top:48px; width:216px; line-height:42px; font-size:32px; font-weight:bold; color:#ffffff; text-align:center; }
-.item { width:100%; height:112px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
+.item { width:100%; height:124px; padding:14px 20px; margin-bottom:8px; border-radius:36px; background-color:#262626; flex-direction:column; flex-shrink:0; }
 .status-item { justify-content:space-between; }
 .item-title { width:100%; font-size:28px; line-height:36px; color:#ffffff; font-weight:bold; text-overflow:ellipsis; lines:1; }
 .item-description { width:100%; font-size:20px; line-height:28px; color:rgba(255,255,255,0.6); text-overflow:ellipsis; lines:2; }

@@ -8,9 +8,6 @@
   overflow: hidden;
 }
 
-/* The template picker stays above the keyboard only while the keyboard is hidden. */
-.template-hidden { display:none; }
-
 /* 顶部 */
 .header-img {
   position: absolute;
@@ -57,24 +54,35 @@
 
 /* 创建流程字段 */
 .field-group {
+  position: absolute;
+  left: 18px;
   width: 396px;
-  margin-bottom: 10px;
-  flex-direction: column;
-  flex-shrink: 0;
+  height: 90px;
 }
 
+.filename-field { top:112px; }
+.template-field { top:212px; }
+
 .label {
+  position: absolute;
+  left: 0px;
+  top: 0px;
   width: 396px;
   height: 30px;
+  line-height: 30px;
+  flex-shrink: 0;
   font-size: 22px;
   color: rgba(255,255,255,0.8);
-  margin-bottom: 4px;
   font-weight: bold;
 }
 
 .input-box {
+  position: absolute;
+  left: 0px;
+  top: 34px;
   width: 396px;
   height: 56px;
+  flex-shrink: 0;
   background-color: #262626;
   border-radius: 36px;
   padding: 0 20px;
@@ -83,14 +91,23 @@
 }
 
 .input-text {
+  position: absolute;
+  left: 20px;
+  top: 0px;
   width: 356px;
+  height: 56px;
+  line-height: 56px;
   font-size: 24px;
   color: white;
 }
 
 .picker {
+  position: absolute;
+  left: 0px;
+  top: 34px;
   width: 396px;
   height: 56px;
+  flex-shrink: 0;
   background-color: #262626;
   border-radius: 36px;
   padding: 0 20px;

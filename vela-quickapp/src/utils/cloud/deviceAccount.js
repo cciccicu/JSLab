@@ -1,5 +1,5 @@
 import configManager from '../core/configManager.js';
-import { request, normalizeTransport } from './cloudTransport.js';
+import { request, getTransport, getDefaultTransport } from './cloudTransport.js';
 
 function startPairing(deviceName) {
   return request('/api/cloud/device/pairing/start', { method: 'POST', body: { name: deviceName || 'JSLab watch' } });
@@ -38,8 +38,8 @@ function logout() {
 }
 
 function getState() {
-  return Promise.all([configManager.get('cloud.token', ''), configManager.get('cloud.transport', '')])
-    .then((values) => ({ paired: !!values[0], transport: normalizeTransport(values[1]) }));
+  return Promise.all([configManager.get('cloud.token', ''), getTransport()])
+    .then((values) => ({ paired: !!values[0], transport: values[1] }));
 }
 
 function getEntitlements(timeoutMs) {
@@ -57,5 +57,5 @@ function getEntitlements(timeoutMs) {
 
 export default {
   startPairing, pollPairing, cancelPairing, exchangePairing,
-  revokeCurrentDevice, logout, getState, getEntitlements
+  revokeCurrentDevice, logout, getState, getEntitlements, getDefaultTransport
 };
