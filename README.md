@@ -11,7 +11,7 @@
   </p>
   <p>
     <a href="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml"><img src="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml/badge.svg?branch=master" alt="Repository checks" /></a>
-    &nbsp; <a href="LICENSE">GPL-3.0 开源</a>
+    &nbsp; <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-168ab5?logo=gnu&amp;logoColor=white" alt="License: GPL-3.0" /></a>
   </p>
 </div>
 
