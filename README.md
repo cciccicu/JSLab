@@ -1,16 +1,17 @@
 <div align="center">
-  <img src="vela-quickapp/src/common/logo.png" width="88" alt="JSLab" />
-  <h1>JSLab</h1>
-  <p><strong>在手腕上编写、运行和分享 JavaScript</strong></p>
-  <p>设备端编辑器 · 脚本运行器与原生 UI · 云端协作 · 独立快应用导出</p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme-hero-dark.svg" />
+    <img src="docs/assets/readme-hero.svg" width="100%" alt="JSLab — 在手腕上编写、运行和分享 JavaScript" />
+  </picture>
   <p>
-    <a href="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml"><img src="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml/badge.svg?branch=master" alt="Repository checks" /></a>
+    <a href="https://ccicc.icu/jslab-cloud/downloads"><strong>下载安装</strong></a> &nbsp;·&nbsp;
+    <a href="docs/README.md"><strong>使用文档</strong></a> &nbsp;·&nbsp;
+    <a href="examples/README.md">脚本示例</a> &nbsp;·&nbsp;
+    <a href="https://ccicc.icu/jslab-cloud/">访问云端</a>
   </p>
   <p>
-    <a href="https://ccicc.icu/jslab-cloud/downloads"><strong>下载安装</strong></a> ·
-    <a href="docs/README.md">使用文档</a> ·
-    <a href="https://ccicc.icu/jslab-cloud/">JSLab Cloud</a> ·
-    <a href="https://www.bandbbs.cn/resources/3440/">米坛社区</a>
+    <a href="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml"><img src="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml/badge.svg?branch=master" alt="Repository checks" /></a>
+    &nbsp; <a href="LICENSE">GPL-3.0 开源</a>
   </p>
 </div>
 
@@ -89,30 +90,46 @@ npm run build:bandpro
 
 安装包输出到 `vela-quickapp/release-archive/`。REDMI Watch 5 调试构建使用 `npm run build:watch5`；正式版、社区版与签名配置见[设备构建说明](docs/development/device-layouts.md)。
 
-### 仓库结构
+## 仓库结构
 
-| 项目 | 职责 | 开发指南 |
-| --- | --- | --- |
-| [vela-quickapp](vela-quickapp/README.md) | 设备端编辑器、运行器、市场与云空间入口 | [快应用开发](docs/development/quickapp.md) |
-| [android-sync](android-sync/README.md) | Android 编辑器与设备同步器 | [Android 开发](docs/development/android.md) |
-| [astrobox-plugin-sync](astrobox-plugin-sync/README.md) | AstroBox v2 WASI 同步插件 | [插件开发](docs/development/astrobox.md) |
-| [ccicc-plugin-cloud](ccicc-plugin-cloud/README.md) | ccicc.icu 运行时上的云空间、市场、AI 与打包服务 | [云端开发与部署](docs/development/cloud.md) |
-| [vela-rpk-template](vela-rpk-template/README.md) | 两种设备的独立快应用引擎模板 | [模板维护](docs/development/rpk-template.md) |
-| [vela-luawatchface](vela-luawatchface/README.md) | JSLab Helper Lua 表盘 | [表盘开发](docs/development/watchface.md) |
+六个子项目在根目录并列，各自维护依赖、构建入口和发布产物；公共文档、示例与接口定义集中存放。
 
-使用指南、接口、协议与开发文档统一位于 [docs](docs/README.md)；脚本类型声明位于 [types](types/runtime-api.d.ts)，可导入设备的示例位于 [examples](examples/README.md)。各子项目 README 列出工具链要求和最短构建步骤，依赖版本由相应锁文件固定。
+```text
+JSLab/
+├── vela-quickapp/         # 设备端：编辑器、运行器与原生 UI
+├── android-sync/          # Android 编辑器与设备同步器
+├── astrobox-plugin-sync/  # AstroBox v2 同步插件
+├── ccicc-plugin-cloud/    # 云空间、市场、AI 与独立应用打包
+├── vela-rpk-template/     # 独立 RPK 的预编译引擎模板
+├── vela-luawatchface/     # JSLab Helper 辅助表盘
+├── docs/                  # 使用指南、开发文档与第三方许可说明
+├── examples/              # 示例脚本、市场作品与人工验收脚本
+├── types/                 # 脚本 API 类型声明与共享运行契约
+├── scripts/               # 仓库检查与本地缓存清理
+├── .github/               # CI、贡献指南与安全报告说明
+├── .vscode/               # 可共享的 VS Code 多项目工作区
+├── README.md              # 项目首页
+├── AGENTS.md              # AI 开发协作约定
+└── LICENSE                # 项目代码许可证
+```
 
-云端插件可以直接使用仓库内的预编译模板。修改共享运行引擎后，需要同步并重建两个设备模板；模板 ZIP 与元数据作为发布资产提交。生成的帮助资源、普通安装包、SDK 二进制、个人工具与签名私钥不提交，详见[仓库维护说明](docs/development/repository.md)。
+子项目入口：[设备端](vela-quickapp/README.md) · [Android](android-sync/README.md) · [AstroBox](astrobox-plugin-sync/README.md) · [云端](ccicc-plugin-cloud/README.md) · [RPK 模板](vela-rpk-template/README.md) · [Helper 表盘](vela-luawatchface/README.md)。各项目 README 提供工具链要求和最短构建步骤，依赖版本由相应锁文件固定。
+
+[docs](docs/README.md) 是文档总入口；[types/runtime-contract.json](types/runtime-contract.json) 统一维护公开方法、日志与对话框参数和 UI 性能建议。使用 VS Code 时，可直接打开[多项目工作区](.vscode/JSLab.code-workspace)。根目录的 `.editorconfig`、`.gitattributes` 和 `.gitignore` 分别管理编辑格式、Git 文件处理和忽略规则。
+
+个人工具、字体预览和历史安装包归档集中在已忽略的 `.local-tools/`，各子项目的依赖及构建输出按自身工具链管理。目录维护方式见[仓库维护说明](docs/development/repository.md)。
+
+云端插件直接使用仓库内的预编译模板。修改共享运行引擎后，同步并重建两个设备模板，将模板 ZIP 与元数据一起提交。
 
 ## 反馈与贡献
 
-使用问题可先查阅[常见问题](docs/guide/troubleshooting.md)，也可以在[米坛社区](https://www.bandbbs.cn/resources/3440/)交流。报告缺陷或提出改进建议，请提交 [GitHub Issue](https://github.com/cciccicu/JSLab/issues)，附上组件版本、设备型号、复现步骤和必要日志。安全问题请遵循[安全报告说明](SECURITY.md)。
+使用问题可先查阅[常见问题](docs/guide/troubleshooting.md)，也可以在[米坛社区](https://www.bandbbs.cn/resources/3440/)交流。报告缺陷或提出改进建议，请提交 [GitHub Issue](https://github.com/cciccicu/JSLab/issues)，附上组件版本、设备型号、复现步骤和必要日志。安全问题请遵循[安全报告说明](.github/SECURITY.md)。
 
-欢迎通过 Pull Request 改进代码、文档与示例。提交前阅读[贡献指南](CONTRIBUTING.md)，执行仓库检查与受影响项目的现有检查；涉及脚本接口或云端协议时，保留旧脚本和旧客户端的兼容性。[架构说明](docs/development/architecture.md)介绍模块边界，[发布流程](docs/development/releasing.md)介绍各端的交付要求。
+欢迎通过 Pull Request 改进代码、文档与示例。提交前阅读[贡献指南](.github/CONTRIBUTING.md)，执行仓库检查与受影响项目的现有检查；涉及脚本接口或云端协议时，保留旧脚本和旧客户端的兼容性。[架构说明](docs/development/architecture.md)介绍模块边界，[发布流程](docs/development/releasing.md)介绍各端的交付要求。
 
 ## 许可证与致谢
 
-项目采用 [GNU GPL v3](LICENSE)。第三方组件保留各自许可，完整来源与分发说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+项目采用 [GNU GPL v3](LICENSE)。第三方组件保留各自许可，完整来源与分发说明见[第三方组件与工具](docs/third-party/README.md)。
 
 设备端内置字体 **JSLab Wrist Mono** 由 Sarasa Mono SC 的文字、标点与 Noto Emoji 的单色图标制作，按 OFL-1.1 分发；[字体文档](docs/third-party/editor-font.md)提供来源、字符覆盖与可复现构建方法。字体许可独立于项目代码许可。
 

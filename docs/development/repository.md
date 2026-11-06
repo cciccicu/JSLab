@@ -2,9 +2,9 @@
 
 ## 目录约定
 
-人工维护的长文档集中在根目录 `docs/`：`guide/` 面向用户，`reference/` 是详细接口，`protocols/` 是跨端协议，`development/` 是开发维护，`third-party/` 记录来源与许可。根 README、各项目 README、贡献与安全入口以及 `AGENTS.md` 保留在惯例位置。
+六个子项目在根目录并列。人工维护的长文档集中在 `docs/`：`guide/` 面向用户，`reference/` 是详细接口，`protocols/` 是跨端协议，`development/` 是开发维护，`third-party/` 记录来源与许可。第三方组件总表位于 [third-party/README.md](../third-party/README.md)，贡献与安全说明位于 `.github/`。
 
-源代码目录只放实现和运行资源。接口类型声明集中在 `types/`，独立示例集中在 `examples/`。必须随代码或应用分发的 LICENSE、版权声明和应用内帮助属于必要资源，不能当作过程文档删除。
+源代码目录放实现和运行资源。接口类型声明与 `runtime-contract.json` 集中在 `types/`，独立示例集中在 `examples/`。根 README、项目 README、AGENTS.md 及随代码分发的许可文件保留在对应位置。VS Code 多项目工作区位于 `.vscode/JSLab.code-workspace`。
 
 ## 云端帮助生成
 
@@ -23,7 +23,7 @@ npm run check:docs
 
 ## 本地文件
 
-`.local-tools/` 可保存个人开发 Kit、宣传工具、Vela 文档副本和历史调试材料；`.codex-temp/` 用于临时验证；IDE 配置也被忽略。公开的 JavaScript / Rust 构建和检查不依赖这些材料，表盘编译器可通过显式路径或约定的本地目录提供。
+`.local-tools/` 集中保存个人开发 Kit、宣传工具、字体预览、Vela 文档副本和历史调试材料；根级历史安装包归档位于 `.local-tools/release-archive/`，各子项目继续使用自己的产物目录。`.codex-temp/` 用于临时验证。`.vscode/` 仅提交多项目工作区，MCP 等个人配置按忽略规则保留在本机。公开的 JavaScript / Rust 构建和检查使用仓库内的脚本；表盘编译器通过显式路径或约定的本地目录提供。
 
 签名目录、密钥、`.env`、数据库、Android SDK AAR、表盘 Compiler.exe、依赖缓存和安装包不提交。官方 SDK 与 Sora 源码包由 Android 的准备脚本下载并校验。RPK 的两套固定模板 ZIP 是显式的忽略规则例外。
 

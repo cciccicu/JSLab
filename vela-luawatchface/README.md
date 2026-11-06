@@ -17,6 +17,6 @@ python -m pip install -r requirements.txt
 
 - [项目配置、工具与构建](../docs/development/watchface.md)
 - [架构与职责边界](../docs/development/architecture.md)
-- [第三方工具说明](../THIRD_PARTY_NOTICES.md)
+- [第三方工具说明](../docs/third-party/README.md)
 
 设备调试使用 `scripts/pushlua.ps1` 进行 ADB 部署和热重载。

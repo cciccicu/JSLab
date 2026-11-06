@@ -58,7 +58,8 @@ Thumbs.db
 *.log
 *.iml
 .idea/
-.vscode/
+**/.vscode/*
+!/.vscode/JSLab.code-workspace
 .nyc_output/
 coverage/
 logs/

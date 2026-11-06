@@ -1,0 +1,20 @@
+{
+  "folders": [
+    { "path": "..", "name": "JSLab" },
+    { "path": "../vela-quickapp" },
+    { "path": "../android-sync" },
+    { "path": "../astrobox-plugin-sync" },
+    { "path": "../ccicc-plugin-cloud" },
+    { "path": "../vela-rpk-template" },
+    { "path": "../vela-luawatchface" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/.venv": true,
+      "**/.local-tools": true,
+      "**/.codex-temp": true
+    }
+  }
+}

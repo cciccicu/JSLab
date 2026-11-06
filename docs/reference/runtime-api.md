@@ -113,6 +113,6 @@ return main();
 
 `system` 提供设备信息、文件、网络、屏幕、电池、传感器、媒体等原生模块，保留对象参数以及 `success`、`fail`、`complete` 等原生调用方式，不统一转换成 Promise。先检查可选能力，并处理实际调用失败；名称映射与方法说明见[系统接口指南](../guide/system-api.md)。
 
-根目录的 [runtime-contract.json](../../runtime-contract.json) 是公开方法、长度限制和 UI 性能建议的构建期来源。构建脚本将其同步到设备常量与云端插件，设备运行时不解析本文。`sourceBytes`、`ui.textCharacters`、`ui.titleCharacters` 为 0 表示不设固定长度上限。超过 48 KiB 的脚本在进入设备编辑器前显示确认提醒，确认后仍可编辑。
+[types/runtime-contract.json](../../types/runtime-contract.json) 是公开方法、长度限制和 UI 性能建议的构建期来源。构建脚本将其同步到设备常量与云端插件，设备运行时不解析本文。`sourceBytes`、`ui.textCharacters`、`ui.titleCharacters` 为 0 表示不设固定长度上限。超过 48 KiB 的脚本在进入设备编辑器前显示确认提醒，确认后仍可编辑。
 
 AI 生成请求和响应携带 `runtimeContract` 标识，当前为 `jslab-unified-open-ui`。服务端在预留额度和调用模型前检查标识，客户端也校验返回值；不匹配时返回明确错误，不根据安装包版本猜测接口能力。接口扩展与持久化变更应保留旧脚本已有的参数、返回值和数据格式。

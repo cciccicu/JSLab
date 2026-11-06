@@ -8,7 +8,7 @@ execFileSync(process.execPath,[path.join(templateRoot,'scripts/sync-runtime.cjs'
 const assetRoot=path.resolve(__dirname,'../jslab-cloud/rpk-template');
 const workspace=path.resolve(__dirname,'../..');
 const hash=data=>crypto.createHash('sha256').update(data).digest('hex');
-const contract=JSON.parse(fs.readFileSync(path.join(workspace,'runtime-contract.json'),'utf8')).identity;
+const contract=JSON.parse(fs.readFileSync(path.join(workspace,'types/runtime-contract.json'),'utf8')).identity;
 for(const device of ['bandpro','redmi-watch5']) {
   const asset=device==='bandpro' ? assetRoot : path.join(assetRoot,device);
   const metadata=JSON.parse(fs.readFileSync(path.join(asset,'metadata.json'),'utf8'));

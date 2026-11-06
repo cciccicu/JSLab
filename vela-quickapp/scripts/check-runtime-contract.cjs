@@ -3,7 +3,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict');
 const parser=require('@babel/parser');
 const root=path.resolve(__dirname,'../..'),app=path.join(root,'vela-quickapp');
 const read=p=>fs.readFileSync(path.join(app,p),'utf8');
-const contract=JSON.parse(fs.readFileSync(path.join(root,'runtime-contract.json'),'utf8'));
+const contract=JSON.parse(fs.readFileSync(path.join(root,'types/runtime-contract.json'),'utf8'));
 assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root,'ccicc-plugin-cloud/jslab-cloud/lib/runtime-contract.json'),'utf8')),contract);
 const constants=read('src/utils/runtime/runtimeContract.js');
 for(const value of [contract.identity,JSON.stringify(contract.logs),JSON.stringify(contract.dialogs)])assert.ok(constants.includes(value));

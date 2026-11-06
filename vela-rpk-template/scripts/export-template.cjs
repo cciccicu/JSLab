@@ -43,7 +43,7 @@ async function exportTemplate(project = root, device = 'bandpro') {
   }
   fs.mkdirSync(target,{recursive:true});
   fs.writeFileSync(path.join(target,'template.zip'),buffer);
-  fs.writeFileSync(path.join(target,'metadata.json'),JSON.stringify({format:1,device,toolkit:'2.0.5',runtimeContract:JSON.parse(fs.readFileSync(path.resolve(root,'../runtime-contract.json'),'utf8')).identity,sha256:crypto.createHash('sha256').update(buffer).digest('hex'),sources:hashes,targetSources},null,2)+'\n');
+  fs.writeFileSync(path.join(target,'metadata.json'),JSON.stringify({format:1,device,toolkit:'2.0.5',runtimeContract:JSON.parse(fs.readFileSync(path.resolve(root,'../types/runtime-contract.json'),'utf8')).identity,sha256:crypto.createHash('sha256').update(buffer).digest('hex'),sources:hashes,targetSources},null,2)+'\n');
   console.log('Exported '+device+' template: '+buffer.length+' bytes');
 }
 module.exports = {exportTemplate};

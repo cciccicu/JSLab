@@ -244,7 +244,7 @@ test("dialogState", async () => {
   const root = path.resolve(__dirname, '..');
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   const methods = ['openDialog', 'getDialog', 'settleDialog', 'deliverDialog', 'cancelOwnedDialog', 'closeOwnedDialog', 'dialogDestroyed'];
-  const limits = JSON.parse(read('../runtime-contract.json')).dialogs;
+  const limits = JSON.parse(read('../types/runtime-contract.json')).dialogs;
 
   function loadDialogState(push, back) {
     const source = read('src/utils/core/dialogState.js').replace(/^import .*;\r?\n/gm, '').replace(/export function /g, 'function ');

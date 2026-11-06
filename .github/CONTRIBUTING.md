@@ -1,6 +1,6 @@
 # 参与 JSLab 开发
 
-感谢你帮助改进 JSLab。开始前阅读[项目架构](docs/development/architecture.md)，在对应子项目安装依赖和执行命令。各项目 README 提供最短构建入口。
+感谢你帮助改进 JSLab。开始前阅读[项目架构](../docs/development/architecture.md)，在对应子项目安装依赖和执行命令。各项目 README 提供最短构建入口。
 
 ## 报告问题
 
@@ -16,6 +16,6 @@ PR 描述请写清问题、最终行为、验证命令与结果，以及尚未�
 
 ## 文档与产物
 
-开发文档集中在 `docs/`，项目 README 只保留定位、构建入口和链接。生成帮助资源、缓存、安装包和个人工具不提交；两种固定 RPK 模板按发布资产维护。详见[仓库维护](docs/development/repository.md)和[发布流程](docs/development/releasing.md)。
+开发文档集中在 `docs/`，项目 README 只保留定位、构建入口和链接。生成帮助资源、缓存、安装包和个人工具不提交；两种固定 RPK 模板按发布资产维护。详见[仓库维护](../docs/development/repository.md)和[发布流程](../docs/development/releasing.md)。
 
 第三方代码应保留来源和许可。请勿把个人签名、账号凭据或无分发依据的工具二进制加入仓库。

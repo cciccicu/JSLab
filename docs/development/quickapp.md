@@ -34,7 +34,7 @@ Pro 和 RW 共用模板、事件与业务逻辑，差异集中在尺寸参数和
 
 ## 运行契约与兼容性
 
-根目录 `runtime-contract.json` 是公开运行契约的来源。`npm run sync:contract` 同步设备常量与云端 JSON，构建前自动执行。修改运行器还需重建[独立 RPK 模板](rpk-template.md)，保证云端打包使用相同的引擎。
+`types/runtime-contract.json` 是公开运行契约的来源。`npm run sync:contract` 同步设备常量与云端 JSON，构建前自动执行。修改运行器还需重建[独立 RPK 模板](rpk-template.md)，保证云端打包使用相同的引擎。
 
 旧脚本保留原有接口、文件名和数据格式；新增能力采用兼容扩展。设备云 API 与 Web API 分别鉴权、分别维护入口，不能以网页调整为由破坏旧设备请求。
 

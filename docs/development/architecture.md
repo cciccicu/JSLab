@@ -40,7 +40,7 @@ flowchart LR
 
 | 来源 | 使用者 / 生成物 |
 | --- | --- |
-| `runtime-contract.json` | 设备运行契约常量、云端契约 JSON、模板一致性检查 |
+| `types/runtime-contract.json` | 设备运行契约常量、云端契约 JSON、模板一致性检查 |
 | `vela-quickapp/src/utils/runtime/` 等运行源码 | `vela-rpk-template/` 的同步副本与预编译资产 |
 | `docs/guide/`、`types/`、设备帮助一级目录 | 云插件 `generated/docs/` 中的帮助资源 |
 | 同步协议与 `astrobox-plugin-sync/test-data/` | Android、AstroBox 和 Vela 兼容回放 |

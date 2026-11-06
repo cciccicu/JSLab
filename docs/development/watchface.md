@@ -25,4 +25,4 @@ python -m pip install -r requirements.txt
 
 `scripts/pushlua.ps1` 通过 ADB 部署工程，`-Hot` 启用 `reloader.lua` 热重载，适合开发调试。正式分发使用编译生成的 `.face`。
 
-`build/`、`dist/`、`bin/`、资源输出与 Python 缓存不提交。第三方工具和来源见[许可说明](../../THIRD_PARTY_NOTICES.md)。
+`build/`、`dist/`、`bin/`、资源输出与 Python 缓存不提交。第三方工具和来源见[许可说明](../third-party/README.md)。

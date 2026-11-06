@@ -19,7 +19,7 @@
 - [完整脚本运行接口](reference/runtime-api.md)与 [UI 接口参考](reference/ui-api.md)：用于查询参数与兼容行为。
 - [运行环境声明](../types/runtime-api.d.ts)与 [UI 声明](../types/ui-api.d.ts)：用于编辑器补全。
 - [云代理协议](protocols/cloud-proxy.md)与[脚本数据同步扩展](protocols/script-storage.md)：用于维护配套端兼容性。
-- [统一运行契约](../runtime-contract.json)：构建时生成各端使用的契约常量。
+- [统一运行契约](../types/runtime-contract.json)：构建时生成各端使用的契约常量。
 
 ## 项目开发
 
@@ -34,6 +34,6 @@
 
 ## 维护与贡献
 
-[贡献指南](../CONTRIBUTING.md)说明如何提交可审查的修改；[仓库与文档维护](development/repository.md)说明目录、生成资源和本地工具边界；[发布流程](development/releasing.md)说明各交付物的检查与分发。
+[贡献指南](../.github/CONTRIBUTING.md)说明如何提交可审查的修改；[仓库与文档维护](development/repository.md)说明目录、生成资源和本地工具边界；[发布流程](development/releasing.md)说明各交付物的检查与分发。
 
-许可入口为[第三方组件说明](../THIRD_PARTY_NOTICES.md)。详细来源记录包括[内置字体](third-party/editor-font.md)、[Android 编辑器](third-party/android-editor.md)、[小米 SDK](third-party/xiaomi-sdk.md)、[RPK 签名实现](third-party/rpk-signature.md)、[LVGL 工具](third-party/lvgl-tools.md)和[下载徽标](third-party/download-badges.md)。
+许可入口为[第三方组件说明](third-party/README.md)。详细来源记录包括[内置字体](third-party/editor-font.md)、[Android 编辑器](third-party/android-editor.md)、[小米 SDK](third-party/xiaomi-sdk.md)、[RPK 签名实现](third-party/rpk-signature.md)、[LVGL 工具](third-party/lvgl-tools.md)和[下载徽标](third-party/download-badges.md)。

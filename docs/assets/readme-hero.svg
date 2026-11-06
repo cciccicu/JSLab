@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="title description">
+  <title id="title">JSLab · 在手腕上编写、运行和分享 JavaScript</title>
+  <desc id="description">JSLab 原有青蓝与明黄色标志、项目名称，以及使用 ui.signal 和 ui.render 创建原生计数器的代码。</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#f0f7fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#23465b" flood-opacity=".07"/>
+    </filter>
+  </defs>
+  <rect x="1" y="1" width="1278" height="358" rx="20" fill="url(#paper)" stroke="#dfe9ef"/>
+  <g font-family="Segoe UI, Microsoft YaHei, Helvetica, Arial, sans-serif">
+    <image x="57" y="69" width="106" height="106" href="data:image/png;base64,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"/>
+    <text x="187" y="91" fill="#568397" font-size="13" font-weight="600" letter-spacing="2.5">JAVASCRIPT FOR XIAOMI VELA</text>
+    <text x="181" y="168" fill="#162c3d" font-size="87" font-weight="750" letter-spacing="-4">JSLab</text>
+    <text x="62" y="232" fill="#253f51" font-size="28" font-weight="500">在手腕上编写、运行和分享 JavaScript</text>
+    <g fill="#537487" font-size="17">
+      <text x="63" y="292">设备端编辑器</text>
+      <text x="208" y="292">原生 UI</text>
+      <text x="310" y="292">独立应用导出</text>
+    </g>
+    <circle cx="188" cy="286" r="2" fill="#0a9fcd"/>
+    <circle cx="290" cy="286" r="2" fill="#0a9fcd"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="718" y="37" width="504" height="286" rx="14" fill="#fff" stroke="#d4e2eb"/>
+    <path d="M719 83h502" stroke="#e6edf2"/>
+    <rect x="740" y="51" width="25" height="20" rx="4" fill="#fff1a8"/>
+    <text x="752.5" y="65" fill="#685b14" text-anchor="middle" font-family="Consolas, monospace" font-weight="700" font-size="11">JS</text>
+    <text x="778" y="65" fill="#5d7485" font-family="Segoe UI, sans-serif" font-size="13">counter.js</text>
+    <circle cx="1177" cy="60" r="3" fill="#13a2cc"/>
+    <text x="1189" y="65" fill="#5d7485" font-family="Segoe UI, sans-serif" font-size="11">UI</text>
+  </g>
+  <g font-family="Consolas, Liberation Mono, Microsoft YaHei, monospace" font-size="16">
+    <g fill="#a0b1bd" text-anchor="end">
+      <text x="751" y="113">1</text><text x="751" y="136">2</text><text x="751" y="159">3</text>
+      <text x="751" y="182">4</text><text x="751" y="205">5</text><text x="751" y="228">6</text>
+      <text x="751" y="251">7</text><text x="751" y="274">8</text><text x="751" y="297">9</text>
+    </g>
+    <g fill="#334d60">
+      <text x="774" y="113"><tspan fill="#8250a5">const</tspan> count = ui.<tspan fill="#087fa5">signal</tspan>(<tspan fill="#b46b14">0</tspan>);</text>
+      <text x="774" y="159">ui.<tspan fill="#087fa5">render</tspan>(() =&gt; [</text>
+      <text x="793" y="182">ui.<tspan fill="#087fa5">heading</tspan>(<tspan fill="#477b34">'计数器'</tspan>),</text>
+      <text x="793" y="205">ui.<tspan fill="#087fa5">text</tspan>(count.get()),</text>
+      <text x="793" y="228">ui.<tspan fill="#087fa5">button</tspan>(<tspan fill="#477b34">'加一'</tspan>, () =&gt; {</text>
+      <text x="812" y="251">count.<tspan fill="#087fa5">update</tspan>(n =&gt; n + <tspan fill="#b46b14">1</tspan>);</text>
+      <text x="793" y="274">})</text>
+      <text x="774" y="297">]);</text>
+    </g>
+  </g>
+</svg>

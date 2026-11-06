@@ -9,7 +9,7 @@
 - `ccicc-plugin-cloud/` 包含 ccicc.icu JSLab Cloud 插件、独立打包脚本与测试，不依赖本地通用开发 Kit。
 - `vela-luawatchface/` 是本仓库中的 Lua 表盘项目。其设备部署脚本需要用户明确授权。
 
-文档统一入口为 `docs/README.md`。人工维护的指南、接口、协议和开发说明集中在 `docs/`，类型声明在 `types/`，独立示例在 `examples/`。云插件的 `generated/docs/` 从集中源文件生成，不直接编辑或提交。项目 README、AGENTS.md 和随代码分发的许可文件保留在惯例位置。本地工具存入已忽略的 `.local-tools/`，不成为公开构建依赖。
+文档统一入口为 `docs/README.md`。人工维护的指南、接口、协议和开发说明集中在 `docs/`，类型声明与共享运行契约在 `types/`，独立示例在 `examples/`。贡献与安全说明位于 `.github/`，第三方组件总表位于 `docs/third-party/README.md`。云插件的 `generated/docs/` 从集中源文件生成，不直接编辑或提交。项目 README、AGENTS.md 和随代码分发的许可文件保留在惯例位置。本地工具存入已忽略的 `.local-tools/`，不成为公开构建依赖。
 
 请从目标项目目录执行命令。构建、测试和打包命令不得自动连接模拟器或实体设备。任何设备部署、ADB 操作或模拟器连接都需要用户单独明确授权。
 

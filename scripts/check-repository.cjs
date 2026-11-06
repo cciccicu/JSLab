@@ -39,7 +39,7 @@ function checkLink(file, href) {
 for (const file of markdown) {
   const basename = path.posix.basename(file);
   if (!file.startsWith('docs/') && !['README.md', 'AGENTS.md'].includes(basename) &&
-      !['CONTRIBUTING.md', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md'].includes(file)) {
+      !['.github/CONTRIBUTING.md', '.github/SECURITY.md'].includes(file)) {
     errors.push('Move development documentation into docs/: ' + file);
   }
   const source = fs.readFileSync(path.join(root, file), 'utf8').replace(/^```[^\n]*\n[\s\S]*?^```\s*$/gm, '');
