@@ -6,7 +6,7 @@
 - `vela-rpk-template/AGENTS.md` 规定独立脚本 RPK 引擎模板的同步、构建和导出要求；云端每次打包不得运行完整工具链或创建用户脚本临时文件。
 - `astrobox-plugin-sync/` 是 AstroBox WASI 插件；请遵循其 WIT 协议和 `manifest.json`。
 - `android-sync/` 是原生 Android 同步器；SDK、签名和依赖源码归档按项目文档在本地准备。
-- `ccicc-plugin-cloud/` 包含 ccicc.icu JSLab Cloud 插件、独立打包脚本与测试，不依赖本地通用开发 Kit。
+- `jslab-cloud/` 是可独立运行的云端服务，同时保留 ccicc.icu 插件入口。`server/` 桥接宿主能力，两种运行方式复用 `lib/` 业务代码，不依赖私有框架源码或本地开发 Kit。
 - `vela-luawatchface/` 是本仓库中的 Lua 表盘项目。其设备部署脚本需要用户明确授权。
 
 文档统一入口为 `docs/README.md`。人工维护的指南、接口、协议和开发说明集中在 `docs/`，类型声明与共享运行契约在 `types/`，独立示例在 `examples/`。贡献与安全说明位于 `.github/`，第三方组件总表位于 `docs/third-party/README.md`。云插件的 `generated/docs/` 从集中源文件生成，不直接编辑或提交。项目 README、AGENTS.md 和随代码分发的许可文件保留在惯例位置。本地工具存入已忽略的 `.local-tools/`，不成为公开构建依赖。

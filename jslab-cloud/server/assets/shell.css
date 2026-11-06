@@ -1,0 +1,123 @@
+:root {
+  --app-accent: #176dce;
+  --app-accent-hover: #1055a4;
+  --app-accent-soft: #eaf3ff;
+  --app-bg-elevated: #fff;
+  --app-bg-muted: #f1f4f8;
+  --app-bg-subtle: #f8fafc;
+  --app-border: #e2e7ef;
+  --app-border-strong: #c7d0dd;
+  --app-text: #1c2b40;
+  --app-text-muted: #637085;
+  --app-text-soft: #7a879a;
+  --app-font-family-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --app-mono: var(--app-font-family-mono);
+  --app-font-size-xs: .75rem;
+  --app-font-size-sm: .875rem;
+  --app-font-size-base: 1rem;
+  --app-font-size-lg: 1.125rem;
+  --app-font-size-xl: 1.375rem;
+  --app-font-size-2xl: 1.75rem;
+  --app-radius-md: 12px;
+  --app-radius-xl: 20px;
+  --app-readable-width: 760px;
+  --app-wide-width: 1140px;
+  --app-shadow: 0 8px 30px rgb(25 45 80 / 5%);
+  --app-space-1: 4px;
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-5: 20px;
+  --app-space-6: 24px;
+  --app-space-8: 32px;
+  --ui-card-padding: 24px;
+  --ui-content-gap: 24px;
+  --ui-header-height: 68px;
+  --ui-radius: 14px;
+  --ui-radius-sm: 9px;
+  --ui-transition: .16s ease;
+  --bs-body-color: var(--app-text);
+  --bs-body-bg: var(--app-bg-subtle);
+  --bs-border-color: var(--app-border);
+  --bs-link-color: var(--app-accent);
+  --bs-link-color-rgb: 23, 109, 206;
+  --bs-body-font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+[data-bs-theme="dark"] {
+  --app-accent: #83b9ff;
+  --app-accent-hover: #afcfff;
+  --app-accent-soft: #1d3049;
+  --app-bg-elevated: #17202d;
+  --app-bg-muted: #1e2939;
+  --app-bg-subtle: #111925;
+  --app-border: #2b384b;
+  --app-border-strong: #43556e;
+  --app-text: #e1e9f4;
+  --app-text-muted: #a2b1c5;
+  --app-text-soft: #8597af;
+  --app-shadow: 0 8px 30px rgb(0 0 0 / 12%);
+  --bs-body-color: var(--app-text);
+  --bs-body-bg: var(--app-bg-subtle);
+  --bs-border-color: var(--app-border);
+  --bs-secondary-color: var(--app-text-muted);
+  --bs-link-color: var(--app-accent);
+  --bs-link-color-rgb: 131, 185, 255;
+}
+body { min-width: 320px; min-height: 100vh; display: flex; flex-direction: column; line-height: 1.65; }
+a { text-underline-offset: 3px; }
+.shell-header { position: sticky; top: 0; z-index: 1020; background: var(--app-bg-elevated); border-bottom: 1px solid var(--app-border); }
+.shell-header-inner { max-width: 1424px; min-height: var(--ui-header-height); margin: auto; padding: 0 32px; display: flex; align-items: center; gap: 32px; }
+.shell-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--app-text); text-decoration: none; white-space: nowrap; font-size: 1.125rem; font-weight: 700; letter-spacing: -.025em; }
+.shell-brand img { border-radius: 8px; }
+.shell-brand-cloud { color: var(--app-text-muted); font-weight: 450; }
+.shell-nav, .shell-account { display: flex; align-items: center; gap: 4px; }
+.shell-nav a, .shell-account a, .shell-admin-nav a { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; color: var(--app-text-muted); font-size: .875rem; text-decoration: none; border-radius: var(--ui-radius-sm); white-space: nowrap; }
+.shell-nav a:hover, .shell-account a:hover, .shell-admin-nav a:hover, a[aria-current="page"] { background: var(--app-accent-soft); color: var(--app-accent); }
+.shell-account { margin-left: auto; }
+.shell-account form { margin: 0; }
+.shell-account a span { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.shell-icon-button { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 9px; background: transparent; color: var(--app-text-muted); }
+.shell-icon-button:hover { background: var(--app-bg-muted); color: var(--app-text); }
+.shell-main { width: 100%; max-width: 1204px; margin: 0 auto; padding: 40px 32px 64px; flex: 1; min-width: 0; }
+.shell-main-admin { max-width: 1304px; }
+.shell-footer { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 24px; border-top: 1px solid var(--app-border); padding: 24px; color: var(--app-text-soft); font-size: .8125rem; }
+.shell-footer a { color: var(--app-text-muted); text-decoration: none; }
+.shell-footer a:hover { color: var(--app-accent); }
+.shell-skip { position: absolute; z-index: 1100; padding: 12px; background: var(--app-bg-elevated); }
+.shell-auth { width: 100%; max-width: 440px; margin: 5vh auto; padding: 32px; background: var(--app-bg-elevated); border: 1px solid var(--app-border); border-radius: 20px; box-shadow: var(--app-shadow); }
+.shell-eyebrow { font-size: .75rem; font-weight: 700; color: var(--app-accent); letter-spacing: .12em; margin-bottom: 20px; }
+.shell-admin-nav { border-bottom: 1px solid var(--app-border); background: var(--app-bg-elevated); overflow-x: auto; }
+.shell-admin-nav > div { display: flex; gap: 8px; max-width: 1304px; padding: 12px 32px; margin: auto; }
+.shell-admin-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 24px; align-items: start; }
+.shell-settings-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.plugin-page-header { margin-bottom: 28px; }
+.plugin-page-heading, .page-title { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.plugin-page-heading-title, .page-title h2 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.025em; margin: 0 0 8px; }
+.plugin-page-description, .page-title p { color: var(--app-text-muted); margin: 0; }
+.plugin-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.content-flow > * + * { margin-top: var(--ui-content-gap); }
+.card { --bs-card-bg: var(--app-bg-elevated); --bs-card-border-color: var(--app-border); --bs-card-border-radius: var(--ui-radius); min-width: 0; }
+.card-body { padding: var(--ui-card-padding); }
+.form-control, .form-select { background-color: var(--app-bg-elevated); border-radius: var(--ui-radius-sm); }
+.form-label { font-size: .875rem; font-weight: 550; }
+.form-text { color: var(--app-text-muted); }
+.btn { border-radius: var(--ui-radius-sm); font-weight: 500; }
+.btn-primary { --bs-btn-bg: #176dce; --bs-btn-border-color: #176dce; --bs-btn-hover-bg: #1055a4; --bs-btn-hover-border-color: #1055a4; }
+.btn-outline-primary { --bs-btn-color: var(--app-accent); --bs-btn-border-color: var(--app-border-strong); --bs-btn-hover-bg: var(--app-accent-soft); --bs-btn-hover-color: var(--app-accent); --bs-btn-hover-border-color: var(--app-accent); }
+.table { --bs-table-bg: transparent; }
+@media (max-width: 1100px) { .shell-header-inner { gap: 16px; } .shell-nav a, .shell-account a { padding: 7px 8px; } .shell-settings-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  :root { --ui-header-height: 108px; --ui-card-padding: 20px; }
+  .shell-header-inner { padding: 12px 20px 8px; flex-wrap: wrap; gap: 8px 12px; }
+  .shell-brand { font-size: 1rem; }
+  .shell-account { gap: 0; }
+  .shell-account a span { max-width: 72px; }
+  .shell-nav { order: 3; flex-basis: 100%; justify-content: space-between; }
+  .shell-nav a { font-size: .8125rem; gap: 5px; padding: 6px 8px; }
+  .shell-main { padding: 24px 20px 40px; }
+  .shell-admin-nav > div { padding: 10px 20px; }
+  .shell-admin-grid { grid-template-columns: 1fr; }
+  .plugin-page-heading, .page-title { align-items: flex-start; flex-direction: column; }
+  .shell-auth { padding: 24px; margin: 3vh auto; }
+}
+@media (max-width: 420px) { .shell-account > a span { display: none; } .shell-header-inner { padding-inline: 16px; } .shell-main { padding-inline: 16px; } }

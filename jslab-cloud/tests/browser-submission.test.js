@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../jslab-cloud/assets/jslab-cloud.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../assets/jslab-cloud.js'), 'utf8');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const response = (status, body) => ({ status, ok: status < 400, async json() { return body; } });
 

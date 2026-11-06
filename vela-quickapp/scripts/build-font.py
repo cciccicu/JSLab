@@ -154,7 +154,7 @@ def main():
     cmaps = {key: font.getBestCmap() for key, font in fonts.items()}
     glyph_sets = {key: font.getGlyphSet() for key, font in fonts.items()}
     han, keyboard_symbols, input_chars = get_input_characters()
-    groups = json.loads((REPO / 'ccicc-plugin-cloud/jslab-cloud/lib/ai-prompt-emoji.json').read_text(encoding='utf-8'))['groups']
+    groups = json.loads((REPO / 'jslab-cloud/lib/ai-prompt-emoji.json').read_text(encoding='utf-8'))['groups']
     icon_chars = {ord(c) for text in groups.values() for c in text if not c.isspace()}
     # The input repertoire includes every character of the original built-in font.
     punctuation = set(map(ord, '，。？！：；、“”‘’（）《》【】…—·〈〉「」『』〔〕〖〗〘〙〚〛～'))

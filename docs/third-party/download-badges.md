@@ -1,6 +1,6 @@
 # 下载徽标来源
 
-云端下载页面使用 AstroBox 与 BandBBS 提供的中文浅色下载徽标。文件保存在 `ccicc-plugin-cloud/jslab-cloud/assets/`，部署时由本站提供，避免页面依赖外部图片请求。
+云端下载页面使用 AstroBox 与 BandBBS 提供的中文浅色下载徽标。文件保存在 `jslab-cloud/assets/`，部署时由本站提供，避免页面依赖外部图片请求。
 
 | 本地文件 | 来源 |
 | --- | --- |

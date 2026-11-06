@@ -3,12 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
-const plugin = require('../jslab-cloud/index.js');
-const { buildAiSystemPrompt, buildAiPromptMarkdown } = require('../jslab-cloud/lib/ai-prompts.js');
-const { withErrorMessage } = require('../jslab-cloud/lib/error-messages.js');
-const { identity: RUNTIME_CONTRACT } = require('../jslab-cloud/lib/runtime-contract.json');
-const browserScript = fs.readFileSync(path.join(__dirname, '..', 'jslab-cloud', 'assets', 'jslab-cloud.js'), 'utf8');
-const { DOCS, renderDocument } = require('../jslab-cloud/lib/browser-docs-pages');
+const plugin = require('../index.js');
+const { buildAiSystemPrompt, buildAiPromptMarkdown } = require('../lib/ai-prompts.js');
+const { withErrorMessage } = require('../lib/error-messages.js');
+const { identity: RUNTIME_CONTRACT } = require('../lib/runtime-contract.json');
+const browserScript = fs.readFileSync(path.join(__dirname, '..', 'assets', 'jslab-cloud.js'), 'utf8');
+const { DOCS, renderDocument } = require('../lib/browser-docs-pages');
 
 test('browser and legacy device submissions share review states, reasons and published snapshots', async () => {
   const fixture = context();
@@ -157,7 +157,7 @@ test('documentation downloads only allow public type declarations and the AI pro
     for (const file of ['runtime-api.d.ts', 'ui-api.d.ts']) {
       const result = await invoke(fixture.frontend.registry.get('GET /docs/download/:file'), { params: { file } });
       assert.equal(result.statusCode, 200);
-      assert.equal(result.body, fs.readFileSync(path.join(__dirname, '../jslab-cloud/generated/docs', file), 'utf8'));
+      assert.equal(result.body, fs.readFileSync(path.join(__dirname, '../generated/docs', file), 'utf8'));
       assert.match(result.headers['Content-Disposition'], /attachment/);
     }
     for (const file of ['../../index.js', 'index.js', '__proto__']) {
@@ -244,7 +244,7 @@ function context() {
   return {
     raw, frontend, admin, user, values, registeredConfig, navigation,
     ctx: {
-      manifest: require('../jslab-cloud/manifest.json'), logger: { info() {}, warn() {} },
+      manifest: require('../manifest.json'), logger: { info() {}, warn() {} },
       config: { register(meta) { registeredConfig.push(meta); if (!(meta.key in values)) values[meta.key] = meta.defaultValue; }, get(key) { return values[key]; } },
       db: {
         table(name) { return 'cloud_' + name; }, prepare(sql) { return raw.prepare(sql); }, exec(sql) { return raw.exec(sql); },
@@ -273,7 +273,7 @@ test('review upgrade: boot without install preserves legacy data and configurati
   const fixture = context();
   try {
     // Prepare the preceding schema through durable setup; never call install.
-    const { ensurePersistentState } = require('../jslab-cloud/lib/persistent-state');
+    const { ensurePersistentState } = require('../lib/persistent-state');
     ensurePersistentState(fixture.ctx);
     fixture.raw.exec(`ALTER TABLE cloud_scripts ADD COLUMN type TEXT NOT NULL DEFAULT 'console';
       ALTER TABLE cloud_market_scripts ADD COLUMN type TEXT NOT NULL DEFAULT 'console';
@@ -432,8 +432,8 @@ test('AI billing settles estimates, cache hits, refunds, and price snapshots', a
 });
 
 test('concurrent AI requests cannot spend another request reservation', async () => {
-  const { buildAiUserPrompt } = require('../jslab-cloud/lib/ai-prompts');
-  const { estimateTokenCount } = require('../jslab-cloud/lib/ai-service');
+  const { buildAiUserPrompt } = require('../lib/ai-prompts');
+  const { estimateTokenCount } = require('../lib/ai-service');
   const body = { runtimeContract: RUNTIME_CONTRACT, mode: 'create', name: 'count.js', prompt: '生成计数器' };
   const reserved = Math.ceil(((estimateTokenCount(buildAiSystemPrompt(1) + buildAiUserPrompt(body)) + 128) * 500 + 8192 * 1000) / 1000000);
   const fixture = context();
@@ -1219,7 +1219,7 @@ test('AI rewrite accepts and returns source beyond the former 48 KiB cap', async
 });
 
 test('AI prompt publishes one contract and describes UI performance guidance', () => {
-  const contract = require('../jslab-cloud/lib/runtime-contract.json');
+  const contract = require('../lib/runtime-contract.json');
   const prompt=buildAiSystemPrompt();
   for (const [object, methods] of Object.entries(contract.methods)) {
     for (const method of methods) assert.ok(prompt.includes(`${object}.${method}`), `${object}.${method}`);

@@ -5,18 +5,18 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const vm=require('node:vm');
 const {DatabaseSync}=require('node:sqlite');
-const JSZip=require('../jslab-cloud/node_modules/jszip');
-const {createRpkBuilder,validateOptions,validateSigning,generateSigning,importSigningZip,digest}=require('../jslab-cloud/lib/rpk-builder');
-const defaultSigning=require('../jslab-cloud/lib/rpk-default-signing');
-const {registerRpkApi}=require('../jslab-cloud/lib/rpk-service');
-const {createServerContext}=require('../jslab-cloud/lib/server-context');
-const {ensurePersistentState}=require('../jslab-cloud/lib/persistent-state');
+const JSZip=require('../node_modules/jszip');
+const {createRpkBuilder,validateOptions,validateSigning,generateSigning,importSigningZip,digest}=require('../lib/rpk-builder');
+const defaultSigning=require('../lib/rpk-default-signing');
+const {registerRpkApi}=require('../lib/rpk-service');
+const {createServerContext}=require('../lib/server-context');
+const {ensurePersistentState}=require('../lib/persistent-state');
 const defaults={name:'独立应用',packageName:'com.example.standalone',versionName:'1.2.3',versionCode:12,author:'测试作者'};
 let keys;
 test.before(async()=>{keys=await generateSigning('作者/中文');});
 function fixture(dependencies={}) {
   const raw=new DatabaseSync(':memory:'),routes=new Map();
-  const ctx={rootDir:path.resolve(__dirname,'../jslab-cloud'),config:{register(){},get(){return null;}},
+  const ctx={rootDir:path.resolve(__dirname,'..'),config:{register(){},get(){return null;}},
     db:{table:name=>'cloud_'+name,prepare:sql=>raw.prepare(sql),exec:sql=>raw.exec(sql),transaction:fn=>(...args)=>{raw.exec('BEGIN');try{const result=fn(...args);raw.exec('COMMIT');return result;}catch(error){raw.exec('ROLLBACK');throw error;}}},
     users:{current:req=>req.user || null,requireAuth(req,res,next){return req.user ? next() : res.status(401).json({error:'auth_required'});}},
     security:{csrfProtection(req,res,next){return req.body?._csrf==='token' ? next() : res.status(403).json({error:'csrf'});}},
@@ -170,7 +170,7 @@ test('adapted signer matches the installed official toolkit for identical ZIP in
   const zip=new JSZip();zip.file('manifest.json',JSON.stringify(defaults));
   const original=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
   const hashes=[{name:'manifest.json',hash:crypto.createHash('sha256').update(JSON.stringify(defaults)).digest()}];
-  const adapted=require('../jslab-cloud/lib/rpk-signature/SignUtil').default;
+  const adapted=require('../lib/rpk-signature/SignUtil').default;
   const official=require(upstream).default;
   const a=adapted.doSign(Buffer.from(original),hashes,keys.privateKey,keys.certificate);
   const b=official.doSign(Buffer.from(original),hashes,keys.privateKey,keys.certificate);

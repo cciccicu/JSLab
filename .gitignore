@@ -15,7 +15,8 @@ target/
 release-archive/
 sign/
 /vela-quickapp/output/
-/ccicc-plugin-cloud/jslab-cloud/generated/
+/jslab-cloud/generated/
+/jslab-cloud/data/
 /android-sync/app/libs/*.aar
 /android-sync/third-party/*.zip
 /vela-luawatchface/watchface/tools/Compiler.exe
@@ -46,8 +47,8 @@ keystore.properties
 *.apk
 *.aab
 *.zip
-!/ccicc-plugin-cloud/jslab-cloud/rpk-template/template.zip
-!/ccicc-plugin-cloud/jslab-cloud/rpk-template/redmi-watch5/template.zip
+!/jslab-cloud/rpk-template/template.zip
+!/jslab-cloud/rpk-template/redmi-watch5/template.zip
 __pycache__/
 *.py[cod]
 .pytest_cache/

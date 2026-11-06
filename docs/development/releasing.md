@@ -15,11 +15,13 @@
 | Vela | 两种设备的完整 / 社区版本，位于 `release-archive/` | 目标布局、签名、包名与版本；正式设备验证 |
 | Android | `scripts/build.ps1 -Release`，产物在 `dist/` | 与 Vela 相同的互联签名、APK 校验值、第三方源码与许可 |
 | AstroBox | `build.ps1`，ABP 和独立资源在 `dist/` | API Level、权限、WASM Component 与[官方源索引](astrobox-release.md) |
-| 云插件 | `npm run pack`，ZIP 在项目 `dist/` | 依赖、生成文档、模板摘要、数据库备份与[部署检查](cloud-operations.md) |
+| 云服务 / 插件 | `npm run pack`，ZIP 在 `jslab-cloud/dist/` | 独立运行入口、依赖、生成文档、模板摘要、数据库备份与[部署检查](cloud-operations.md) |
 | RPK 模板 | `npm run build` 导出两种设备的 ZIP 与元数据 | 作为云插件源码资产一并提交，无需单独推送运行包 |
 | Lua 表盘 | `scripts/build_face.ps1`，`.face` 在 `bin/` | 表盘 ID、资源格式与工具来源 |
 
 对外发布说明应说明实际变化、支持设备、安装或更新方式及验证范围。发布二进制使用相应分发渠道或 GitHub Releases，避免把历史安装包加入源码目录。
+
+设备包使用 `JSLab-<Full|Community>-<Pro|RW>-<版本>.rpk` 命名，四种组合都包含设备标识。更新附件名称时，同时更新 Release 的下载链接和 `SHA256SUMS.txt` 中的文件名。
 
 ## 更新的兼容性
 

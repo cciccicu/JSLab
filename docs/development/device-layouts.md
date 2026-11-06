@@ -5,8 +5,14 @@
 | `bandpro`（默认） | 小米手环 Pro | 336×480 / 336 |
 | `redmi-watch5` | REDMI Watch 5 | 432×514 / 432 |
 
-安装包对外名称为 **RW 版**，文件名使用 `JSLab-Full-RW-<版本>.rpk` 和
-`JSLab-Community-RW-<版本>.rpk`。现有 `redmi-watch5` 构建标识保留，兼容已有构建和云端请求。
+安装包文件名包含版本类型、设备和版本号：
+
+| 设备 | 完整版 | 社区版 |
+| --- | --- | --- |
+| Pro | `JSLab-Full-Pro-<版本>.rpk` | `JSLab-Community-Pro-<版本>.rpk` |
+| RW | `JSLab-Full-RW-<版本>.rpk` | `JSLab-Community-RW-<版本>.rpk` |
+
+现有 `bandpro` 和 `redmi-watch5` 构建标识保留，兼容已有构建和云端请求。
 
 业务代码、页面事件和脚本接口共用。默认 CSS 位于 `src/` 各页面或组件旁，
 手表对应 CSS 位于 `targets/redmi-watch5/` 的相同路径。手表样式为完整独立样式表，

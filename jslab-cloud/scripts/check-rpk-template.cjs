@@ -5,7 +5,7 @@ const {execFileSync}=require('node:child_process');
 const {normalizeSource}=require('../../vela-rpk-template/scripts/source-content.cjs');
 const templateRoot=path.resolve(__dirname,'../../vela-rpk-template');
 execFileSync(process.execPath,[path.join(templateRoot,'scripts/sync-runtime.cjs'),'--check'],{cwd:templateRoot,stdio:'inherit'});
-const assetRoot=path.resolve(__dirname,'../jslab-cloud/rpk-template');
+const assetRoot=path.resolve(__dirname,'../rpk-template');
 const workspace=path.resolve(__dirname,'../..');
 const hash=data=>crypto.createHash('sha256').update(data).digest('hex');
 const contract=JSON.parse(fs.readFileSync(path.join(workspace,'types/runtime-contract.json'),'utf8')).identity;

@@ -8,7 +8,7 @@
 
 ## 云端帮助生成
 
-在 `ccicc-plugin-cloud/jslab-cloud/` 运行：
+在 `jslab-cloud/` 运行：
 
 ```sh
 npm run sync:docs

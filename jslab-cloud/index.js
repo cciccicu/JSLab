@@ -33,7 +33,7 @@ module.exports = {
     recoverAiReservations(state);
 
     // Route registration is rebuilt on every process start, including plugin updates.
-    ctx.caddy.registerSubdomain('jslab-api');
+    ctx.caddy?.registerSubdomain('jslab-api');
     registerStaticFiles(ctx, { '/assets': 'assets' });
     ctx.navigation.register({ category: '工具', name: 'JSLab Cloud', path: '/jslab-cloud', surface: 'frontend', icon: 'cloud', sortOrder: 40 });
     ctx.navigation.register({ category: '工具', name: 'JSLab 下载', path: '/jslab-cloud/downloads', surface: 'frontend', icon: 'download', sortOrder: 41 });

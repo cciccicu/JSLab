@@ -20,9 +20,9 @@ JSLab 是面向小米 Vela 穿戴设备的开源 JavaScript 开发环境。你�
 从使用现成作品到发布自己的应用，JSLab 提供一条完整路径：在 JS 市场发现脚本，在设备上运行和修改，再分享源码，或通过云端导出可独立安装的快应用。
 
 <p align="center">
-  <a href="ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-scripts-20261009.png"><img src="ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-scripts-20261009.png" width="29%" alt="设备端工作区：管理本地脚本" /></a>
-  <a href="ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-code-20261009.png"><img src="ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-code-20261009.png" width="29%" alt="设备端编辑器：JavaScript 语法高亮" /></a>
-  <a href="ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-market-20261009.png"><img src="ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-market-20261009.png" width="29%" alt="JS 市场：浏览并下载社区脚本" /></a>
+  <a href="jslab-cloud/assets/jslab-screen-scripts-20261009.png"><img src="jslab-cloud/assets/jslab-screen-scripts-20261009.png" width="29%" alt="设备端工作区：管理本地脚本" /></a>
+  <a href="jslab-cloud/assets/jslab-screen-code-20261009.png"><img src="jslab-cloud/assets/jslab-screen-code-20261009.png" width="29%" alt="设备端编辑器：JavaScript 语法高亮" /></a>
+  <a href="jslab-cloud/assets/jslab-screen-market-20261009.png"><img src="jslab-cloud/assets/jslab-screen-market-20261009.png" width="29%" alt="JS 市场：浏览并下载社区脚本" /></a>
 </p>
 <p align="center"><sub>设备端界面示例：文件管理、代码编辑与 JS 市场。点击图片查看原图。</sub></p>
 
@@ -39,7 +39,7 @@ JSLab 是面向小米 Vela 穿戴设备的开源 JavaScript 开发环境。你�
 2. **运行第一个脚本。** 从 JS 市场下载作品，或者按照[快速上手](docs/guide/getting-started.md)新建一个计数器。已有代码也可以通过[配套端](docs/guide/sync-guide.md)导入。
 3. **选择自己的工作方式。** 在手腕上直接修改，使用 Android 或 AstroBox 编辑和同步，或在[云空间](https://ccicc.icu/jslab-cloud/workspace)继续创作。社区版支持选择第三方服务器。
 
-设备端应用免费，本地编辑与运行无需激活云空间。官方云空间、AI 和独立应用导出按服务规则开通或使用额度，详见[云端使用指南](docs/guide/cloud-guide.md)。云端插件源码随仓库提供，也可[自行部署](docs/development/cloud.md)。
+设备端应用免费，本地编辑与运行无需激活云空间。官方云空间、AI 和独立应用导出按服务规则开通或使用额度，详见[云端使用指南](docs/guide/cloud-guide.md)。云端服务源码随仓库提供，可使用 Node.js [独立部署](docs/development/cloud-operations.md)，也保留 ccicc.icu 插件模式。
 
 ### 一份脚本，一个交互界面
 
@@ -99,7 +99,7 @@ JSLab/
 ├── vela-quickapp/         # 设备端：编辑器、运行器与原生 UI
 ├── android-sync/          # Android 编辑器与设备同步器
 ├── astrobox-plugin-sync/  # AstroBox v2 同步插件
-├── ccicc-plugin-cloud/    # 云空间、市场、AI 与独立应用打包
+├── jslab-cloud/           # 独立云服务与宿主桥接：云空间、市场、AI、打包
 ├── vela-rpk-template/     # 独立 RPK 的预编译引擎模板
 ├── vela-luawatchface/     # JSLab Helper 辅助表盘
 ├── docs/                  # 使用指南、开发文档与第三方许可说明
@@ -113,13 +113,13 @@ JSLab/
 └── LICENSE                # 项目代码许可证
 ```
 
-子项目入口：[设备端](vela-quickapp/README.md) · [Android](android-sync/README.md) · [AstroBox](astrobox-plugin-sync/README.md) · [云端](ccicc-plugin-cloud/README.md) · [RPK 模板](vela-rpk-template/README.md) · [Helper 表盘](vela-luawatchface/README.md)。各项目 README 提供工具链要求和最短构建步骤，依赖版本由相应锁文件固定。
+子项目入口：[设备端](vela-quickapp/README.md) · [Android](android-sync/README.md) · [AstroBox](astrobox-plugin-sync/README.md) · [云端](jslab-cloud/README.md) · [RPK 模板](vela-rpk-template/README.md) · [Helper 表盘](vela-luawatchface/README.md)。各项目 README 提供工具链要求和最短构建步骤，依赖版本由相应锁文件固定。
 
 [docs](docs/README.md) 是文档总入口；[types/runtime-contract.json](types/runtime-contract.json) 统一维护公开方法、日志与对话框参数和 UI 性能建议。使用 VS Code 时，可直接打开[多项目工作区](.vscode/JSLab.code-workspace)。根目录的 `.editorconfig`、`.gitattributes` 和 `.gitignore` 分别管理编辑格式、Git 文件处理和忽略规则。
 
 个人工具、字体预览和历史安装包归档集中在已忽略的 `.local-tools/`，各子项目的依赖及构建输出按自身工具链管理。目录维护方式见[仓库维护说明](docs/development/repository.md)。
 
-云端插件直接使用仓库内的预编译模板。修改共享运行引擎后，同步并重建两个设备模板，将模板 ZIP 与元数据一起提交。
+云端服务直接使用仓库内的预编译模板。修改共享运行引擎后，同步并重建两个设备模板，将模板 ZIP 与元数据一起提交。
 
 ## 反馈与贡献
 

@@ -25,7 +25,7 @@ npm test
 
 需提交的编译资产位于：
 
-- `ccicc-plugin-cloud/jslab-cloud/rpk-template/template.zip` 与 `metadata.json`；
+- `jslab-cloud/rpk-template/template.zip` 与 `metadata.json`；
 - 同目录下 `redmi-watch5/template.zip` 与 `metadata.json`。
 
 元数据记录模板、源文件、设备覆盖与运行契约摘要。导出会排除调试 sourcemap、工具链默认签名和旧元数据；模板不包含用户源码或私钥。

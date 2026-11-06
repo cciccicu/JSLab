@@ -16,7 +16,7 @@ $candidates = @(
     'vela-quickapp/build',
     'vela-rpk-template/build',
     'astrobox-plugin-sync/target',
-    'ccicc-plugin-cloud/jslab-cloud/generated',
+    'jslab-cloud/generated',
     'android-sync/build',
     'android-sync/app/build',
     'vela-luawatchface/watchface/data',

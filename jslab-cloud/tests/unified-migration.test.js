@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DatabaseSync } = require('node:sqlite');
-const { migrateUnifiedScripts } = require('../jslab-cloud/lib/unified-migration');
+const { migrateUnifiedScripts } = require('../lib/unified-migration');
 test('legacy script data, indexes and deleted high-water IDs survive first and repeated migration', () => {
   const db = new DatabaseSync(':memory:');
   try {

@@ -1,7 +1,8 @@
 # Cloud dependencies, generated help resources and local packages.
 /node_modules/
 /dist/
-/jslab-cloud/generated/
-/jslab-cloud/node_modules/
-/jslab-cloud/dist/
+/generated/
+/data/
+/.npm-cache/
+/.test-temp/
 /release-archive/

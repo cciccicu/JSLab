@@ -3,11 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const MarkdownIt = require('../jslab-cloud/node_modules/markdown-it');
-const { DOCS, DOC_GROUPS, DOC_SECTIONS, renderDocument } = require('../jslab-cloud/lib/browser-docs-pages');
+const MarkdownIt = require('../node_modules/markdown-it');
+const { DOCS, DOC_GROUPS, DOC_SECTIONS, renderDocument } = require('../lib/browser-docs-pages');
 const { documentationRuntime } = require('./helpers/documentation-runtime');
 const { loadUi, host } = require('../../vela-quickapp/tests/helpers/loadUi.cjs');
-const docsRoot = path.resolve(__dirname, '../jslab-cloud/generated/docs');
+const docsRoot = path.resolve(__dirname, '../generated/docs');
 
 test('generating help resources preserves the centrally authored articles', () => {
   const before = DOCS.map(doc => fs.readFileSync(path.join(docsRoot, `${doc.slug}.md`), 'utf8'));

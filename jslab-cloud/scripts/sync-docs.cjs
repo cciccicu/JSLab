@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const workspace = path.resolve(__dirname, '../..');
 const source = path.join(workspace, 'docs/guide');
 const declarations = path.join(workspace, 'types');
-const destination = path.resolve(__dirname, '../jslab-cloud/generated/docs');
+const destination = path.resolve(__dirname, '../generated/docs');
 
 // Markdown is authored for repository readers. The installed plugin keeps its
 // existing routes and serves only the generated, self-contained resources.
@@ -14,7 +14,7 @@ function documentationFiles() {
   for (const name of fs.readdirSync(source).filter(name => name.endsWith('.md')).sort()) {
     const content = fs.readFileSync(path.join(source, name), 'utf8')
       .replace(/\]\(\.\.\/\.\.\/types\/((?:runtime|ui)-api\.d\.ts)\)/g, ']($1)')
-      .replace(/\]\(\.\.\/\.\.\/ccicc-plugin-cloud\/jslab-cloud\/assets\/([^\s)]+)\)/g, '](/jslab-cloud/assets/$1)')
+      .replace(/\]\(\.\.\/\.\.\/jslab-cloud\/assets\/([^\s)]+)\)/g, '](/jslab-cloud/assets/$1)')
       .replace(/\]\(https:\/\/ccicc\.icu(\/jslab-cloud[^\s)]*)\)/g, ']($1)');
     files.set(name, content);
   }

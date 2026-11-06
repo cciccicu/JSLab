@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const { Readable } = require('node:stream');
-const JSZip = require('../jslab-cloud/node_modules/jszip');
-const { createReleaseDownloads, DOWNLOAD_SLOTS, MAX_DOWNLOAD_BYTES } = require('../jslab-cloud/lib/release-downloads');
-const { renderDownloadBanner, registerDownloadAdmin, registerDownloadPage } = require('../jslab-cloud/lib/browser-downloads');
+const JSZip = require('../node_modules/jszip');
+const { createReleaseDownloads, DOWNLOAD_SLOTS, MAX_DOWNLOAD_BYTES } = require('../lib/release-downloads');
+const { renderDownloadBanner, registerDownloadAdmin, registerDownloadPage } = require('../lib/browser-downloads');
 
 const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 function fixture(t) {
@@ -17,7 +17,7 @@ function fixture(t) {
   const routes = new Map();
   const router = scope => ({ get: (route, ...handlers) => routes.set(scope + ' GET ' + route, handlers), post: (route, ...handlers) => routes.set(scope + ' POST ' + route, handlers) });
   const ctx = {
-    rootDir: path.resolve(__dirname, '../jslab-cloud'),
+    rootDir: path.resolve(__dirname, '..'),
     config: { get: key => values[key], set: (key, value) => { values[key] = value; } },
     routes: { frontend: router('frontend'), admin: router('admin') },
     users: { requireAdmin: (req, res, next) => req.user?.role === 'admin' ? next() : res.status(403).send('admin') },
@@ -140,9 +140,9 @@ test('the actual Android and all four latest quick-app releases pass upload vali
   const version = JSON.parse(fs.readFileSync(path.join(root, 'vela-quickapp/src/manifest.json'), 'utf8')).versionName;
   const inputs = [
     ['android', 'android-sync/dist/JSLab-Sync-1.0.1.apk'],
-    ['full-pro', `vela-quickapp/release-archive/JSLab-Full-${version}.rpk`],
+    ['full-pro', `vela-quickapp/release-archive/JSLab-Full-Pro-${version}.rpk`],
     ['full-rw', `vela-quickapp/release-archive/JSLab-Full-RW-${version}.rpk`],
-    ['community-pro', `vela-quickapp/release-archive/JSLab-Community-${version}.rpk`],
+    ['community-pro', `vela-quickapp/release-archive/JSLab-Community-Pro-${version}.rpk`],
     ['community-rw', `vela-quickapp/release-archive/JSLab-Community-RW-${version}.rpk`],
   ];
   for (const [slot, name] of inputs) {
@@ -187,7 +187,7 @@ test('community uploads enforce edition and device and retain the prior file on 
 });
 
 test('browser dismissal persists for one release and a replacement makes the banner visible again', () => {
-  const source = fs.readFileSync(path.resolve(__dirname, '../jslab-cloud/assets/jslab-downloads.js'), 'utf8');
+  const source = fs.readFileSync(path.resolve(__dirname, '../assets/jslab-downloads.js'), 'utf8');
   const saved = new Map();
   function browser(revision) {
     let click;

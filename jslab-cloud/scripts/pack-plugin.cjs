@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 const { syncDocumentation } = require('./sync-docs.cjs');
-const pluginRoot = path.resolve(__dirname, '../jslab-cloud');
+const pluginRoot = path.resolve(__dirname, '..');
 const requirePlugin = createRequire(path.join(pluginRoot, 'package.json'));
 const JSZip = requirePlugin('jszip');
 
@@ -32,13 +32,13 @@ async function main() {
     }
   }
   // Explicit runtime roots keep local tools, dependencies and credentials out.
-  for (const name of ['index.js', 'manifest.json', 'package.json', 'package-lock.json', 'assets', 'lib', 'rpk-template', 'generated/docs']) add(name);
+  for (const name of ['index.js', 'manifest.json', 'package.json', 'package-lock.json', '.env.example', 'README.md', 'assets', 'lib', 'server', 'rpk-template', 'generated/docs']) add(name);
   if (!packaged.has(path.relative(pluginRoot, entry).replace(/\\/g, '/'))) throw new Error('Entry is not packaged.');
   zip.file('LICENSE', fs.readFileSync(path.resolve(__dirname, '../../LICENSE')), { date: new Date('2020-01-01T00:00:00Z') });
   const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
   if (buffer.length > 50 * 1024 * 1024) throw new Error('Plugin exceeds the host 50 MiB limit.');
   const output = path.resolve(outputArg || path.resolve(__dirname, '../dist', `${manifest.id}-${manifest.version}.zip`));
-  if (output.startsWith(pluginRoot + path.sep)) throw new Error('Write release archives outside the runtime source directory.');
+  if (output.startsWith(pluginRoot + path.sep) && !output.startsWith(path.join(pluginRoot, 'dist') + path.sep)) throw new Error('Write release archives into dist or outside the project.');
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, buffer);
   console.log(`Created ${output} (${packaged.size + 1} files, ${buffer.length} bytes)`);

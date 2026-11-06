@@ -6,7 +6,9 @@
 | --- | --- | --- |
 | Vela 输入法组件 | NEORUAA，MIT | [原始许可](../../vela-quickapp/src/components/InputMethod/LICENSE)随主应用和模板保留 |
 | 设备端内置字体 | Sarasa Mono SC + Noto Emoji，OFL-1.1 | [来源、构建与分发许可](editor-font.md)；字体独立按 OFL 分发 |
-| RPK 签名适配 | AIoT Toolkit，ISC | [来源记录](rpk-signature.md)与[随代码许可](../../ccicc-plugin-cloud/jslab-cloud/lib/rpk-signature/LICENSE) |
+| RPK 签名适配 | AIoT Toolkit，ISC | [来源记录](rpk-signature.md)与[随代码许可](../../jslab-cloud/lib/rpk-signature/LICENSE) |
+| 独立云服务 HTTP 与会话 | [Express](https://github.com/expressjs/express)、[express-session](https://github.com/expressjs/session)，MIT | npm 安装包保留上游许可，版本由云端锁文件固定 |
+| 独立云服务 UI | [Bootstrap](https://github.com/twbs/bootstrap)、[Bootstrap Icons](https://github.com/twbs/icons)，MIT | 从本地依赖提供样式、脚本与图标字体，保留原始文件中的版权说明 |
 | Android Sora / TextMate | Sora Editor、Eclipse TM4E | [版本、源码提供方式与 LGPL / EPL 说明](android-editor.md) |
 | JavaScript TextMate 语法 | Microsoft TypeScript-TmLanguage，MIT | 许可随 APK 位于 assets/licenses，来源见 Android 编辑器说明 |
 | 小米穿戴 SDK | 小米官方开发示例 | [来源与 SHA-256](xiaomi-sdk.md)，由准备脚本获取，AAR 不入库 |

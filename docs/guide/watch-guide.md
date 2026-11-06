@@ -8,7 +8,7 @@
 
 首页列出当前设备上的本地脚本，并显示文件大小和修改时间。点击文件会选中它，再点同一文件会取消选择。
 
-![JSLab 首页显示本地脚本，底部有市场、云空间和新建入口](../../ccicc-plugin-cloud/jslab-cloud/assets/jslab-screen-scripts-20261009.png)
+![JSLab 首页显示本地脚本，底部有市场、云空间和新建入口](../../jslab-cloud/assets/jslab-screen-scripts-20261009.png)
 
 *界面示例；文件名和内容以你的设备为准。*
 

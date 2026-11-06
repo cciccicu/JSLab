@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildAiSystemPrompt, buildAiUserPrompt, buildAiPromptMarkdown } = require('../jslab-cloud/lib/ai-prompts');
-const { estimateTokenCount } = require('../jslab-cloud/lib/ai-service');
+const { buildAiSystemPrompt, buildAiUserPrompt, buildAiPromptMarkdown } = require('../lib/ai-prompts');
+const { estimateTokenCount } = require('../lib/ai-service');
 const vela = path.join(__dirname, '../../vela-quickapp');
 const prompt = buildAiSystemPrompt();
 const examples = [...prompt.matchAll(/```javascript\n([\s\S]*?)\n```/g)].map(match => new Function('console', 'ui', 'dialog', 'script', 'system', match[1]));
@@ -20,7 +20,7 @@ test('downloadable Markdown preserves the complete built-in prompt and provides 
   }
   const { createHash } = require('node:crypto');
   assert.equal(createHash('sha256').update(buildAiSystemPrompt(1)).digest('hex'), '4e582c78e9cb63a0046d9c69651ce563c8c981fba4f0fc1bd1b21d279ab40673');
-  for (const icons of Object.values(require('../jslab-cloud/lib/ai-prompt-emoji.json').groups)) assert.ok(prompt.includes(icons));
+  for (const icons of Object.values(require('../lib/ai-prompt-emoji.json').groups)) assert.ok(prompt.includes(icons));
   assert.match(prompt, /清单没有合适的图标时直接用中文或英文文字/);
 });
 

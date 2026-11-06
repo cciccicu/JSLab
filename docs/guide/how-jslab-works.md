@@ -268,4 +268,4 @@ JavaScript 的颜色不能完全按行独立计算。上一行是否打开了块
 
 生成 RPK 后，在目标设备上检查脚本启动、交互、系统接口与数据保存，完成应用发布前的验证。
 
-**源码阅读顺序：** 从 [独立应用模板项目](https://github.com/cciccicu/JSLab/tree/master/vela-rpk-template) 的 `scripts/sync-runtime.cjs`、`scripts/build.cjs` 和 `scripts/export-template.cjs` 理解固定引擎怎样生成，再阅读 [云端打包实现 `rpk-builder.js`](https://github.com/cciccicu/JSLab/blob/master/ccicc-plugin-cloud/jslab-cloud/lib/rpk-builder.js) 中的 `load()` 与 `build()`。最后对照模板的 `src/app.ux` 与云端的 `lib/rpk-signature/`，串起内嵌数据的加载与签名过程。
+**源码阅读顺序：** 从 [独立应用模板项目](https://github.com/cciccicu/JSLab/tree/master/vela-rpk-template) 的 `scripts/sync-runtime.cjs`、`scripts/build.cjs` 和 `scripts/export-template.cjs` 理解固定引擎怎样生成，再阅读 [云端打包实现 `rpk-builder.js`](https://github.com/cciccicu/JSLab/blob/master/jslab-cloud/lib/rpk-builder.js) 中的 `load()` 与 `build()`。最后对照模板的 `src/app.ux` 与云端的 `lib/rpk-signature/`，串起内嵌数据的加载与签名过程。

@@ -41,13 +41,13 @@ jobs:
           cache-dependency-path: |
             vela-quickapp/package-lock.json
             vela-rpk-template/package-lock.json
-            ccicc-plugin-cloud/jslab-cloud/package-lock.json
+            jslab-cloud/package-lock.json
       - run: npm ci
         working-directory: vela-quickapp
       - run: npm ci
         working-directory: vela-rpk-template
       - run: npm ci
-        working-directory: ccicc-plugin-cloud/jslab-cloud
+        working-directory: jslab-cloud
       - run: npm run check:devices
         working-directory: vela-quickapp
       - run: npm run lint
@@ -57,9 +57,9 @@ jobs:
       - run: npm test
         working-directory: vela-rpk-template
       - run: npm test
-        working-directory: ccicc-plugin-cloud/jslab-cloud
+        working-directory: jslab-cloud
       - run: npm run pack
-        working-directory: ccicc-plugin-cloud/jslab-cloud
+        working-directory: jslab-cloud
 
   astrobox:
     runs-on: ubuntu-latest

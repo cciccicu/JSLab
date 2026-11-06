@@ -4,7 +4,7 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const from=path.resolve(root,'../vela-quickapp/node_modules/@aiot-toolkit/aiotpack/lib/compiler/javascript/vela/utils/signature');
-const to=path.resolve(root,'../ccicc-plugin-cloud/jslab-cloud/lib/rpk-signature');
+const to=path.resolve(root,'../jslab-cloud/lib/rpk-signature');
 fs.mkdirSync(to,{recursive:true});
 const hashes={};
 for (const name of ['SignUtil.js','Signer.js','Base64.js','CRC32.js']) {

@@ -1,6 +1,6 @@
 # 项目架构与职责边界
 
-JSLab 由设备应用、两个配套端、云端插件、独立应用模板和辅助表盘组成。它们共享协议与部分运行源码，各自维护构建系统和交付产物。
+JSLab 由设备应用、两个配套端、云端服务、独立应用模板和辅助表盘组成。它们共享协议与部分运行源码，各自维护构建系统和交付产物。
 
 ```mermaid
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
 | `vela-quickapp/` | 设备 UI、脚本编辑与执行、本地持久化、设备云请求 | RPK |
 | `android-sync/` | 原生手机编辑器、SDK 适配、草稿和同步 | APK |
 | `astrobox-plugin-sync/` | AstroBox Host UI、Interconnect 与云代理 | WASI Component / ABP |
-| `ccicc-plugin-cloud/` | 云文件、用户服务、市场、AI、文档与导出 | 宿主插件 ZIP |
+| `jslab-cloud/` | 云文件、用户服务、市场、AI、文档与导出 | 独立 Node.js 服务 / 宿主插件 ZIP |
 | `vela-rpk-template/` | 共享引擎同步、设备模板编译与元数据 | 两套固定模板 ZIP |
 | `vela-luawatchface/` | 独立 Lua 资源、动画与 Helper 服务 | FACE |
 
