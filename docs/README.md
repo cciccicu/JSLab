@@ -25,9 +25,9 @@
 
 先读[项目架构](development/architecture.md)，再按需要进入对应项目：
 
-- [Vela 快应用](development/quickapp.md) · [设备布局](development/device-layouts.md) · [公共模块](development/quickapp-modules.md) · [UI 性能与验证](development/ui-performance.md)
+- [Vela 快应用](development/quickapp.md) · [设备布局](development/device-layouts.md) · [公共模块](development/quickapp-modules.md) · [UI 性能与验证](development/ui-performance.md) · [AstroBox 资源提交](development/astrobox-resources.md)
 - [Android 同步器](development/android.md)
-- [AstroBox 插件](development/astrobox.md) · [官方源发布](development/astrobox-release.md)
+- [AstroBox 插件](development/astrobox.md) · [插件官方源发布](development/astrobox-release.md)
 - [云端服务与宿主桥接](development/cloud.md) · [独立部署与运营](development/cloud-operations.md)
 - [独立 RPK 模板](development/rpk-template.md)
 - [Lua 表盘](development/watchface.md)

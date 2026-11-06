@@ -12,7 +12,7 @@
 
 | 项目 | 构建与产物 | 发布关注点 |
 | --- | --- | --- |
-| Vela | 两种设备的完整 / 社区版本，位于 `release-archive/` | 目标布局、签名、包名与版本；正式设备验证 |
+| Vela | 两种设备的完整 / 社区版本，位于 `release-archive/` | 目标布局、签名、包名与版本；正式设备验证；[AstroBox 社区版提交](astrobox-resources.md) |
 | Android | `scripts/build.ps1 -Release`，产物在 `dist/` | 与 Vela 相同的互联签名、APK 校验值、第三方源码与许可 |
 | AstroBox | `build.ps1`，ABP 和独立资源在 `dist/` | API Level、权限、WASM Component 与[官方源索引](astrobox-release.md) |
 | 云服务 / 插件 | `npm run pack`，ZIP 在 `jslab-cloud/dist/` | 独立运行入口、依赖、生成文档、模板摘要、数据库备份与[部署检查](cloud-operations.md) |
