@@ -5,15 +5,19 @@
   </picture>
   <p>
     <a href="https://ccicc.icu/jslab-cloud/downloads"><strong>下载安装</strong></a> &nbsp;·&nbsp;
+    <a href="https://ccicc.icu/jslab-cloud/workspace/market"><strong>JS 市场</strong></a> &nbsp;·&nbsp;
     <a href="docs/README.md"><strong>使用文档</strong></a> &nbsp;·&nbsp;
     <a href="examples/README.md">脚本示例</a> &nbsp;·&nbsp;
-    <a href="https://ccicc.icu/jslab-cloud/">访问云端</a>
+    <a href="https://ccicc.icu/jslab-cloud/">访问云端</a> &nbsp;·&nbsp;
+    <a href="docs/README.en.md"><strong>English</strong></a>
   </p>
   <p>
     <a href="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml"><img src="https://github.com/cciccicu/JSLab/actions/workflows/checks.yml/badge.svg?branch=master" alt="Repository checks" /></a>
     &nbsp; <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-168ab5?logo=gnu&amp;logoColor=white" alt="License: GPL-3.0" /></a>
   </p>
 </div>
+
+> **English Summary:** JSLab (**GPL-3.0**) is a full-stack open-source JavaScript platform for **Xiaomi Vela** smartbands and smartwatches, comprising an on-device editor & runtime, declarative native UI APIs, Android & AstroBox sync companions, a self-hostable Node.js cloud workspace with LLM-moderated Script Market, and in-memory standalone `.rpk` packaging & signing. Read the [full English overview](docs/README.en.md) or browse the live [Script Market](https://ccicc.icu/jslab-cloud/workspace/market).
 
 JSLab 是面向小米 Vela 穿戴设备的开源 JavaScript 开发环境。你可以直接在手环、手表上编辑和运行脚本，也可以通过 Android、AstroBox 或浏览器完成编辑与传输。脚本既能输出日志，也能拥有按钮、布局、图片和画布，适合制作随身工具、交互页面与小游戏。
 
@@ -72,6 +76,19 @@ JSLab 在 Vela 的 JavaScript 引擎之上实现脚本环境、编辑器和应�
 
 [了解 JSLab 原理](docs/guide/how-jslab-works.md)进一步说明数据流、缓存边界、模板同步与签名过程，并提供源码阅读入口。
 
+## 安全架构与脚本审核
+
+JSLab 在穿戴设备上执行社区编写的 JavaScript，并在云端承载账户、设备配对、市场与独立应用签名流程，主要安全边界如下：
+
+| 环节 | 边界与现有机制 |
+| --- | --- |
+| **设备端脚本运行环境** | 在 Vela 上为每次运行建立独立会话，按统一契约（[types/runtime-contract.json](types/runtime-contract.json)）受控注入 `ui`、`script`、`dialog`、`system` 接口，管理本地数据与文件访问边界。 |
+| **云端鉴权与设备配对** | 将设备端快应用 API（[jslab-cloud/lib/device-api.js](jslab-cloud/lib/device-api.js)）与网页端 API（[jslab-cloud/lib/browser-api.js](jslab-cloud/lib/browser-api.js)）分离维护，隔离账户登录态、设备配对令牌与云文件访问。 |
+| **独立 RPK 打包与签名** | 在服务端内存中将用户源码与预编译设备模板装配、计算摘要并签名（[jslab-cloud/lib/rpk-builder.js](jslab-cloud/lib/rpk-builder.js)），每次导出不调用外部构建工具链，也不落盘用户脚本临时文件。 |
+| **LLM 自动化脚本市场审核** | 社区提交的公开脚本由后台 LLM 审核（[jslab-cloud/lib/market-service.js](jslab-cloud/lib/market-service.js)）自动检测恶意行为、凭据窃取、破坏性操作及与说明不符的代码，记录审核结论、理由与内容哈希；更新被拒绝时，市场继续保留原已发布版本。 |
+
+如需私密报告安全漏洞或查看披露流程，请参阅[安全报告说明](.github/SECURITY.md)。
+
 ## 从源码开始
 
 本仓库包含多个独立交付项目。先安装 Git 与 Node.js 24，选择需要开发的项目；无需一次安装所有平台的工具链。下面以设备端的手环 Pro 调试构建为例：
@@ -92,7 +109,7 @@ npm run build:bandpro
 
 ## 仓库结构
 
-六个子项目在根目录并列，各自维护依赖、构建入口和发布产物；公共文档、示例与接口定义集中存放。
+六个独立交付子项目在根目录并列，涵盖设备端快应用、Android 同步器、AstroBox WASI 插件、可独立部署的 Node.js 云端服务、预编译 RPK 模板与 Lua 辅助表盘；各自维护依赖、构建入口和发布产物，公共文档、示例与接口定义集中存放。
 
 ```text
 JSLab/
@@ -120,6 +137,20 @@ JSLab/
 个人工具、字体预览和历史安装包归档集中在已忽略的 `.local-tools/`，各子项目的依赖及构建输出按自身工具链管理。目录维护方式见[仓库维护说明](docs/development/repository.md)。
 
 云端服务直接使用仓库内的预编译模板。修改共享运行引擎后，同步并重建两个设备模板，将模板 ZIP 与元数据一起提交。
+
+## 分发渠道与社区生态
+
+面向小米 Vela 穿戴设备的安装包主要通过穿戴工具与社区渠道分发，而非 GitHub Releases。以下为公开可访问的主要入口：
+
+- **官网与云空间**：[ccicc.icu/jslab-cloud](https://ccicc.icu/jslab-cloud/) · [安装包下载页](https://ccicc.icu/jslab-cloud/downloads)
+- **JS 公开脚本市场**：[浏览社区脚本](https://ccicc.icu/jslab-cloud/workspace/market)
+- **AstroBox 官方源**：[JSLab 社区版](https://abox.run/open?source=resv2&id=icu.ccicc.jslab&provider=OfficialV2)（[快应用发布仓库](https://github.com/cciccicu/JSLab_AstroBox_Release) · [同步插件发布仓库](https://github.com/cciccicu/JSLab-AstroBox-Plugin-Release)）
+- **米坛社区（BandBBS）**：[小米手环 Pro 系列](https://www.bandbbs.cn/resources/8607/) · [红米手表系列](https://www.bandbbs.cn/resources/8733/) · [社区讨论](https://www.bandbbs.cn/resources/3440/)
+
+**生态快照（截至 2026-11-20）：**
+
+- **已确认外部渠道下载**：合计超过 **5,789 次**（AstroBox **2,337 次**、米坛社区 **730 次**、表盘自定义工具当前版本 **722 次**及删除重发前已确认的 **2,000+ 次**）。AstroBox 改版前无法追溯的历史下载（估计约 2,000 次）、官网直接下载与 GitHub Releases 均未计入；统计口径为下载次数而非去重用户数。
+- **社区创作与交流**：[JS 市场](https://ccicc.icu/jslab-cloud/workspace/market)已有 **75 个公开脚本**，来自 **24 个作者账号**；用户交流群超过 **250 人**。
 
 ## 反馈与贡献
 
