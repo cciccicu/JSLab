@@ -2,12 +2,16 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const controlledErrors = fs.readFileSync(path.join(__dirname, '../src/utils/core/controlledError.js'), 'utf8')
+  .replace(/export function /g, 'function ');
 
 test("jsManager", async () => {
 
   async function loadJsManager(fileMock) {
     const sourcePath = path.join(__dirname, '..', 'src', 'utils', 'files', 'jsManager.js');
     const source = fs.readFileSync(sourcePath, 'utf8')
+      .replace("import { controlledError } from '../core/controlledError.js';", controlledErrors)
+      .replace("import { inspectBackup, recoverBackup, activeBackupTarget } from '../bridge/stagedScript.js';", 'const { inspectBackup, recoverBackup, activeBackupTarget } = globalThis.__jsManagerBackupMock;')
       .replace("import file from '@system.file';", 'const file = globalThis.__jsManagerFileMock;')
       .replace("import { utf8ByteLength } from './textEncoding.js';", "const utf8ByteLength = value => Buffer.byteLength(value, 'utf8');")
       .replace("import { removeScriptStorage, renameScriptStorage } from './scriptData.js';", 'const { removeScriptStorage, renameScriptStorage } = globalThis.__jsManagerStorageMock;')
@@ -16,6 +20,7 @@ test("jsManager", async () => {
           Number(right.lastModifiedTime || 0) - Number(left.lastModifiedTime || 0));
       `);
     globalThis.__jsManagerFileMock = fileMock;
+    globalThis.__jsManagerBackupMock = fileMock.backupApi || {};
     globalThis.__jsManagerStorageMock = {
       removeScriptStorage: fileMock.removeStorage || (() => Promise.resolve()),
       renameScriptStorage: fileMock.renameStorage || (() => Promise.resolve())
@@ -50,7 +55,7 @@ test("jsManager", async () => {
     const results = await Promise.all([manager.list(), manager.list()]);
     assert.strictEqual(accessCount, 1);
     assert.strictEqual(mkdirCount, 1);
-    assert.strictEqual(listCount, 2);
+    assert.strictEqual(listCount, 1);
     assert.strictEqual(results[0][0].name, 'old.js');
   }
 
@@ -97,6 +102,59 @@ test("jsManager", async () => {
     await testInvalidListResponse();
     await testChineseFileNames();
     await testBlankCreationFallback();
+    await testInterruptedReplacementRecovery();
+  }
+
+  async function testInterruptedReplacementRecovery() {
+    const prefix = 'internal://files/js/';
+    const stage = 'internal://files/jslab-transfer/';
+    const marker = prefix + '.jslab-backup-123-1.json';
+    const backup = stage + 'backup-123-1.bak';
+    const target = prefix + '原脚本.js';
+    const saved = new Map([[marker, JSON.stringify({ target })], [backup, '原始内容']]);
+    const fileMock = {
+      access({ success }) { success(); },
+      list({ uri, success }) {
+        const fileList = [...saved].filter(([key]) => key.startsWith(uri))
+          .map(([key, value]) => ({ uri: key, length: Buffer.byteLength(value) }));
+        setImmediate(() => success({ fileList }));
+      },
+      readText({ uri, success, fail }) {
+        setImmediate(() => {
+          if (saved.has(uri)) success({ text: saved.get(uri) }); else fail(null, 300);
+        });
+      },
+      move({ srcUri, dstUri, success, fail }) {
+        if (!saved.has(srcUri)) return fail(null, 300);
+        saved.set(dstUri, saved.get(srcUri)); saved.delete(srcUri); success();
+      },
+      delete({ uri, success, fail }) { if (saved.delete(uri)) success(); else fail(null, 300); }
+    };
+    globalThis.__recoverFileMock = fileMock;
+    const stageSource = fs.readFileSync(path.join(__dirname, '../src/utils/bridge/stagedScript.js'), 'utf8')
+      .replace("import { controlledError } from '../core/controlledError.js';", controlledErrors)
+      .replace("import file from '@system.file';", 'const file = globalThis.__recoverFileMock;');
+    fileMock.backupApi = await import('data:text/javascript;base64,' + Buffer.from(stageSource).toString('base64'));
+    const manager = await loadJsManager(fileMock);
+    const lists = await Promise.all([manager.list(), manager.list()]);
+    assert.deepEqual(lists.map(items => items.map(item => item.name)), [['原脚本.js'], ['原脚本.js']]);
+    assert.equal(saved.get(prefix + '原脚本.js'), '原始内容');
+    assert.equal(saved.has(marker), false);
+    assert.equal(saved.has(backup), false);
+
+    saved.set(marker, JSON.stringify({ target }));
+    saved.set(backup, '旧内容');
+    const token = manager.lock('原脚本.js');
+    let listed = false;
+    const pendingList = manager.list().then(result => { listed = true; return result; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(listed, false);
+    assert.equal(saved.get(backup), '旧内容');
+    manager.unlock('原脚本.js', token);
+    await pendingList;
+    assert.equal(saved.get(prefix + '原脚本.js'), '原始内容');
+    assert.equal(saved.has(marker), false);
+    assert.equal(saved.has(backup), false);
   }
 
   async function testBlankCreationFallback() {
@@ -208,7 +266,8 @@ test("fileMetadata", async () => {
   }
 
   async function run() {
-    const encodingSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'files', 'textEncoding.js'), 'utf8');
+    const encodingSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'files', 'textEncoding.js'), 'utf8')
+      .replace("import { controlledError } from '../core/controlledError.js';", controlledErrors);
     const encoding = await import('data:text/javascript;base64,' + Buffer.from(encodingSource).toString('base64'));
     const metadata = { ...await loadFileMetadata(), ...encoding };
     const files = [
@@ -295,7 +354,8 @@ test("transferIntegrity", async () => {
 describe("scriptData", () => {
 
   const source = fs.readFileSync(path.join(__dirname, '../src/utils/files/scriptData.js'), 'utf8')
-    .replace(/^import file[^\n]*\n/, '').replace(/export function /g, 'function ')
+    .replace("import { controlledError } from '../core/controlledError.js';", controlledErrors)
+    .replace(/^import file[^\n]*\n/m, '').replace(/export function /g, 'function ')
     .replace('export default { createScriptStorage, removeScriptStorage, renameScriptStorage };', 'return { createScriptStorage, removeScriptStorage, renameScriptStorage };');
 
   function database() {

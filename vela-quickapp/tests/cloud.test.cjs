@@ -51,6 +51,8 @@ test("cloudClients", async () => {
     ]);
     globalThis.__cloudTextEncoding = await import('data:text/javascript;base64,' + Buffer.from(
       fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'files', 'textEncoding.js'), 'utf8')
+        .replace("import { controlledError } from '../core/controlledError.js';",
+          fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'core', 'controlledError.js'), 'utf8').replace(/export function /g, 'function '))
     ).toString('base64') + '#' + (++loadSequence));
     globalThis.__cloudMarketFilename = await loadCloudModule('marketFilename.js', [
       ["import { utf8ByteLength } from '../files/textEncoding.js';", 'const { utf8ByteLength } = globalThis.__cloudTextEncoding;']

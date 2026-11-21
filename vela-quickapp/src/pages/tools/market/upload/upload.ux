@@ -247,7 +247,7 @@ export default {
         return null;
       }
       this.stage = 'submitting';
-      startNetworkFeedback(this, '正在提交并等待审核结果');
+      startNetworkFeedback(this, '正在提交脚本');
       const metadata = {
         name,
         description,

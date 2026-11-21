@@ -4,6 +4,7 @@ import jsManager from '../files/jsManager.js';
 import fontManager from '../editor/fontManager.js';
 import { clearScriptTransfers, handleScriptTransfer } from './scriptTransfer.js';
 import { SCRIPT_STORAGE_PROTOCOL, clearScriptStorageTransfers, handleScriptStorageTransfer } from './scriptStorageTransfer.js';
+import { bridgeErrorInfo, controlledError } from '../core/controlledError.js';
 
 const PROTOCOL_VERSION = 2;
 const WRITE_SESSION_TTL_MS = 2 * 60 * 1000;
@@ -51,9 +52,9 @@ function keepScreenAwake(enabled) {
 function parseMessage(event) {
   let value = event && Object.prototype.hasOwnProperty.call(event, 'data') ? event.data : event;
   if (typeof value === 'string') value = JSON.parse(value);
-  if (!value || typeof value !== 'object') throw new Error('消息格式无效');
+  if (!value || typeof value !== 'object') throw controlledError('消息格式无效');
   if (value.v !== PROTOCOL_VERSION || value.type !== 'request' || typeof value.id !== 'string') {
-    throw new Error('不支持的桥接消息格式');
+    throw controlledError('不支持的桥接消息格式');
   }
   return value;
 }
@@ -80,13 +81,19 @@ function respond(id, result) {
 }
 
 function reject(id, error) {
-  send({
+  const info = bridgeErrorInfo(error);
+  const response = {
     v: PROTOCOL_VERSION,
     type: 'response',
     id: id || '',
     ok: false,
-    error: error && error.message ? error.message : String(error || '未知错误')
-  });
+    error: info.message
+  };
+  if (info.origin) {
+    response.errorOrigin = info.origin;
+    response.errorDisplay = info.display;
+  }
+  send(response);
 }
 
 function settleCloudProxy(response) {
@@ -160,7 +167,7 @@ function cleanupFontSessions() {
 function beginFontWrite(payload) {
   cleanupFontSessions();
   if (!payload || !payload.profile || !Number(payload.size) || Number(payload.size) > fontManager.MAX_FONT_BYTES) {
-    return Promise.reject(new Error('字体必须有效且不能超过 2 MiB'));
+    return Promise.reject(controlledError('字体必须有效且不能超过 2 MiB'));
   }
   Object.keys(fontWriteSessions).forEach(id => delete fontWriteSessions[id]);
   return fontManager.preparePendingPackage(
@@ -184,7 +191,7 @@ function beginFontWrite(payload) {
 function appendFontWriteChunk(payload) {
   cleanupFontSessions();
   const session = payload && fontWriteSessions[payload.transferId];
-  if (!session || payload.index !== session.state.nextIndex) return Promise.reject(new Error('字体分块顺序无效'));
+  if (!session || payload.index !== session.state.nextIndex) return Promise.reject(controlledError('字体分块顺序无效'));
   return fontManager.writePendingPart(payload.index, payload.content, session.state).then((state) => {
     session.state = state;
     session.updatedAt = Date.now();
@@ -195,7 +202,7 @@ function appendFontWriteChunk(payload) {
 function finishFontWrite(payload) {
   cleanupFontSessions();
   const session = payload && fontWriteSessions[payload.transferId];
-  if (!session) return Promise.reject(new Error('字体上传会话不存在或已过期'));
+  if (!session) return Promise.reject(controlledError('字体上传会话不存在或已过期'));
   delete fontWriteSessions[payload.transferId];
   return fontManager.finishPendingPackage(session.state);
 }

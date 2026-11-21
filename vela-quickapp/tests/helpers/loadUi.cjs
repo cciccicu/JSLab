@@ -8,7 +8,9 @@ async function loadUi(layoutSource) {
   // Historical Pro compiler fixtures predate the additive width API.
   if (!layout.includes('export function getUiWidth')) layout += '\nexport function getUiWidth() { return 324; }\n';
   const layoutUrl = moduleUrl(layout.replace("'../core/screen.js'", JSON.stringify(screenUrl)));
-  const encodingUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/files/textEncoding.js'), 'utf8'));
+  const errorUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/core/controlledError.js'), 'utf8'));
+  const encodingUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/files/textEncoding.js'), 'utf8')
+    .replace("'../core/controlledError.js'", JSON.stringify(errorUrl)));
   const codecUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/runtime/bitmapCodec.js'), 'utf8').replace("'../files/textEncoding.js'", JSON.stringify(encodingUrl)));
   const canvasUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/runtime/canvasSurface.js'), 'utf8'));
   const mediaUrl = moduleUrl(fs.readFileSync(path.join(root, 'src/utils/runtime/uiMedia.js'), 'utf8')

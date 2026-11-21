@@ -18,7 +18,7 @@ function copy(relative) {
   } else write(relative, fs.readFileSync(from));
 }
 // Keep the RPK-specific black code-sheet icon with its JSLab badge; do not copy the regular app logo here.
-for (const relative of ['utils/runtime', 'utils/files/scriptData.js', 'utils/files/textEncoding.js', 'utils/core/dialogState.js',
+for (const relative of ['utils/runtime', 'utils/files/scriptData.js', 'utils/files/textEncoding.js', 'utils/core/controlledError.js', 'utils/core/dialogState.js',
   'utils/core/routeManager.js', 'utils/core/runtimeCompat.js', 'utils/core/uiFeedback.js', 'utils/core/time.js', 'utils/core/screen.js',
   'pages/overlay', 'components/InputMethod', 'common/fonts', 'common/styles/dialog.css', 'pages/workspace/run/run.css',
   ...['hd','back','conform','check','info'].map(name => 'common/images/' + name + '.png')]) copy(relative);

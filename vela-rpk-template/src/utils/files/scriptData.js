@@ -1,3 +1,4 @@
+import { controlledError } from '../core/controlledError.js';
 import file from '@system.file';
 
 const DATA_URI = 'internal://files/jslab-script-data.json';
@@ -24,7 +25,7 @@ function readFile() {
       },
       fail(data, code) {
         if (Number(code) === 301) resolve({});
-        else reject(new Error('scriptData read failed: ' + code));
+        else reject(controlledError('scriptData read failed: ' + code));
       }
     });
   });
@@ -51,7 +52,7 @@ function persist(next) {
       uri: DATA_URI,
       text: JSON.stringify(next),
       success: () => { cache = next; resolve(true); },
-      fail(data, code) { reject(new Error('scriptData write failed: ' + code)); }
+      fail(data, code) { reject(controlledError('scriptData write failed: ' + code)); }
     });
   });
 }
@@ -154,7 +155,7 @@ function storageDocument(value) {
     !Object.prototype.hasOwnProperty.call(value, 'data') || !Object.prototype.hasOwnProperty.call(value, 'config') ||
     !value.data || typeof value.data !== 'object' || Array.isArray(value.data) ||
     !value.config || typeof value.config !== 'object' || Array.isArray(value.config)) {
-    throw new Error('脚本数据必须是包含 data 和 config 两个对象的 JSON');
+    throw controlledError('脚本数据必须是包含 data 和 config 两个对象的 JSON');
   }
   return { data: value.data, config: value.config };
 }
@@ -174,9 +175,12 @@ export function replaceScriptStorageContent(scriptName, base, content) {
   try {
     expected = JSON.stringify(storageDocument(JSON.parse(base)));
     replacement = storageDocument(JSON.parse(content));
-  } catch (error) { return Promise.reject(new Error(error.message || '脚本数据 JSON 无效')); }
+  } catch (error) {
+    if (error && error.name === 'SyntaxError') return Promise.reject(controlledError('脚本数据 JSON 无效'));
+    return Promise.reject(error);
+  }
   return mutate(next => {
-    if (storageContent(next, scriptName) !== expected) throw new Error('脚本数据已变更，请重新读取后再保存；当前修改尚未覆盖设备数据');
+    if (storageContent(next, scriptName) !== expected) throw controlledError('脚本数据已变更，请重新读取后再保存；当前修改尚未覆盖设备数据');
     const namespace = namespaceName(scriptName);
     next[namespace] = next[namespace] || {};
     next[namespace].data = replacement.data;

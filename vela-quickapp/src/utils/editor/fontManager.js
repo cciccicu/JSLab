@@ -1,3 +1,4 @@
+import { controlledError } from '../core/controlledError.js';
 import file from '@system.file';
 import { validateFontProfile } from './fontProfile.js';
 import { decodeBase64 } from '../files/textEncoding.js';
@@ -28,7 +29,7 @@ function ensureDirectory(uri, message) {
         uri,
         recursive: true,
         success: resolve,
-        fail: (data, code) => reject(new Error(message + ': ' + code))
+        fail: (data, code) => reject(controlledError(message + ': ' + code))
       })
     });
   });
@@ -41,7 +42,7 @@ function deleteIfPresent(uri) {
       success: () => file.delete({
         uri,
         success: resolve,
-        fail: (data, code) => reject(new Error('无法清理旧字体数据: ' + code))
+        fail: (data, code) => reject(controlledError('无法清理旧字体数据: ' + code))
       }),
       fail: resolve
     });
@@ -66,7 +67,7 @@ function writeJson(uri, value, message) {
       uri,
       text: JSON.stringify(value),
       success: resolve,
-      fail: (data, code) => reject(new Error(message + ': ' + code))
+      fail: (data, code) => reject(controlledError(message + ': ' + code))
     });
   });
 }
@@ -76,7 +77,7 @@ function listPendingParts() {
     file.list({
       uri: PENDING_PARTS_URI,
       success: data => resolve((data.fileList || []).filter(info => /\/part-\d{6}\.b64$/.test(info.uri))),
-      fail: (data, code) => reject(new Error('无法读取字体分块: ' + code))
+      fail: (data, code) => reject(controlledError('无法读取字体分块: ' + code))
     });
   });
 }
@@ -97,7 +98,7 @@ function clearLegacyBinaryParts() {
     file.list({
       uri: PENDING_PARTS_URI,
       success: data => resolve((data.fileList || []).filter(info => /\/part-\d{6}\.bin$/.test(info.uri))),
-      fail: (data, code) => reject(new Error('无法读取旧字体分块: ' + code))
+      fail: (data, code) => reject(controlledError('无法读取旧字体分块: ' + code))
     });
   }).then(parts => parts.reduce(
     (promise, part) => promise.then(() => deleteIfPresent(part.uri)),
@@ -157,13 +158,13 @@ export function preparePendingPackage(profile, expectedBytes, chunkBytes, finger
   const chunkSize = Number(chunkBytes);
   if (!isFinite(size) || Math.floor(size) !== size || size < 1 || size > MAX_FONT_BYTES ||
     !isFinite(chunkSize) || Math.floor(chunkSize) !== chunkSize || chunkSize < 1 || chunkSize > 16 * 1024) {
-    return Promise.reject(new Error('字体上传参数无效'));
+    return Promise.reject(controlledError('字体上传参数无效'));
   }
   if (typeof fingerprint !== 'string' || !/^[0-9a-f]{16}$/.test(fingerprint)) {
-    return Promise.reject(new Error('字体内容指纹无效'));
+    return Promise.reject(controlledError('字体内容指纹无效'));
   }
   if (typeof checksum !== 'string' || !/^[0-9a-f]{8}$/.test(checksum)) {
-    return Promise.reject(new Error('字体内容校验值无效'));
+    return Promise.reject(controlledError('字体内容校验值无效'));
   }
   return ensureFontDirectory()
     .then(() => ensureDirectory(PENDING_PARTS_URI, '无法创建字体分块目录'))
@@ -198,18 +199,18 @@ export function preparePendingPackage(profile, expectedBytes, chunkBytes, finger
 
 export function writePendingPart(index, encoded, state) {
   let binary;
-  try { binary = decodeBase64(encoded); } catch (error) { return Promise.reject(new Error('字体分块编码无效')); }
+  try { binary = decodeBase64(encoded); } catch (error) { return Promise.reject(controlledError('字体分块编码无效')); }
   if (typeof binary !== 'string' || !binary.length || !state || index !== state.nextIndex) {
-    return Promise.reject(new Error('字体分块状态无效'));
+    return Promise.reject(controlledError('字体分块状态无效'));
   }
   const expectedLength = Math.min(state.chunkBytes, state.expectedBytes - state.bytes);
-  if (binary.length !== expectedLength) return Promise.reject(new Error('字体分块长度无效'));
+  if (binary.length !== expectedLength) return Promise.reject(controlledError('字体分块长度无效'));
   const nextBytes = state.bytes + binary.length;
   if (nextBytes > state.expectedBytes || nextBytes > MAX_FONT_BYTES) {
-    return Promise.reject(new Error('字体不能超过 2 MiB'));
+    return Promise.reject(controlledError('字体不能超过 2 MiB'));
   }
   if (typeof encoded !== 'string' || encoded.length !== encodedPartLength(binary.length)) {
-    return Promise.reject(new Error('字体分块编码无效'));
+    return Promise.reject(controlledError('字体分块编码无效'));
   }
   const integrity = updateAdler32(binary, state.adlerA, state.adlerB);
   const nextState = Object.assign({}, state, {
@@ -223,7 +224,7 @@ export function writePendingPart(index, encoded, state) {
       uri: partUri(index),
       text: encoded,
       success: resolve,
-      fail: (data, code) => reject(new Error('写入字体分块失败: ' + code))
+      fail: (data, code) => reject(controlledError('写入字体分块失败: ' + code))
     });
   }).then(() => writeJson(PENDING_STATE_URI, nextState, '保存字体上传进度失败'))
     .then(() => nextState);
@@ -231,12 +232,12 @@ export function writePendingPart(index, encoded, state) {
 
 export function finishPendingPackage(state) {
   if (!state || state.bytes !== state.expectedBytes || state.bytes > MAX_FONT_BYTES) {
-    return Promise.reject(new Error('字体上传不完整，请继续上传'));
+    return Promise.reject(controlledError('字体上传不完整，请继续上传'));
   }
   return hasCompleteResumeParts(state).then((complete) => {
-    if (!complete) throw new Error('字体分片不完整，请重新上传');
+    if (!complete) throw controlledError('字体分片不完整，请重新上传');
     if (formatAdler32(state.adlerA, state.adlerB) !== state.checksum) {
-      throw new Error('字体内容校验失败，请重新上传');
+      throw controlledError('字体内容校验失败，请重新上传');
     }
     const metadata = Object.assign({}, state.profile, {
       storage: 'parts-base64-v2',
@@ -273,7 +274,7 @@ function validPendingMetadata(metadata) {
 export function requestInstallation() {
   return readJson(PENDING_DATA_URI).then((metadata) => {
     if (!validPendingMetadata(metadata)) {
-      throw new Error('没有完整的待安装字体包，请先在 AstroBox 上传字体');
+      throw controlledError('没有完整的待安装字体包，请先在 AstroBox 上传字体');
     }
     const request = {
       version: 1,

@@ -1,12 +1,16 @@
+import { controlledError } from '../core/controlledError.js';
 import file from '@system.file';
 import { sortFilesNewestFirst } from './fileMetadata.js';
 import { utf8ByteLength } from './textEncoding.js';
 import { removeScriptStorage, renameScriptStorage } from './scriptData.js';
+import { inspectBackup, recoverBackup, activeBackupTarget } from '../bridge/stagedScript.js';
 
 const SCRIPT_DIRECTORY_URI = 'internal://files/js/';
 const changeListeners = [];
 const fileLocks = {};
+const unlockWaiters = Object.create(null);
 let scriptDirectoryPromise = null;
+let scriptListPromise = null;
 
 function notifyChange(change) {
   changeListeners.slice().forEach((listener) => {
@@ -29,7 +33,7 @@ function subscribe(listener) {
 
 function validateScriptName(name) {
   if (typeof name !== 'string' || !name || name.length > 128) {
-    throw new Error('脚本文件名无效');
+    throw controlledError('脚本文件名无效');
   }
 
   if (
@@ -38,14 +42,14 @@ function validateScriptName(name) {
     name === '..' ||
     /[\x00-\x1f\x7f/\\]/.test(name)
   ) {
-    throw new Error('只允许不含路径的 .js 文件名');
+    throw controlledError('只允许不含路径的 .js 文件名');
   }
 
   return name;
 }
 
 function validateScriptContent(content) {
-  if (typeof content !== 'string') throw new Error('脚本内容必须是文本');
+  if (typeof content !== 'string') throw controlledError('脚本内容必须是文本');
   return content;
 }
 
@@ -59,13 +63,26 @@ function lockScript(name) {
 
 function unlockScript(name, token) {
   validateScriptName(name);
-  if (fileLocks[name] && (!token || fileLocks[name] === token)) delete fileLocks[name];
+  if (fileLocks[name] && (!token || fileLocks[name] === token)) {
+    delete fileLocks[name];
+    const waiters = unlockWaiters[name] || [];
+    delete unlockWaiters[name];
+    waiters.forEach(resolve => resolve());
+  }
+}
+
+function waitForUnlock(name) {
+  if (!fileLocks[name]) return Promise.resolve();
+  return new Promise(resolve => {
+    if (!unlockWaiters[name]) unlockWaiters[name] = [];
+    unlockWaiters[name].push(resolve);
+  });
 }
 
 function assertWritable(name, token) {
   validateScriptName(name);
   if (fileLocks[name] && fileLocks[name] !== token) {
-    throw new Error('文件正在编辑中，请先退出编辑器');
+    throw controlledError('文件正在编辑中，请先退出编辑器');
   }
 }
 
@@ -89,7 +106,7 @@ function ensureScriptDirectory() {
             file.access({
               uri: SCRIPT_DIRECTORY_URI,
               success: () => resolve(),
-              fail: () => reject(new Error('Failed to create script directory: ' + String(mkdirCode || accessCode)))
+              fail: () => reject(controlledError('Failed to create script directory: ' + String(mkdirCode || accessCode)))
             });
           }
         });
@@ -111,7 +128,7 @@ function validateNewScriptName(name) {
   // AstroBox's name limit counts UTF-8 bytes. Apply it to new writes while
   // keeping existing longer names readable and removable.
   if (utf8ByteLength(name) > 128) {
-    throw new Error('文件名含扩展名不能超过 128 个 UTF-8 字节（一个汉字通常占 3 字节）');
+    throw controlledError('文件名含扩展名不能超过 128 个 UTF-8 字节（一个汉字通常占 3 字节）');
   }
 }
 
@@ -125,21 +142,47 @@ function toScriptMeta(fileInfo) {
 }
 
 function listScripts() {
+  if (scriptListPromise) return scriptListPromise;
+  scriptListPromise = loadScriptList().then(result => {
+    scriptListPromise = null;
+    return result;
+  }, error => {
+    scriptListPromise = null;
+    throw error;
+  });
+  return scriptListPromise;
+}
+
+function loadScriptList() {
   return ensureScriptDirectory()
     .then(() => new Promise((resolve, reject) => {
       file.list({
         uri: SCRIPT_DIRECTORY_URI,
         success: (data) => {
           try {
-            if (!data || !Array.isArray(data.fileList)) throw new Error('Invalid script directory response');
-            resolve(sortFilesNewestFirst(data.fileList
-              .filter(fileInfo => fileInfo && typeof fileInfo.uri === 'string' && /\.js$/i.test(fileInfo.uri))
-              .map(toScriptMeta)));
+            if (!data || !Array.isArray(data.fileList)) throw controlledError('Invalid script directory response');
+            const markers = data.fileList.filter(info => info && typeof info.uri === 'string' &&
+              info.uri.indexOf(SCRIPT_DIRECTORY_URI) === 0 && /^\.jslab-backup-\d+-\d+\.json$/.test(info.uri.slice(SCRIPT_DIRECTORY_URI.length)));
+            if (!markers.length) {
+              resolve(sortFilesNewestFirst(data.fileList
+                .filter(info => info && typeof info.uri === 'string' && /\.js$/i.test(info.uri))
+                .map(toScriptMeta)));
+              return;
+            }
+            Promise.all(markers.map(info => {
+              const target = activeBackupTarget(info.uri);
+              return target ? Promise.resolve({ marker: info.uri, target, name: target.substring(target.lastIndexOf('/') + 1), active: true }) : inspectBackup(info.uri);
+            })).then(results => {
+              const infos = results.filter(Boolean);
+              const locked = infos.filter(info => fileLocks[info.name]).map(info => info.name);
+              if (locked.length || infos.some(info => info.active)) return Promise.all(locked.map(waitForUnlock));
+              return infos.reduce((chain, info) => chain.then(() => recoverBackup(info)), Promise.resolve());
+            }).then(() => loadScriptList()).then(resolve, reject);
           } catch (error) {
             reject(error);
           }
         },
-        fail: (data, code) => reject(new Error('Failed to list scripts: ' + code))
+        fail: (data, code) => reject(controlledError('Failed to list scripts: ' + code))
       });
     }));
 }
@@ -150,7 +193,7 @@ function readScript(name) {
       file.readText({
         uri: getScriptUri(name),
         success: (data) => resolve(data.text),
-        fail: (data, code) => reject(new Error('Failed to read script: ' + code))
+        fail: (data, code) => reject(controlledError('Failed to read script: ' + code))
       });
     }));
 }
@@ -189,7 +232,7 @@ function writeScript(name, content, options) {
           if (text === '' && options && options.fallbackToSpace) {
             writeText(' ');
           } else {
-            reject(new Error('Failed to write script: ' + code));
+            reject(controlledError('Failed to write script: ' + code));
           }
         }
       });
@@ -215,7 +258,7 @@ function renameScript(name, newName, options) {
     .then(() => new Promise((resolve, reject) => {
       file.access({
         uri: dstUri,
-        success: () => reject(new Error('目标文件已存在')),
+        success: () => reject(controlledError('目标文件已存在')),
         fail: () => {
           file.move({
             srcUri,
@@ -224,13 +267,13 @@ function renameScript(name, newName, options) {
               notifyChange({ action: 'rename', name: newName, previousName: name });
               resolve();
             },
-            fail: (data, code) => reject(new Error('Failed to rename script: ' + code))
+            fail: (data, code) => reject(controlledError('Failed to rename script: ' + code))
           });
         }
       });
     }))
     .then(() => renameScriptStorage(name, newName).catch((error) => {
-      throw new Error('脚本已重命名，但迁移数据和配置失败：' + error.message);
+      throw controlledError('脚本已重命名，但迁移数据和配置失败：' + error.message);
     }));
 }
 
@@ -248,11 +291,11 @@ function removeScript(name, options) {
           notifyChange({ action: 'delete', name });
           resolve();
         },
-        fail: (data, code) => reject(new Error('Failed to delete script: ' + code))
+        fail: (data, code) => reject(controlledError('Failed to delete script: ' + code))
       });
     }))
     .then(() => removeScriptStorage(name).catch((error) => {
-      throw new Error('脚本已删除，但清除数据和配置失败：' + error.message);
+      throw controlledError('脚本已删除，但清除数据和配置失败：' + error.message);
     }));
 }
 
@@ -265,6 +308,9 @@ export default {
   lock: lockScript,
   unlock: unlockScript,
   isLocked: name => !!fileLocks[name],
+  getScriptUri,
+  validateNewScriptName,
+  notifyExternalWrite: name => notifyChange({ action: 'write', name }),
   subscribe,
   maxScriptBytes: 0
 };

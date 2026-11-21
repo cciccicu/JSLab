@@ -496,7 +496,9 @@ test("fontProfile", async () => {
   const dataUrl = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 
   async function run() {
+    const errorUrl = dataUrl(fs.readFileSync(path.join(editorRoot, '../core/controlledError.js'), 'utf8'));
     const profileSource = fs.readFileSync(path.join(editorRoot, 'fontProfile.js'), 'utf8')
+      .replace("'../core/controlledError.js'", JSON.stringify(errorUrl))
       .replace("import file from '@system.file';", 'const file = { readText: options => options.fail() };');
     const profileUrl = dataUrl(profileSource);
     const profile = await import(profileUrl);
@@ -508,6 +510,7 @@ test("fontProfile", async () => {
     assert.throws(() => profile.validateFontProfile({ ...profile.DEFAULT_FONT_PROFILE, asciiWidthRatio: Infinity }));
 
     const packageSource = fs.readFileSync(path.join(editorRoot, 'fontManager.js'), 'utf8')
+      .replace("'../core/controlledError.js'", JSON.stringify(errorUrl))
       .replace("import file from '@system.file';", 'const file = {};')
       .replace("'./fontProfile.js'", JSON.stringify(profileUrl))
       .replace(/import \{ decodeBase64 \}[^;]+;/, '')

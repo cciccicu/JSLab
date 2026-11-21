@@ -1,3 +1,4 @@
+import { controlledError } from '../core/controlledError.js';
 import file from '@system.file';
 
 const ACTIVE_DATA_URI = '/common/fonts/active.json';
@@ -39,7 +40,7 @@ function cleanText(value, fallback, maximum) {
 function validateSourceName(name) {
   if (typeof name !== 'string' || !name || name.length > 128 ||
     !/\.(ttf|otf)$/i.test(name) || name.indexOf('..') !== -1 || /[\x00-\x1f\x7f/\\]/.test(name)) {
-    throw new Error('只允许不含路径的 .ttf 或 .otf 文件名');
+    throw controlledError('只允许不含路径的 .ttf 或 .otf 文件名');
   }
   return name;
 }
@@ -67,16 +68,16 @@ export function normalizeFontProfile(value) {
 }
 
 export function validateFontProfile(value) {
-  if (!value || typeof value !== 'object') throw new Error('缺少字体数据');
+  if (!value || typeof value !== 'object') throw controlledError('缺少字体数据');
   if (typeof value.name !== 'string' || !value.name.trim() || value.name.trim().length > 64 ||
     /[\x00-\x1f\x7f"\\]/.test(value.name)) {
-    throw new Error('字体名称无效');
+    throw controlledError('字体名称无效');
   }
   validateSourceName(value.sourceName);
   Object.keys(LIMITS).forEach((key) => {
     const number = Number(value[key]);
     const range = LIMITS[key];
-    if (isNaN(number) || number < range[0] || number > range[1]) throw new Error('字体参数无效: ' + key);
+    if (isNaN(number) || number < range[0] || number > range[1]) throw controlledError('字体参数无效: ' + key);
   });
   return normalizeFontProfile(value);
 }
