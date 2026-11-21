@@ -13,6 +13,7 @@ import icu.ccicc.jslab.sync.protocol.WEAR_PACKAGE
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -29,13 +30,21 @@ sealed interface WearEvent {
 
 /** The official SDK binds to Mi Fitness. This app neither scans BLE nor owns pairing. */
 class XiaomiTransport(context: Context, private val scope: CoroutineScope) {
+    private companion object {
+        // The SDK shares its listeners across transport instances in the same process.
+        // Connection operations and these records are confined to the main thread.
+        val pendingCleanup = mutableListOf<XiaomiListenerRegistration>()
+    }
+
     private val nodeApi = Wearable.getNodeApi(context.applicationContext)
     private val messageApi = Wearable.getMessageApi(context.applicationContext)
     private val authApi = Wearable.getAuthApi(context.applicationContext)
     private val serviceApi = Wearable.getServiceApi(context.applicationContext)
     private val mutableEvents = MutableSharedFlow<WearEvent>(extraBufferCapacity = 64)
     val events = mutableEvents.asSharedFlow()
-    private var active: String? = null
+    @Volatile private var active: String? = null
+    private var generation = 0L
+    private val registrations = mutableListOf<XiaomiListenerRegistration>()
     private val serviceListener = object : OnServiceConnectionListener {
         override fun onServiceConnected() { emit(WearEvent.Available) }
         override fun onServiceDisconnected() {
@@ -61,18 +70,34 @@ class XiaomiTransport(context: Context, private val scope: CoroutineScope) {
 
     suspend fun connect(device: WearDevice) = withTimeout(20_000) {
         disconnect()
-        if (authApi.checkPermission(device.id, Permission.DEVICE_MANAGER).await() != true) {
-            val granted = authApi.requestPermission(device.id, Permission.DEVICE_MANAGER).await()
-            require(granted.any { it.name == Permission.DEVICE_MANAGER.name }) { "请在小米运动健康中授予设备管理权限" }
-        }
-        require(nodeApi.isWearAppInstalled(device.id).await() == true) { "请先在穿戴设备上安装 JSLab，并确认两端签名一致" }
-        active = device.id
+        val attempt = generation
+        val id = device.id
         try {
-            messageApi.addListener(device.id, messageListener).await()
-            nodeApi.subscribe(device.id, DataItem.ITEM_CONNECTION, connectionListener).await()
-            nodeApi.launchWearApp(device.id, "hap://app/$WEAR_PACKAGE/pages/index").await()
+            for (registration in pendingCleanup.toList()) {
+                registration.remove().await()
+                pendingCleanup.remove(registration)
+            }
+            check(attempt == generation) { "设备连接已断开" }
+            if (authApi.checkPermission(id, Permission.DEVICE_MANAGER).await() != true) {
+                check(attempt == generation) { "设备连接已断开" }
+                val granted = authApi.requestPermission(id, Permission.DEVICE_MANAGER).await()
+                require(granted.any { it.name == Permission.DEVICE_MANAGER.name }) { "请在小米运动健康中授予设备管理权限" }
+            }
+            require(nodeApi.isWearAppInstalled(id).await() == true) { "请先在穿戴设备上安装 JSLab，并确认两端签名一致" }
+            check(attempt == generation) { "设备连接已断开" }
+            active = id
+            val message = messageApi.addListener(id, messageListener)
+            registrations += XiaomiListenerRegistration(message) { messageApi.removeListener(id) }
+            message.await()
+            check(attempt == generation) { "设备连接已断开" }
+            val connection = nodeApi.subscribe(id, DataItem.ITEM_CONNECTION, connectionListener)
+            registrations += XiaomiListenerRegistration(connection) { nodeApi.unsubscribe(id, DataItem.ITEM_CONNECTION) }
+            connection.await()
+            check(attempt == generation) { "设备连接已断开" }
+            nodeApi.launchWearApp(id, "hap://app/$WEAR_PACKAGE/pages/index").await()
+            check(attempt == generation) { "设备连接已断开" }
         } catch (error: Exception) {
-            disconnect()
+            if (attempt == generation) disconnect()
             throw error
         }
     }
@@ -88,13 +113,15 @@ class XiaomiTransport(context: Context, private val scope: CoroutineScope) {
     }
 
     fun disconnect() {
-        val id = active
+        generation++
         active = null
-        if (id != null) {
-            // The 1.4 AAR takes ONLY nodeId (the PDF still describes the older overload).
-            runCatching { messageApi.removeListener(id) }
-            runCatching { nodeApi.unsubscribe(id, DataItem.ITEM_CONNECTION) }
+        for (registration in registrations) {
+            pendingCleanup += registration
+            registration.remove().invokeOnCompletion { error ->
+                if (error == null) pendingCleanup.remove(registration)
+            }
         }
+        registrations.clear()
     }
 
     fun close() {
@@ -103,7 +130,49 @@ class XiaomiTransport(context: Context, private val scope: CoroutineScope) {
     }
 }
 
+internal class XiaomiListenerRegistration(
+    private val registration: Task<Void>,
+    private val unregister: () -> Task<Void>,
+) {
+    private var cleanup: CompletableDeferred<Unit>? = null
+
+    fun remove(): CompletableDeferred<Unit> {
+        cleanup?.let { if (!it.isCancelled) return it }
+        val completion = CompletableDeferred<Unit>()
+        cleanup = completion
+        // Cancelling the caller does not cancel the SDK Task. Wait for its result before removing.
+        registration.addOnSuccessListener {
+            try {
+                val removal = unregister()
+                removal.addOnSuccessListener { completion.complete(Unit) }
+                removal.addOnFailureListener { error ->
+                    if (error is IllegalStateException && error.message == "you have not registered") {
+                        completion.complete(Unit)
+                    } else {
+                        completion.completeExceptionally(error.asXiaomiError())
+                    }
+                }
+            } catch (error: Exception) {
+                completion.completeExceptionally(error.asXiaomiError())
+            }
+        }
+        registration.addOnFailureListener { completion.complete(Unit) }
+        return completion
+    }
+}
+
+private fun Exception.asXiaomiError(): IOException {
+    val detail = when (message) {
+        "you have registered" -> "消息监听已注册，请重试握手"
+        null -> "未提供错误详情"
+        else -> message
+    }
+    return IOException("小米互联组件错误：$detail", this)
+}
+
 private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { continuation ->
     addOnSuccessListener { if (continuation.isActive) continuation.resume(it) }
-    addOnFailureListener { if (continuation.isActive) continuation.resumeWithException(it) }
+    addOnFailureListener {
+        if (continuation.isActive) continuation.resumeWithException(it.asXiaomiError())
+    }
 }

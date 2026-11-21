@@ -144,7 +144,7 @@ class SyncViewModel @JvmOverloads constructor(
                 }
                 notice("尚未完成握手，请确认设备已连接小米运动健康并打开 JSLab")
             } catch (cancelled: CancellationException) { throw cancelled
-            } catch (_: Exception) { notice("握手失败，请检查小米运动健康后重试", true)
+            } catch (error: Exception) { notice(error.message ?: "握手失败，请检查小米运动健康后重试", true)
             } finally {
                 if (sequence == discoverySequence) mutableScreen.update { it.copy(discovering = false) }
             }

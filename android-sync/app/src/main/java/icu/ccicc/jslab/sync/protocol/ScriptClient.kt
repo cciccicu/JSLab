@@ -43,8 +43,7 @@ class ScriptClient(private val rpc: RpcClient) {
     suspend fun write(name: String, content: String, overwrite: Boolean, progress: (TransferProgress) -> Unit = {}) {
         require(validScriptName(name)) { "文件名必须是有效的 .js 文件名（最多 128 字符）" }
         // Validate before starting a session so malformed UTF-16 cannot disagree with the declared byte count.
-        utf8Chunks(content).forEach { }
-        val size = content.toByteArray(Charsets.UTF_8).size.toLong()
+        val size = utf8Chunks(content).sumOf { it.toByteArray(Charsets.UTF_8).size.toLong() }
         val start = rpc.request("writeStart", json("name" to name, "size" to size, "overwrite" to overwrite))
         val transferId = start.getString("transferId")
         require(transferId.isNotEmpty()) { "设备未建立上传会话" }

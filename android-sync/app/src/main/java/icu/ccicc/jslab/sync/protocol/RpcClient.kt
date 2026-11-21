@@ -34,7 +34,13 @@ class RpcClient(private val send: suspend (String) -> Unit) {
             val result = message.optJSONObject("result")
             if (result != null) response.complete(result)
             else response.completeExceptionally(IOException("设备响应格式无效"))
-        } else response.completeExceptionally(IOException(message.optString("error", "设备操作失败")))
+        } else {
+            val original = message.optString("error", "设备操作失败")
+            val controlled = message.optString("errorOrigin") == "jslab"
+            val detail = if (controlled) message.optString("errorDisplay", original) else original
+            val prefix = if (controlled) "手环端 JSLab 错误" else "手环返回错误"
+            response.completeExceptionally(IOException("$prefix：$detail"))
+        }
     }
 
     fun disconnect() {

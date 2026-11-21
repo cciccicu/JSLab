@@ -15,7 +15,7 @@ try {
     $sourceApk = "app/build/outputs/apk/$variantDirectory/app-$variantDirectory.apk"
     New-Item -ItemType Directory -Path 'dist' -Force | Out-Null
     $suffix = if ($Release) { '' } else { '-debug' }
-    $outputApk = "dist/JSLab-Sync-1.0.1$suffix.apk"
+    $outputApk = "dist/JSLab-Sync-1.0.2$suffix.apk"
     Copy-Item -LiteralPath $sourceApk -Destination $outputApk -Force
     New-Item -ItemType Directory -Path 'dist/third-party' -Force | Out-Null
     Copy-Item -LiteralPath 'third-party/sora-editor-0.24.4-source.zip','third-party/sora-editor-0.24.4-source.zip.sha256' -Destination 'dist/third-party' -Force

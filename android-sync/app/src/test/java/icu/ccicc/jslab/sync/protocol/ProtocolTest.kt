@@ -49,6 +49,23 @@ class ProtocolTest {
         assertTrue(pending.await().exceptionOrNull()?.message?.contains("断开") == true)
     }
 
+    @Test fun `RPC distinguishes marked JSLab errors from legacy or runtime messages`() = runTest {
+        val sent = mutableListOf<JSONObject>()
+        val rpc = RpcClient { sent += JSONObject(it) }
+        suspend fun failure(vararg fields: Pair<String, Any?>): String? {
+            val pending = async { runCatching { rpc.request("writeFinish") } }
+            runCurrent()
+            rpc.receive(json("v" to 2, "type" to "response", "id" to sent.last().getString("id"),
+                "ok" to false, *fields))
+            return pending.await().exceptionOrNull()?.message
+        }
+        assertEquals("手环端 JSLab 错误：写入脚本失败，系统错误码：300", failure(
+            "error" to "Failed to write script: 300", "errorOrigin" to "jslab",
+            "errorDisplay" to "写入脚本失败，系统错误码：300"))
+        assertEquals("手环返回错误：out of memory", failure("error" to "out of memory"))
+        assertEquals("手环返回错误：文件已存在", failure("error" to "文件已存在"))
+    }
+
     @Test fun `malformed UTF-8 and unpaired surrogate never silently replace script text`() {
         assertThrows(Exception::class.java) { decodeUtf8(byteArrayOf(0xC3.toByte(), 0x28)) }
         assertThrows(IllegalArgumentException::class.java) { utf8Chunks("\uD800").toList() }
