@@ -42,6 +42,7 @@ module.exports = {
     const activation = createActivationService(state);
     const ai = createAiService(state);
     const market = createMarketService(state);
+    ctx.onClose(market.close);
     const cloudFiles = createCloudFiles(state);
     const services = { activation, ai, market, cloudFiles };
 

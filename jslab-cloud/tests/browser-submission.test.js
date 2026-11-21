@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../assets/jslab-cloud.js'), 'utf8');
+const source = ['jslab-errors.js', 'jslab-cloud.js'].map(name => fs.readFileSync(path.join(__dirname, '../assets', name), 'utf8')).join('\n');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const response = (status, body) => ({ status, ok: status < 400, async json() { return body; } });
 
@@ -82,17 +82,11 @@ function browser(fetchResponse, { publish = true, devices = ['pro'], states = nu
   });
   return {
     form, fields, submit, action, unavailableAction, modal, requests, toasts, device, window, document, page,
-    get reloads() { return reloads; },
-    pagehide: () => windowEvents.pagehide(),
-    visible: () => handlers.visibilitychange(),
-    tickPoll() {
-      const timer = timers.find(value => value.delay === 15000 && !value.canceled);
-      assert.ok(timer, 'a pending review should schedule a refresh');
-      timer.canceled = true; timer.callback();
-    },
+    get reloads() { return reloads; }, timers,
+    pagehide: () => windowEvents.pagehide?.(),
+    visible: () => handlers.visibilitychange?.(),
     status: () => page.children[0],
-    send: () => handlers.submit({ target: { closest: () => form }, preventDefault() {}, submitter: null }),
-    navigate() { timers.find(timer => timer.delay === 650).callback(); }
+    send: () => handlers.submit({ target: { closest: () => form }, preventDefault() {}, submitter: null })
   };
 }
 
@@ -106,13 +100,13 @@ test('market submission hides the form immediately and allows only one pending r
   assert.equal(fixture.modal.visible, false);
   assert.equal(fixture.submit.disabled, true);
   assert.equal(fixture.action.disabled, true);
-  assert.match(fixture.status().textContent, /正在提交.*等待审核/);
+  assert.match(fixture.status().textContent, /正在提交脚本/);
+  assert.doesNotMatch(fixture.status().textContent, /等待审核/);
   finish(response(200, { status: 'pending', marketId: 7 }));
   await flush();
   assert.match(fixture.status().textContent, /提交成功.*等待审核/);
   await fixture.send();
   assert.equal(fixture.requests.length, 1, 'the form stays locked until navigation');
-  fixture.navigate();
   assert.equal(fixture.window.location.href, '/jslab-cloud/workspace/market?tab=mine');
 });
 
@@ -129,7 +123,6 @@ for (const [status, message, style] of [
     assert.equal(fixture.form.resets, 0);
     assert.match(fixture.status().textContent, message);
     assert.equal(fixture.status().className, 'alert alert-' + style);
-    fixture.navigate();
     assert.equal(fixture.window.location.href, '/jslab-cloud/workspace/market?tab=mine');
   });
 }
@@ -141,7 +134,8 @@ test('a failed market submission keeps the draft and offers a working retry', as
   });
   await fixture.send();
   await flush();
-  assert.match(fixture.status().textContent, /提交未完成.*connection lost/);
+  assert.match(fixture.status().textContent, /提交未完成.*\[浏览器\].*请求未能完成/);
+  assert.doesNotMatch(fixture.status().textContent, /connection lost/);
   assert.equal(fixture.fields.source, 'console.log(1)');
   assert.equal(fixture.form.resets, 0);
   assert.equal(fixture.submit.disabled, false);
@@ -163,6 +157,7 @@ test('device validation leaves an invalid form open without sending a request', 
   assert.equal(fixture.form.hidden, false);
   assert.equal(fixture.modal.visible, true);
   assert.equal(fixture.device.focused, true);
+  assert.match(fixture.toasts[0].message, /^\[前端\]/);
 });
 
 test('CSRF retry refreshes only the token and keeps the submitted source and lock', async () => {
@@ -207,6 +202,7 @@ test('an invalid success response cannot be displayed as a successful submission
   const fixture = browser(async () => response(200, { ok: true }));
   await fixture.send(); await flush();
   assert.match(fixture.status().textContent, /无法确认提交结果/);
+  assert.match(fixture.status().textContent, /\[接口\]/);
   assert.equal(fixture.form.resets, 0);
   assert.equal(fixture.submit.disabled, false);
 });
@@ -222,57 +218,22 @@ test('browser tag validation matches the handset limits', async () => {
   }
 });
 
-test('the publications page refreshes after a pending review changes status', async () => {
-  const fixture = browser(async () => response(200, { scripts: [{ id: 4, status: 'published', revision: 'r1' }] }), {
+test('pending publications never schedule polling or reload on visibility changes', async () => {
+  const fixture = browser(async () => { throw new Error('must not poll'); }, {
     states: [{ id: 4, status: 'pending', reason: '', revision: 'r1' }]
   });
   fixture.modal.visible = false;
-  fixture.tickPoll(); await flush();
-  assert.equal(fixture.requests[0].url, '/jslab-cloud/api/cloud/market?mine=1&q=');
-  assert.equal(fixture.reloads, 1);
-});
-
-test('review polling skips hidden pages and open forms and never reloads an edited form', async () => {
-  let finish;
-  const fixture = browser(() => new Promise(resolve => { finish = resolve; }), {
-    states: [{ id: 4, status: 'pending', reason: '', revision: 'r1' }]
-  });
-  fixture.tickPoll();
-  assert.equal(fixture.requests.length, 0, 'the initially open form blocks polling');
-  fixture.modal.visible = false;
-  fixture.document.hidden = true;
-  fixture.tickPoll();
+  fixture.visible(); fixture.pagehide(); await flush();
   assert.equal(fixture.requests.length, 0);
-  fixture.document.hidden = false;
-  fixture.tickPoll();
-  fixture.modal.visible = true;
-  finish(response(200, { scripts: [{ id: 4, status: 'rejected', revision: 'r1', review: { reason: 'explain usage' } }] }));
-  await flush();
-  assert.equal(fixture.reloads, 0, 'opening a form during the request also prevents reload');
-});
-
-test('review polling ignores a late response after the page is closed', async () => {
-  let finish;
-  const fixture = browser(() => new Promise(resolve => { finish = resolve; }), {
-    states: [{ id: 4, status: 'pending', reason: '', revision: 'r1' }]
-  });
-  fixture.modal.visible = false;
-  fixture.tickPoll(); fixture.pagehide();
-  finish(response(200, { scripts: [{ id: 4, status: 'published', revision: 'r1' }] }));
-  await flush();
   assert.equal(fixture.reloads, 0);
+  assert.equal(fixture.timers.some(timer => timer.delay === 15000), false);
 });
 
-test('review polling preserves a failed submission draft and skips final review states', async () => {
-  const fixture = browser(async () => { throw new Error('offline'); }, {
-    states: [{ id: 4, status: 'pending', reason: '', revision: 'r1' }]
-  });
+test('an oversized market submission explains HTTP 413 and retains its draft', async () => {
+  const fixture = browser(async () => response(413, { error: 'request_failed', message: '请求失败，请稍后重试。' }));
   await fixture.send(); await flush();
-  assert.equal(fixture.modal.visible, false);
-  fixture.tickPoll();
-  assert.equal(fixture.requests.length, 1, 'the retry draft must not be discarded by a page reload');
-  const complete = browser(async () => { throw new Error('must not poll'); }, { states: [{ id: 4, status: 'published', reason: '', revision: 'r1' }] });
-  complete.modal.visible = false;
-  complete.visible(); await flush();
-  assert.equal(complete.requests.length, 0);
+  assert.match(fixture.status().textContent, /超过服务器允许的大小/);
+  assert.match(fixture.status().textContent, /\[接口\] HTTP 413/);
+  assert.equal(fixture.fields.source, 'console.log(1)');
+  assert.equal(fixture.submit.disabled, false);
 });

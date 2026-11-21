@@ -4,24 +4,13 @@ const contract = require('./runtime-contract.json');
 const MAX_SOURCE_BYTES = contract.sourceBytes;
 const legacySections = require('./ai-prompt-v1.json');
 const emojiCatalog = require('./ai-prompt-emoji.json');
+const { resolveClientCompatibility } = require('./client-compatibility');
 const LATEST_PROMPT_VERSION = 3;
-// Explicit client-version gates keep future component additions out of older
-// prompts. Existing snapshots must not depend on the current runtime contract.
-const promptReleases = [
-  { minimum: [2, 0, 7], version: 3 },
-  { minimum: [2, 0, 6], version: 2 }
-];
 
 // Versionless clients predate the bundled icon font. Never infer their version
 // from deployment time, request text, or the shared runtime contract identity.
 function resolveAiPromptVersion(jslabVersion) {
-  if (typeof jslabVersion !== 'string' || !/^\d{1,5}\.\d{1,5}\.\d{1,5}$/.test(jslabVersion)) return 1;
-  const current = jslabVersion.split('.').map(Number);
-  for (const release of promptReleases) {
-    const difference = current.map((part, index) => part - release.minimum[index]).find(part => part !== 0) || 0;
-    if (difference >= 0) return release.version;
-  }
-  return 1;
+  return resolveClientCompatibility(jslabVersion).aiPromptVersion;
 }
 
 const iconSection = (fontDescription) => [

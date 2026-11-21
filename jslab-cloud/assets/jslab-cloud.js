@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  var errors = window.JSLabErrors;
 
   function copySource(button) {
     var card = button.closest('.jslab-cloud-source-card, .jslab-cloud-editor-card');
@@ -7,7 +8,7 @@
     if (!source) return;
     var value = 'value' in source ? source.value : source.textContent;
     if (!navigator.clipboard) {
-      showToast('复制脚本源码：当前浏览器未提供剪贴板写入接口。', true);
+      showToast(errors.browser('复制脚本源码：当前浏览器未提供剪贴板写入接口。'), true);
       return;
     }
     navigator.clipboard.writeText(value).then(function () {
@@ -15,7 +16,7 @@
       button.textContent = 'Copied';
       window.setTimeout(function () { button.textContent = original; }, 1400);
     }).catch(function (error) {
-      showToast('复制脚本源码：浏览器拒绝写入剪贴板（' + (error && error.name || '未提供异常类型') + '）。', true);
+      showToast(errors.browser('复制脚本源码：浏览器拒绝写入剪贴板（' + (error && error.name || '未提供异常类型') + '）。'), true);
     });
   }
 
@@ -25,13 +26,17 @@
     var state = form.querySelector('[data-save-state]');
     if (!source) return;
     var draftKey = 'jslab-cloud:draft:' + (form.querySelector('[name="name"]')?.value || 'new');
-    var draft = window.localStorage && window.localStorage.getItem(draftKey);
-    if (draft && !source.value) source.value = draft;
+    try {
+      var draft = window.localStorage.getItem(draftKey);
+      if (draft && !source.value) source.value = draft;
+    } catch (_) { showToast(errors.browser('无法读取本地草稿，请检查浏览器存储权限。'), true); }
     var update = function () {
       var bytes = new TextEncoder().encode(source.value).length;
       if (count) count.textContent = bytes.toLocaleString() + ' 字节';
-      if (state) state.textContent = '草稿已保存到本地';
-      try { window.localStorage.setItem(draftKey, source.value); } catch (_) {}
+      try {
+        window.localStorage.setItem(draftKey, source.value);
+        if (state) state.textContent = '草稿已保存到本地';
+      } catch (_) { if (state) state.textContent = errors.browser('本地草稿保存失败，请检查浏览器存储权限和可用空间。').message; }
     };
     source.addEventListener('input', update);
     // Keep local drafts on validation errors and revision conflicts.
@@ -39,6 +44,7 @@
   }
 
   function showToast(message, danger) {
+    if (danger) message = errors.format(message);
     var type = danger ? 'danger' : 'success';
     var title = 'JSLab Cloud';
     if (window.CCICC && typeof window.CCICC.toast === 'function') {
@@ -127,18 +133,16 @@
   }
 
   async function refreshCsrf(form) {
-    var response;
-    try {
-      response = await fetch(window.location.href, { headers: { Accept: 'text/html' }, cache: 'no-store' });
-    } catch (error) {
-      throw new Error(requestFailure(error, '刷新表单安全令牌', window.location.href));
-    }
-    if (!response.ok) throw new Error('刷新表单安全令牌：服务器返回 HTTP ' + response.status + '。');
-    var html = await response.text();
+    var response = await errors.request(window.location.href, { headers: { Accept: 'text/html' }, cache: 'no-store' }, '刷新表单安全令牌');
+    if (!response.ok) throw errors.api('刷新表单安全令牌失败。', response.status);
+    var html;
+    try { html = await response.text(); }
+    catch (_) { throw errors.browser('刷新表单安全令牌：读取页面响应失败，请检查网络后重试。'); }
     var parsed = new DOMParser().parseFromString(html, 'text/html');
     var fresh = parsed.querySelector('input[name="_csrf"]');
     var current = form.querySelector('input[name="_csrf"]');
-    if (!fresh || !current || !fresh.value) throw new Error('刷新表单安全令牌：页面响应中缺少可用的 _csrf 字段。');
+    if (!fresh || !fresh.value) throw errors.api('刷新表单安全令牌：页面响应中缺少可用的 _csrf 字段。');
+    if (!current) throw errors.frontend('当前表单缺少安全令牌字段。');
     current.value = fresh.value;
     return true;
   }
@@ -156,29 +160,11 @@
     return '云服务返回 HTTP ' + status + '，响应中没有错误详情。';
   }
 
-  function requestFailure(error, operation, url) {
-    var name = error && error.name ? error.name : '未提供异常类型';
-    var detail = error && error.message ? error.message : '浏览器未返回错误详情';
-    if (error && error.cloudResponse) return detail;
-    var target = new URL(url, window.location.href).pathname;
-    return operation + '：浏览器无法请求 ' + target + '（' + name + '：' + detail + '）。';
-  }
-
   async function fetchJson(url, options, operation) {
-    var response;
-    try {
-      response = await fetch(url, options || {});
-    } catch (error) {
-      throw new Error(requestFailure(error, operation, url));
-    }
-    var result;
-    try {
-      result = await response.json();
-    } catch (error) {
-      throw new Error(operation + '：服务器返回 HTTP ' + response.status + '，但响应不是有效 JSON（' + (error && error.name || '解析错误') + '）。');
-    }
+    var response = await errors.request(url, options || {}, operation);
+    var result = await errors.readJson(response, operation);
     if (!response.ok) {
-      var responseError = new Error(errorMessage(result, response.status));
+      var responseError = errors.api(errorMessage(result, response.status), response.status);
       responseError.cloudResponse = true;
       throw responseError;
     }
@@ -217,23 +203,13 @@
       form.hidden = true;
       var publishModal = form.closest('.modal');
       if (publishModal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(publishModal).hide();
-      showPublishStatus('正在提交脚本并等待审核结果，请稍候…', 'info');
+      showPublishStatus('正在提交脚本…', 'info');
     }
     try {
       // Retries keep the same form lock and submitted values.
       while (true) {
-        var response;
-        try {
-          response = await fetch(form.action, { method: (form.method || 'post').toUpperCase(), body: data, headers: { Accept: 'application/json' } });
-        } catch (error) {
-          throw new Error(requestFailure(error, '提交 JSLab Cloud 表单', form.action));
-        }
-        var result;
-        try {
-          result = await response.json();
-        } catch (error) {
-          throw new Error('提交 JSLab Cloud 表单：服务器返回 HTTP ' + response.status + '，但响应不是有效 JSON（' + (error && error.name || '解析错误') + '）。');
-        }
+        var response = await errors.request(form.action, { method: (form.method || 'post').toUpperCase(), body: data, headers: { Accept: 'application/json' } }, '提交 JSLab Cloud 表单');
+        var result = await errors.readJson(response, '提交 JSLab Cloud 表单');
         if (response.status === 403 && !retried && await refreshCsrf(form)) {
           retried = true;
           data.set('_csrf', form.querySelector('[name="_csrf"]').value);
@@ -248,7 +224,9 @@
         break;
       }
       if (!response.ok) {
-        var responseError = new Error(errorMessage(result, response.status));
+        var responseError = errors.api(publish && response.status === 413
+          ? '提交内容超过服务器允许的大小，请缩减内容后重试。'
+          : errorMessage(result, response.status), response.status);
         responseError.cloudResponse = true;
         throw responseError;
       }
@@ -269,7 +247,7 @@
       }
       if (publish) {
         if (!Number.isSafeInteger(Number(result.marketId)) || Number(result.marketId) <= 0 || ['pending', 'published', 'rejected'].indexOf(result.status) < 0) {
-          throw new Error('无法确认提交结果，请先在“我的发布”中查看提交和审核状态。');
+          throw errors.api('无法确认提交结果，请先在“我的发布”中查看提交和审核状态。');
         }
         form.dataset.marketId = result.marketId;
         var reason = result.review && result.review.reason && result.review.reason.trim();
@@ -278,7 +256,7 @@
           : '提交成功，脚本正在等待审核。';
         showPublishStatus(message, result.status === 'published' ? 'success' : result.status === 'rejected' ? 'danger' : 'warning');
         navigating = true;
-        window.setTimeout(function () { window.location.href = '/jslab-cloud/workspace/market?tab=mine'; }, 650);
+        window.location.href = '/jslab-cloud/workspace/market?tab=mine';
         return;
       }
       showToast(result.message || '操作已完成。', false);
@@ -288,7 +266,7 @@
       if (result.reload) window.setTimeout(function () { window.location.reload(); }, 700);
       if (!result.reload) form.reset();
     } catch (error) {
-      var message = error && error.message ? error.message : '提交 JSLab Cloud 表单：浏览器没有返回错误详情。';
+      var message = errors.format(error);
       if (publish) showPublishStatus('提交未完成：' + message, 'danger', form);
       else showToast(message, true);
     } finally {
@@ -364,7 +342,7 @@
       if (submittingForms.has(editForm)) return;
       var marketManageUrl = '/jslab-cloud/api/cloud/market/' + marketEditButton.getAttribute('data-cloud-market-edit') + '/manage';
       fetchJson(marketManageUrl, { headers: { Accept: 'application/json' } }, '读取待编辑的市场脚本').then(function (result) {
-        if (!result.script) throw new Error('读取待编辑的市场脚本：成功响应中缺少 script 字段。');
+        if (!result.script) throw errors.api('读取待编辑的市场脚本：成功响应中缺少 script 字段。');
         if (submittingForms.has(editForm)) return;
         editForm.hidden = false;
         editForm.reset();
@@ -378,7 +356,7 @@
         });
         editForm.querySelector('[name="source"]').value = result.script.source || '';
         window.bootstrap.Modal.getOrCreateInstance(editModal).show();
-      }).catch(function (error) { showToast(error && error.message ? error.message : '读取待编辑的市场脚本：浏览器没有返回错误详情。', true); });
+      }).catch(function (error) { showToast(error, true); });
     }
     var deleteButton = event.target.closest('[data-cloud-delete]');
     if (deleteButton) {
@@ -403,55 +381,6 @@
 
   document.querySelectorAll('[data-cloud-editor]').forEach(initEditor);
 
-  // Follow pending reviews only while the publications page is visible.
-  var marketGrid = document.querySelector('[data-cloud-market-states]');
-  if (marketGrid) {
-    var marketStates = JSON.parse(marketGrid.dataset.cloudMarketStates);
-    var marketPollTimer = null;
-    var marketPollBusy = false;
-    var marketPollStopped = false;
-    var marketPollNote = null;
-    function marketFormOpen() {
-      return document.querySelector('.modal.show') || document.querySelector('[data-cloud-publish-retry]') || submittingForms.has(document.querySelector('[data-cloud-publish-form]'));
-    }
-    function scheduleMarketPoll() {
-      window.clearTimeout(marketPollTimer);
-      if (!marketPollStopped && marketStates.some(function (script) { return script.status === 'pending'; })) {
-        marketPollTimer = window.setTimeout(pollMarketStates, 15000);
-      }
-    }
-    async function pollMarketStates() {
-      if (marketPollStopped || marketPollBusy || !marketStates.some(function (script) { return script.status === 'pending'; })) return;
-      if (document.hidden || marketFormOpen()) { scheduleMarketPoll(); return; }
-      marketPollBusy = true;
-      try {
-        var result = await fetchJson('/jslab-cloud/api/cloud/market?mine=1&q=' + encodeURIComponent(marketGrid.dataset.query || ''), { headers: { Accept: 'application/json' }, cache: 'no-store' }, '刷新审核状态');
-        if (!Array.isArray(result.scripts)) throw new Error('审核状态响应中缺少脚本列表。');
-        if (marketPollStopped) return;
-        if (marketPollNote) marketPollNote.textContent = '';
-        var next = result.scripts.map(function (script) { return { id: script.id, status: script.status, reason: script.review && script.review.reason || '', revision: script.revision || '' }; });
-        if (!document.hidden && !marketFormOpen() && JSON.stringify(next) !== JSON.stringify(marketStates)) {
-          marketPollStopped = true;
-          window.location.reload();
-        }
-      } catch (error) {
-        if (!marketPollStopped) {
-          if (!marketPollNote) {
-            marketPollNote = document.createElement('p');
-            marketPollNote.className = 'small text-body-secondary';
-            marketPollNote.setAttribute('role', 'status');
-            marketGrid.insertAdjacentElement('beforebegin', marketPollNote);
-          }
-          marketPollNote.textContent = '审核状态暂时无法刷新，请刷新页面重试。';
-        }
-      } finally { marketPollBusy = false; scheduleMarketPoll(); }
-    }
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) pollMarketStates(); });
-    window.addEventListener('pagehide', function () { marketPollStopped = true; window.clearTimeout(marketPollTimer); });
-    window.addEventListener('pageshow', function () { marketPollStopped = false; scheduleMarketPoll(); });
-    scheduleMarketPoll();
-  }
-
   var requestedPanelOpened = false;
   function openRequestedPanel() {
     if (requestedPanelOpened) return true;
@@ -464,13 +393,13 @@
       if (publishElement && publishForm) {
         var publishSourceUrl = '/jslab-cloud/api/cloud/scripts/' + encodeURIComponent(publishId);
         fetchJson(publishSourceUrl, { headers: { Accept: 'application/json' } }, '读取待发布的云空间文件').then(function (result) {
-          if (!result.script) throw new Error('读取待发布的云空间文件：成功响应中缺少 script 字段。');
+          if (!result.script) throw errors.api('读取待发布的云空间文件：成功响应中缺少 script 字段。');
           publishForm.reset();
           publishForm.dataset.marketId = '';
           showReviewFeedback(publishForm, '');
           publishForm.querySelector('[name="source"]').value = result.source || '';
           window.bootstrap.Modal.getOrCreateInstance(publishElement).show();
-        }).catch(function (error) { showToast(error && error.message ? error.message : '读取待发布的云空间文件：浏览器没有返回错误详情。', true); });
+        }).catch(function (error) { showToast(error, true); });
         requestedPanelOpened = true;
         return true;
       }

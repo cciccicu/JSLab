@@ -9,6 +9,7 @@ const { withErrorMessage } = require('../lib/error-messages.js');
 const { identity: RUNTIME_CONTRACT } = require('../lib/runtime-contract.json');
 const browserScript = fs.readFileSync(path.join(__dirname, '..', 'assets', 'jslab-cloud.js'), 'utf8');
 const { DOCS, renderDocument } = require('../lib/browser-docs-pages');
+const flushReviews = () => new Promise(resolve => setImmediate(resolve));
 
 test('browser and legacy device submissions share review states, reasons and published snapshots', async () => {
   const fixture = context();
@@ -38,7 +39,7 @@ test('browser and legacy device submissions share review states, reasons and pub
       }
       const page = await invoke(fixture.frontend.registry.get('GET /workspace/market'), { ...browser, query: { tab: 'mine' } });
       assert.ok(page.body.includes(label));
-      assert.match(page.body, /data-cloud-market-states=/);
+      assert.doesNotMatch(page.body, /data-cloud-market-states=/);
       if (reason) assert.ok(page.body.includes(reason));
       return values[0];
     };
@@ -61,7 +62,9 @@ test('browser and legacy device submissions share review states, reasons and pub
       fixture.values.llmModel = 'review-model';
       global.fetch = async () => ({ ok: true, async json() { return { choices: [{ message: { content: '{"decision":"reject","reason":"clarify usage"}' } }] }; } });
       const rejected = await invoke(fixture.frontend.registry.get(route), { ...request, body: changed });
-      assert.equal(rejected.body.review.reason, 'clarify usage');
+      if (route.includes('/device/')) assert.equal(rejected.body.review.reason, 'clarify usage');
+      else { assert.equal(rejected.body.status, 'pending'); assert.equal(rejected.body.review, null); }
+      await flushReviews();
       await ownerStates(id, 'rejected', '更新被拒绝，旧版仍已发布', 'clarify usage');
       for (const prefix of ['/api/cloud', '/api/cloud/device']) {
         const visible = await invoke(fixture.frontend.registry.get('GET ' + prefix + '/market/:id/source'), { headers: {}, params: { id: String(id) }, query: {} });
@@ -241,9 +244,11 @@ function context() {
   const values = {};
   const registeredConfig = [];
   const navigation = [];
+  const closeHandlers = [];
   return {
-    raw, frontend, admin, user, values, registeredConfig, navigation,
+    raw, frontend, admin, user, values, registeredConfig, navigation, closeHandlers,
     ctx: {
+      onClose(handler) { closeHandlers.push(handler); },
       manifest: require('../manifest.json'), logger: { info() {}, warn() {} },
       config: { register(meta) { registeredConfig.push(meta); if (!(meta.key in values)) values[meta.key] = meta.defaultValue; }, get(key) { return values[key]; } },
       db: {
@@ -334,7 +339,7 @@ test('valid device AI request reaches provider configuration check', async () =>
 });
 
 test('configured device AI request generates source and settles credit', async () => {
-  for (const [jslabVersion, expectedVersion] of [[undefined, 1], ['2.0.5', 1], ['2.0.6', 2], ['2.0.7', 3], ['2.0.10', 3], ['3.0.0', 3], ['invalid', 1]]) {
+  for (const [jslabVersion, expectedVersion] of [[undefined, 1], ['2.0.5', 1], ['2.0.6', 2], ['2.0.7', 3], ['2.0.8', 3], ['2.0.10', 3], ['3.0.0', 3], ['invalid', 1]]) {
     const fixture = context();
     const previousFetch = globalThis.fetch;
     try {
@@ -890,6 +895,154 @@ test('admin review detail protects unpublished source and handles missing script
   } finally { fixture.raw.close(); }
 });
 
+test('report handling upgrades existing reports without losing history on repeated boots', () => {
+  const f = context();
+  try {
+    f.raw.exec(`CREATE TABLE cloud_market_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, script_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+      reason TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+      INSERT INTO cloud_market_reports(script_id,user_id,reason) VALUES(42,1,'旧举报');`);
+    plugin.boot(f.ctx);
+    const report = f.raw.prepare('SELECT * FROM cloud_market_reports').get();
+    assert.equal(report.reason, '旧举报');
+    assert.equal(report.status, 'pending');
+    assert.equal(report.resolved_at, null);
+    f.raw.exec("UPDATE cloud_market_reports SET status='dismissed',resolved_by=1,resolved_at='2026-11-07 12:00:00'");
+    plugin.boot(f.ctx);
+    const resolved = f.raw.prepare('SELECT * FROM cloud_market_reports').get();
+    assert.equal(resolved.status, 'dismissed');
+    assert.equal(resolved.resolved_by, 1);
+    assert.equal(resolved.resolved_at, '2026-11-07 12:00:00');
+    assert.equal(resolved.created_at, report.created_at);
+  } finally { f.raw.close(); }
+});
+
+test('report handling lets admins inspect and dismiss reports, including deleted scripts', async () => {
+  const f = context();
+  try {
+    plugin.boot(f.ctx);
+    const request = { user: f.user, body: {}, params: {}, query: {}, headers: {} };
+    const source = 'console.log("</code><script>alert(1)</script>");';
+    const submitted = await invoke(f.frontend.registry.get('POST /api/cloud/market/submit'), {
+      ...request, body: { marketName: '<b>Reported</b>', marketDescription: 'description', source }
+    });
+    const scriptId = submitted.body.marketId;
+    await reviewMarket(f, scriptId, 'published');
+    await invoke(f.frontend.registry.get('POST /api/cloud/market/:id/report'), {
+      ...request, params: { id: scriptId }, body: { reason: '<img src=x onerror=alert(1)>' }
+    });
+    const reportId = f.raw.prepare('SELECT id FROM cloud_market_reports').get().id;
+    const params = { id: String(reportId) };
+    const detailRoute = f.admin.registry.get('GET /reports/:id');
+    const resolveRoute = f.admin.registry.get('POST /reports/:id/resolve');
+    assert.ok(resolveRoute.includes(f.ctx.security.csrfProtection));
+    for (const user of [undefined, { ...f.user, role: 'member' }]) {
+      assert.equal((await invoke(detailRoute, { ...request, params, user })).statusCode, 403);
+      assert.equal((await invoke(resolveRoute, { ...request, params, user, body: { action: 'dismiss' } })).statusCode, 403);
+    }
+    for (const id of ['0', 'invalid', '99999']) {
+      assert.equal((await invoke(detailRoute, { ...request, params: { id } })).statusCode, 404);
+      assert.equal((await invoke(resolveRoute, { ...request, params: { id }, body: { action: 'dismiss' } })).statusCode, 404);
+    }
+    const detail = await invoke(detailRoute, { ...request, params });
+    assert.match(detail.body, /当前公开版本源码/);
+    assert.match(detail.body, /&lt;b&gt;Reported&lt;\/b&gt;/);
+    assert.match(detail.body, /&lt;img src=x onerror=alert\(1\)&gt;/);
+    assert.match(detail.body, /&lt;\/code&gt;&lt;script&gt;/);
+    assert.doesNotMatch(detail.body, /<script>|<img/);
+    assert.match(detail.body, /name="_csrf" value="csrf"/);
+    assert.match(detail.body, /下架脚本|忽略举报/);
+    assert.equal((await invoke(resolveRoute, { ...request, params, body: { action: 'invalid' } })).statusCode, 400);
+    assert.equal((await invoke(resolveRoute, { ...request, params, body: { action: 'takedown' } })).statusCode, 409);
+    // An older pending report must remain accessible ahead of recently handled reports.
+    for (let i = 0; i < 21; i++) f.raw.prepare("INSERT INTO cloud_market_reports(script_id,user_id,reason,status) VALUES(?,1,'done','dismissed')").run(scriptId);
+    const listing = await invoke(f.admin.registry.get('GET /'), request);
+    assert.ok(listing.body.includes(`href="/admin/jslab-cloud/reports/${reportId}"`));
+    assert.match(listing.body, /查看并处理/);
+    const before = f.raw.prepare('SELECT * FROM cloud_market_scripts WHERE id=?').get(scriptId);
+    const dismissed = await invoke(resolveRoute, { ...request, params, body: { action: 'dismiss' } });
+    assert.equal(dismissed.redirected, '/admin/jslab-cloud#market-reports');
+    assert.deepEqual(f.raw.prepare('SELECT * FROM cloud_market_scripts WHERE id=?').get(scriptId), before);
+    const record = f.raw.prepare('SELECT * FROM cloud_market_reports WHERE id=?').get(reportId);
+    assert.equal(record.status, 'dismissed');
+    assert.equal(record.resolved_by, f.user.id);
+    assert.ok(record.resolved_at);
+    assert.equal((await invoke(resolveRoute, { ...request, params, body: { action: 'dismiss' } })).statusCode, 409);
+    assert.match((await invoke(detailRoute, { ...request, params })).body, /处理人：tester/);
+    assert.equal(f.raw.prepare("SELECT COUNT(*) AS n FROM cloud_audit_log WHERE action='market.report.resolve'").get().n, 1);
+    const orphanId = Number(f.raw.prepare("INSERT INTO cloud_market_reports(script_id,user_id,reason) VALUES(?,1,'deleted')").run(scriptId).lastInsertRowid);
+    f.raw.prepare('DELETE FROM cloud_market_scripts WHERE id=?').run(scriptId);
+    assert.match((await invoke(f.admin.registry.get('GET /'), request)).body, /已删除的脚本/);
+    const deleted = await invoke(detailRoute, { ...request, params: { id: String(orphanId) } });
+    assert.match(deleted.body, /脚本已删除，无需下架/);
+    assert.doesNotMatch(deleted.body, /value="takedown"/);
+    assert.equal((await invoke(resolveRoute, { ...request, params: { id: String(orphanId) }, body: { action: 'dismiss' } })).statusCode, 200);
+  } finally { f.raw.close(); }
+});
+
+test('report takedown removes public access and invalidates stale manual and AI reviews', async () => {
+  const f = context();
+  const originalFetch = global.fetch;
+  let finishReview;
+  try {
+    plugin.boot(f.ctx);
+    const token = await pairDevice(f);
+    const request = { user: f.user, body: {}, params: {}, query: {}, headers: {} };
+    const submit = body => invoke(f.frontend.registry.get('POST /api/cloud/market/submit'), { ...request, body });
+    const original = { marketName: 'reported', marketDescription: 'original', source: 'console.log("published content")' };
+    const submitted = await submit(original);
+    const id = String(submitted.body.marketId);
+    await reviewMarket(f, id, 'published');
+    const reported = await invoke(f.frontend.registry.get('POST /api/cloud/device/market/:id/report'), {
+      ...request, user: undefined, headers: { authorization: 'Bearer ' + token }, params: { id }, body: { reason: '需要下架' }
+    });
+    assert.equal(reported.body.reported, true);
+    const params = { id: String(f.raw.prepare('SELECT id FROM cloud_market_reports').get().id) };
+    const detailRoute = f.admin.registry.get('GET /reports/:id');
+    const resolveRoute = f.admin.registry.get('POST /reports/:id/resolve');
+    const snapshot = async () => (await invoke(detailRoute, { ...request, params })).body.match(/name="report_snapshot" value="([a-f0-9]+)"/)[1];
+    const oldSnapshot = await snapshot();
+    f.values.marketModerationMode = 'llm';
+    f.values.llmApiUrl = 'https://review.example/v1/chat/completions';
+    f.values.llmApiKey = 'test-key'; f.values.llmModel = 'test-model';
+    global.fetch = () => new Promise(resolve => { finishReview = () => resolve({ ok: true, json: async () => ({ choices: [{ message: { content: '{"decision":"approve","reason":"ok"}' } }] }) }); });
+    await submit({ ...original, marketId: id, marketName: 'private update', source: 'console.log("candidate content")' });
+    const detail = await invoke(detailRoute, { ...request, params });
+    assert.match(detail.body, /published content/);
+    assert.doesNotMatch(detail.body, /candidate content|private update/);
+    assert.equal((await invoke(resolveRoute, { ...request, params, body: { action: 'takedown', report_snapshot: oldSnapshot } })).statusCode, 409);
+    assert.equal(f.raw.prepare('SELECT status FROM cloud_market_reports').get().status, 'pending');
+    const reviewPage = await invoke(f.admin.registry.get('GET /scripts/:id'), { ...request, params: { id } });
+    const reviewSnapshot = reviewPage.body.match(/name="review_snapshot" value="([A-Za-z0-9+/=]+)"/)[1];
+    const body = { action: 'takedown', report_snapshot: await snapshot() };
+    const resolved = await invoke(resolveRoute, { ...request, params, body });
+    assert.equal(resolved.redirected, '/admin/jslab-cloud#market-reports');
+    finishReview(); await flushReviews();
+    const stored = f.raw.prepare('SELECT * FROM cloud_market_scripts WHERE id=?').get(id);
+    assert.equal(stored.status, 'rejected'); assert.equal(stored.pending_status, 'rejected');
+    assert.equal(stored.source, original.source);
+    assert.equal(stored.pending_source, 'console.log("candidate content")');
+    assert.equal(f.raw.prepare('SELECT COUNT(*) AS n FROM cloud_moderation_reviews').get().n, 0);
+    assert.equal(f.raw.prepare('SELECT status FROM cloud_market_reports').get().status, 'taken_down');
+    assert.equal((await invoke(resolveRoute, { ...request, params, body })).statusCode, 409);
+    assert.equal((await invoke(f.admin.registry.get('POST /scripts/:id/review'), { ...request, params: { id }, body: { status: 'published', review_snapshot: reviewSnapshot } })).statusCode, 409);
+    for (const prefix of ['/api/cloud/market', '/api/cloud/device/market']) {
+      const listed = await invoke(f.frontend.registry.get('GET ' + prefix), { ...request, user: undefined });
+      assert.equal(listed.body.scripts.length, 0);
+      assert.equal((await invoke(f.frontend.registry.get('GET ' + prefix + '/:id/source'), { ...request, user: undefined, params: { id } })).statusCode, 404);
+    }
+    for (const route of ['GET /workspace/market/:id', 'GET /workspace/market/:id/download', 'POST /workspace/market/:id/save']) {
+      assert.equal((await invoke(f.frontend.registry.get(route), { ...request, params: { id } })).statusCode, 404);
+    }
+    const mine = await invoke(f.frontend.registry.get('GET /api/cloud/device/market'), { ...request, headers: { authorization: 'Bearer ' + token }, query: { mine: '1' } });
+    assert.equal(mine.body.scripts[0].status, 'rejected');
+    assert.equal(mine.body.scripts[0].statusText, '已拒绝');
+  } finally {
+    finishReview?.(); await flushReviews();
+    global.fetch = originalFetch; f.closeHandlers.forEach(close => close()); f.raw.close();
+  }
+});
+
 test('single LLM mode makes the final moderation decision', async () => {
   const originalFetch = global.fetch;
   try {
@@ -909,11 +1062,72 @@ test('single LLM mode makes the final moderation decision', async () => {
       plugin.boot(fixture.ctx);
       const created = await invoke(fixture.frontend.registry.get('POST /api/cloud/scripts'), { user: fixture.user, body: { name: `${decision}.js`, source }, params: {}, query: {}, headers: {} });
       const submitted = await submitMarket(fixture, created);
-      assert.equal(submitted.body.status, decision === 'approve' ? 'published' : 'rejected');
+      assert.equal(submitted.body.status, 'pending');
+      await flushReviews();
       assert.equal(fixture.raw.prepare(`SELECT status FROM cloud_market_scripts WHERE id=?`).get(submitted.body.marketId).status, decision === 'approve' ? 'published' : 'rejected');
     }
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test('background review returns pending before the model responds and ignores superseded submissions', { timeout: 5000 }, async () => {
+  for (const jslabVersion of [undefined, '2.0.8', '2.0.10']) {
+    const fixture = context();
+    const originalFetch = global.fetch;
+    const requests = [];
+    const finish = (index, decision) => requests[index].resolve({ ok: true, async json() {
+      return { choices: [{ message: { content: JSON.stringify({ decision, reason: decision }) } }] };
+    } });
+    try {
+      plugin.boot(fixture.ctx);
+      Object.assign(fixture.values, { marketModerationMode: 'llm', llmApiUrl: 'https://review.example/v1/chat/completions', llmApiKey: 'test', llmModel: 'test' });
+      global.fetch = (_url, options) => new Promise(resolve => requests.push({ resolve, signal: options.signal }));
+      const token = jslabVersion ? await pairDevice(fixture) : null;
+      const route = fixture.frontend.registry.get(jslabVersion ? 'POST /api/cloud/device/market/submit' : 'POST /api/cloud/market/submit');
+      const request = { user: fixture.user, headers: { accept: 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, params: {}, query: { jslabVersion },
+        body: { marketName: 'async.js', marketDescription: 'first', source: 'console.log(1)' } };
+      fixture.values.marketModerationMode = 'manual';
+      const manual = await invoke(route, request);
+      assert.equal(manual.body.status, 'pending');
+      assert.equal(requests.length, 0);
+      fixture.values.marketModerationMode = 'llm';
+      const first = await invoke(route, request);
+      assert.equal(first.body.status, 'pending');
+      assert.equal(first.body.review, null);
+      const id = first.body.marketId;
+      const mine = await invoke(fixture.frontend.registry.get('GET /workspace/market'), { ...request, query: { tab: 'mine' } });
+      assert.match(mine.body, /待审核/);
+      await invoke(route, { ...request, body: { ...request.body, marketId: id, source: 'console.log(2)' } });
+      finish(0, 'approve'); await flushReviews();
+      assert.equal(fixture.raw.prepare('SELECT pending_status FROM cloud_market_scripts WHERE id=?').get(id).pending_status, 'pending');
+      assert.equal(fixture.raw.prepare('SELECT COUNT(*) AS n FROM cloud_moderation_reviews').get().n, 0);
+      finish(1, 'approve'); await flushReviews();
+      const published = fixture.raw.prepare('SELECT status,source FROM cloud_market_scripts WHERE id=?').get(id);
+      assert.equal(published.status, 'published');
+      assert.equal(published.source, 'console.log(2)');
+      if (jslabVersion) {
+        for (const older of [undefined, '2.0.7', 'invalid']) {
+          const index = requests.length;
+          let responded = false;
+          const legacy = invoke(route, { ...request, query: { jslabVersion: older } }).then(result => { responded = true; return result; });
+          await flushReviews();
+          assert.equal(responded, false, 'older clients keep the original review response');
+          finish(index, 'reject');
+          assert.equal((await legacy).body.status, 'rejected');
+        }
+      }
+      const closingIndex = requests.length;
+      const closing = await invoke(route, { ...request, body: { ...request.body, marketName: 'closing.js' } });
+      fixture.closeHandlers.forEach(close => close());
+      assert.equal(requests[closingIndex].signal.aborted, true);
+      finish(closingIndex, 'approve'); await flushReviews();
+      assert.equal(fixture.raw.prepare('SELECT status FROM cloud_market_scripts WHERE id=?').get(closing.body.marketId).status, 'pending');
+    } finally {
+      fixture.closeHandlers.forEach(close => close());
+      global.fetch = originalFetch;
+      fixture.raw.close();
+    }
   }
 });
 
@@ -931,7 +1145,8 @@ test('browser rejection reasons survive reloads, stay private and match the subm
     plugin.boot(fixture.ctx);
     const request = {user:fixture.user,headers:{accept:'application/json'},params:{},query:{},body:{marketName:'rejected.js',marketDescription:'original',marketTags:'',source:'console.log(1)'}};
     const submitted = await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), request);
-    assert.equal(submitted.body.status,'rejected');assert.equal(submitted.body.review.reason,reason);
+    assert.equal(submitted.body.status,'pending');assert.equal(submitted.body.review,null);
+    await flushReviews();
     const mine = await invoke(fixture.frontend.registry.get('GET /workspace/market'), {...request,query:{tab:'mine'}});
     assert.match(mine.body,/AI 审核拒绝原因/);assert.match(mine.body,/请说明读取设备标识的用途/);
     assert.match(mine.body,/&lt;script&gt;/);assert.doesNotMatch(mine.body,/<script>alert/);
@@ -947,6 +1162,7 @@ test('browser rejection reasons survive reloads, stay private and match the subm
     }
     fixture.raw.prepare("UPDATE cloud_market_scripts SET status='published' WHERE id=?").run(id);
     await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), {...request,body:{...request.body,marketId:id,marketDescription:'updated',source:'console.log(2)'}});
+    await flushReviews();
     const update = await invoke(fixture.frontend.registry.get('GET /workspace/market'), {...request,query:{tab:'mine'}});
     assert.match(update.body,/AI 审核拒绝原因/);
     const legacyRead = await invoke(fixture.frontend.registry.get('GET /api/cloud/market/:id/source'), {...request,params:{id},query:{}});
@@ -1030,7 +1246,8 @@ test('rejected LLM review preserves a published update for manual approval', asy
       return { ok: true, async json() { return { choices: [{ message: { content: '{"decision":"reject","reason":"manual check needed"}' } }] }; } };
     };
     const edited = await invoke(fixture.frontend.registry.get('POST /api/cloud/market/submit'), { user: fixture.user, body: { marketId: String(published.body.marketId), marketName: 'reviewed.js', marketDescription: 'updated', marketTags: '', source: 'console.log("candidate")' }, params: {}, query: {}, headers: {} });
-    assert.equal(edited.body.status, 'rejected');
+    assert.equal(edited.body.status, 'pending');
+    await flushReviews();
     assert.match(requestBody.messages[0].content, /CUSTOM REVIEW RULE/);
     const rejected = fixture.raw.prepare(`SELECT status,pending_status,source,pending_source FROM cloud_market_scripts WHERE id=?`).get(published.body.marketId);
     assert.equal(rejected.status, 'published');
@@ -1125,6 +1342,33 @@ test('market script can be copied into the current user cloud space', async () =
   const saved = await invoke(fixture.frontend.registry.get('POST /workspace/market/:id/save'), { user: fixture.user, body: {}, params: { id: '1' }, query: {}, headers: {} });
   assert.match(saved.redirected, /\/jslab-cloud\/workspace\/scripts\/\d+/);
   assert.ok(fixture.raw.prepare(`SELECT id FROM cloud_scripts WHERE user_id=1 AND name='copy.js'`).get());
+});
+
+test('web market listings render all matching scripts beyond 50 without pagination', async () => {
+  const fixture = context(); plugin.install(fixture.ctx); plugin.boot(fixture.ctx);
+  const insert = fixture.raw.prepare(`INSERT INTO cloud_market_scripts
+    (owner_user_id,name,source,hash,checksum,status,updated_at) VALUES (?,?,'console.log(1)','h','c',?,?)`);
+  for (let index = 1; index <= 55; index++) {
+    insert.run(fixture.user.id, `回归脚本 ${index}`, 'published', index === 1 ? '2026-01-01' : '2026-01-02');
+  }
+  insert.run(fixture.user.id, '等待审核', 'pending', '2026-01-03');
+  insert.run(2, '其他作者的公开脚本', 'published', '2026-01-03');
+  insert.run(2, '其他作者的待审核脚本', 'pending', '2026-01-03');
+  const page = fixture.frontend.registry.get('GET /workspace/market');
+  const readPage = (query, user) => invoke(page, { user, query, params: {}, headers: {} });
+  const countCards = ({ body }) => [...body.matchAll(/data-cloud-market-metrics="\d+"/g)].length;
+
+  const publicPage = await readPage({});
+  assert.equal(countCards(publicPage), 56);
+  assert.match(publicPage.body, /data-cloud-market-metrics="1"/);
+  const search = await readPage({ q: '回归脚本' });
+  assert.equal(countCards(search), 55);
+  assert.match(search.body, /data-cloud-market-metrics="1"/);
+  assert.doesNotMatch(search.body, /其他作者的公开脚本/);
+  const mine = await readPage({ tab: 'mine' }, fixture.user);
+  assert.equal(countCards(mine), 56);
+  assert.match(mine.body, /等待审核/);
+  assert.doesNotMatch(mine.body, /其他作者的待审核脚本/);
 });
 
 test('market cards keep viewing and cloud saving as separate actions', async () => {

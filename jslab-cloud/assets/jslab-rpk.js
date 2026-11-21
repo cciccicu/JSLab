@@ -2,6 +2,7 @@
   'use strict';
   var form=document.querySelector('[data-cloud-rpk-form]');
   if (!form) return;
+  var errors=window.JSLabErrors, cachedIcon=null, iconError=null;
   var signing=null, signingUrl=null, rpkUrl=null, rpkFilename='', busy=false, lastBody='', requestId='';
   var status=form.querySelector('[data-rpk-status]');
   var signingStatus=form.querySelector('[data-rpk-signing-status]');
@@ -22,7 +23,10 @@
     clearBuild(); progress.classList.add('d-none'); status.textContent='';
   }
   function blob(base64,type) {
-    var binary=atob(base64), bytes=new Uint8Array(binary.length);
+    var binary;
+    try { binary=atob(base64); }
+    catch (_) { throw errors.api('服务器返回的文件编码无效。'); }
+    var bytes=new Uint8Array(binary.length);
     for (var i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
     return new Blob([bytes],{type:type});
   }
@@ -46,13 +50,13 @@
     return hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
   }
   async function post(url,body) {
-    var response=await fetch(url,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json','X-CSRF-Token':form.elements._csrf.value},body:JSON.stringify(Object.assign({_csrf:form.elements._csrf.value},body))});
-    var data;
-    try { data=await response.json(); } catch (_) { throw new Error('服务器未返回 JSON（HTTP '+response.status+'）。'); }
-    if (!response.ok || data.ok===false || data.error) throw new Error(data.message || '打包请求失败（HTTP '+response.status+'）。');
+    var response=await errors.request(url,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json','X-CSRF-Token':form.elements._csrf.value},body:JSON.stringify(Object.assign({_csrf:form.elements._csrf.value},body))},'提交打包信息');
+    var data=await errors.readJson(response,'提交打包信息');
+    if (!response.ok || data.ok===false || data.error) throw errors.api(data.message || '打包请求失败。',response.status);
     return data;
   }
   function keepSigning(value,imported) {
+    if (!value || typeof value.privateKey!=='string' || typeof value.certificate!=='string' || typeof value.archiveBase64!=='string') throw errors.api('签名响应中缺少必要的文件数据。');
     clearSigning(); signing={privateKey:value.privateKey,certificate:value.certificate};
     signingUrl=URL.createObjectURL(blob(value.archiveBase64,'application/zip'));
     signingDownload.href=signingUrl; signingDownload.classList.remove('d-none');
@@ -67,7 +71,7 @@
     if (!button || busy) return;
     var source=document.querySelector('[data-cloud-script="'+button.dataset.cloudRpk+'"]');
     if (!source || !window.bootstrap) return;
-    form.reset(); clearSigning(); invalidateBuild(); lastBody=''; requestId='';
+    form.reset(); clearSigning(); invalidateBuild(); cachedIcon=null; iconError=null; lastBody=''; requestId='';
     form.dataset.scriptId=button.dataset.cloudRpk;
     form.elements.name.value=(source.dataset.name || '').replace(/\.js$/i,'').slice(0,30);
     form.querySelector('[data-rpk-source-name]').textContent=source.dataset.name;
@@ -78,7 +82,7 @@
     if (busy) return;
     invalidateBuild(); setBusy(true); signingStatus.textContent='正在生成签名…';
     try { await generate(); form.elements.signingZipFile.value=''; }
-    catch(error){ signingStatus.textContent=error.message; }
+    catch(error){ signingStatus.textContent=errors.format(error); }
     finally {setBusy(false);}
   });
   form.elements.signingZipFile.addEventListener('change',async function(){
@@ -87,8 +91,20 @@
     var file=form.elements.signingZipFile.files[0];
     if (!file) return;
     setBusy(true); signingStatus.textContent='正在验证签名 ZIP…';
-    try { var result=await post('/jslab-cloud/api/cloud/rpk/signing',{archiveBase64:await base64File(file,32768)}); keepSigning(result.signing,true); }
-    catch(error){ signingStatus.textContent=error.message; }
+    try { var result=await post('/jslab-cloud/api/cloud/rpk/signing',{archiveBase64:await errors.readFile(file,32768,'签名 ZIP')}); keepSigning(result.signing,true); }
+    catch(error){ signingStatus.textContent=errors.format(error); }
+    finally {setBusy(false);}
+  });
+  form.elements.icon.addEventListener('change',async function(){
+    if (busy) return;
+    invalidateBuild(); cachedIcon=null; iconError=null;
+    var file=form.elements.icon.files[0];
+    if (!file) return;
+    setBusy(true); status.className='mt-3'; status.textContent='正在读取图标…';
+    try {
+      cachedIcon={file:file,base64:await errors.readFile(file,32768,'图标')};
+      status.textContent='图标已读取。';
+    } catch(error){ iconError=error; status.textContent=errors.format(error); status.className='mt-3 text-danger'; }
     finally {setBusy(false);}
   });
   ['input','change'].forEach(function(type){form.addEventListener(type,function(){if (!busy) invalidateBuild();});});
@@ -97,14 +113,6 @@
     var anchor=document.createElement('a'); anchor.href=rpkUrl; anchor.download=rpkFilename;
     document.body.appendChild(anchor); anchor.click(); anchor.remove();
   });
-  function base64File(file,max) {
-    if (file.size>max) return Promise.reject(new Error('文件 '+file.name+' 超过 '+(max/1024)+' KiB。'));
-    return file.arrayBuffer().then(function(buffer){
-      var bytes=new Uint8Array(buffer),binary='';
-      for (var i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
-      return btoa(binary);
-    });
-  }
   form.addEventListener('submit',async function(event){
     event.preventDefault(); if (busy) return;
     clearBuild(); setBusy(true); status.className='mt-3'; status.textContent=''; stage(0,'正在读取打包信息…');
@@ -112,20 +120,22 @@
       if (form.elements.signingZipFile.files[0] && !signing) throw new Error('签名 ZIP 未通过验证，请重新选择或清空 ZIP 文件。');
       stage(1,'打包信息已读取，正在准备资源…');
       var icon=form.elements.icon.files[0];
-      var body={name:form.elements.name.value,packageName:form.elements.packageName.value,versionName:form.elements.versionName.value,versionCode:form.elements.versionCode.value,author:form.elements.author.value,target:form.elements.target.value,iconBase64:icon ? await base64File(icon,32768) : '',options:{disableConsole:form.elements.disableConsole.checked,hideTopBar:form.elements.hideTopBar.checked},signing:signing};
+      if (icon && (!cachedIcon || cachedIcon.file!==icon)) throw iconError || errors.frontend('图标尚未成功读取，请重新选择图标，或清空后使用默认图标。');
+      var body={name:form.elements.name.value,packageName:form.elements.packageName.value,versionName:form.elements.versionName.value,versionCode:form.elements.versionCode.value,author:form.elements.author.value,target:form.elements.target.value,iconBase64:icon ? cachedIcon.base64 : '',options:{disableConsole:form.elements.disableConsole.checked,hideTopBar:form.elements.hideTopBar.checked},signing:signing};
       var serialized=JSON.stringify(Object.assign({},body,{signing:signing ? {certificate:signing.certificate} : null}));
       if (serialized!==lastBody) { requestId=makeRequestId(); lastBody=serialized; }
       body.requestId=requestId;
       // Progress follows completed work, rather than a timer or simulated delay.
       stage(2,'资源已准备，服务器正在打包并签名…');
       var result=await post('/jslab-cloud/api/cloud/scripts/'+form.dataset.scriptId+'/rpk',body);
+      if (typeof result.rpkBase64!=='string' || typeof result.filename!=='string') throw errors.api('打包响应中缺少 RPK 文件数据。');
       stage(3,'打包及签名已完成，正在准备下载…');
       rpkUrl=URL.createObjectURL(blob(result.rpkBase64,'application/octet-stream')); rpkFilename=result.filename;
       status.textContent='打包成功，'+(result.chargedCents ? '已扣除 ¥'+(result.chargedCents/100).toFixed(2) : '未重复扣费')+'，JSLab 额度剩余 ¥'+(result.remainingCreditCents/100).toFixed(2)+'。'+(signingUrl ? '请同时下载签名 ZIP。' : '');
       document.querySelectorAll('[data-jslab-credit]').forEach(function(element){element.textContent='¥'+(result.remainingCreditCents/100).toFixed(2);});
       status.className='mt-3 text-success';
       stage(4,'RPK 已生成，点击“下载”保存。');
-    } catch(error){status.textContent=error.message; status.className='mt-3 text-danger'; progress.querySelector('[data-rpk-progress-label]').textContent='打包未完成，请检查错误后重试。';}
+    } catch(error){status.textContent=errors.format(error); status.className='mt-3 text-danger'; progress.querySelector('[data-rpk-progress-label]').textContent='打包未完成，请检查错误后重试。';}
     finally {setBusy(false);}
   });
   window.addEventListener('pagehide',function(){clearSigning();clearBuild();});

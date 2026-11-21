@@ -75,7 +75,8 @@ function ensurePersistentState(ctx) {
       );
       CREATE TABLE IF NOT EXISTS ${t('market_reports')} (
         id INTEGER PRIMARY KEY AUTOINCREMENT, script_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
-        reason TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        reason TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        status TEXT NOT NULL DEFAULT 'pending', resolved_by INTEGER, resolved_at TEXT
       );
       CREATE TABLE IF NOT EXISTS ${t('user_entitlements')} (
         user_id INTEGER PRIMARY KEY, cloud_enabled INTEGER NOT NULL DEFAULT 0, ai_enabled INTEGER NOT NULL DEFAULT 0,
@@ -96,5 +97,9 @@ function ensurePersistentState(ctx) {
         status TEXT NOT NULL DEFAULT 'reserved', created_at TEXT NOT NULL DEFAULT (datetime('now')), settled_at TEXT
       );
     `);
+    const reportColumns = ctx.db.prepare(`PRAGMA table_info(${t('market_reports')})`).all();
+    for (const [name, definition] of Object.entries({ status: "TEXT NOT NULL DEFAULT 'pending'", resolved_by: 'INTEGER', resolved_at: 'TEXT' })) {
+      if (!reportColumns.some(column => column.name === name)) ctx.db.exec(`ALTER TABLE ${t('market_reports')} ADD COLUMN ${name} ${definition}`);
+    }
 }
 module.exports = { ensurePersistentState, DEFAULT_AI_MODEL, DEFAULT_MARKET_MODERATION_PROMPT };

@@ -3,7 +3,7 @@ const { withErrorMessage } = require('./error-messages');
 function createBrowserView(ctx, options) {
   const { escapeHtml } = options;
   const assetVersion = options.assetsVersion;
-  const assets = () => `<link rel="stylesheet" href="/jslab-cloud/assets/jslab-cloud.css?v=${assetVersion}"><script src="/jslab-cloud/assets/jslab-cloud.js?v=${assetVersion}" defer></script><script src="/jslab-cloud/assets/jslab-rpk.js?v=${assetVersion}" defer></script><script src="/jslab-cloud/assets/jslab-downloads.js?v=${assetVersion}" defer></script>`;
+  const assets = () => `<link rel="stylesheet" href="/jslab-cloud/assets/jslab-cloud.css?v=${assetVersion}"><script src="/jslab-cloud/assets/jslab-errors.js?v=${assetVersion}" defer></script><script src="/jslab-cloud/assets/jslab-cloud.js?v=${assetVersion}" defer></script><script src="/jslab-cloud/assets/jslab-rpk.js?v=${assetVersion}" defer></script><script src="/jslab-cloud/assets/jslab-downloads.js?v=${assetVersion}" defer></script>`;
   const csrf = (req) => escapeHtml(ctx.security.csrfToken(req));
   const escAttr = (value) => escapeHtml(value).replace(/`/g, '&#96;');
   const page = (req, res, content, title) => ctx.render.withLayout(req, res, `${assets()}${content}`, { page_title: title });

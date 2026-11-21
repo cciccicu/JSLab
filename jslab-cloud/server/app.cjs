@@ -19,10 +19,12 @@ function createApp(overrides = {}) {
   const app = express();
   const frontend = express.Router(), admin = express.Router();
   const navigation = { items: [], register(item) { this.items.push(item); } };
+  const closeHandlers = [];
   const ctx = {
     id: manifest.id, manifest, rootDir: options.rootDir, phase: 'boot',
     db, config, navigation, logger: options.logger || console,
     routes: { frontend, admin }, ...createSecurity(accounts),
+    onClose(handler) { closeHandlers.push(handler); },
   };
   ctx.render = createRenderer(ctx);
   app.disable('x-powered-by');
@@ -71,9 +73,10 @@ function createApp(overrides = {}) {
       ctx.render.withLayout(req, res, `<section class="shell-auth"><h1 class="h4">请求未完成</h1><p>${escapeHtml(message)}</p><a href="/jslab-cloud">返回首页</a></section>`, { page_title: '请求未完成' });
     });
   } catch (error) {
+    closeHandlers.forEach(handler => handler());
     store.close(); db.close(); throw error;
   }
-  return { app, ctx, accounts, options, close() { store.close(); db.close(); } };
+  return { app, ctx, accounts, options, close() { closeHandlers.forEach(handler => handler()); store.close(); db.close(); } };
 }
 
 module.exports = { createApp };

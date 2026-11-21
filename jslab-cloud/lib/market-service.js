@@ -1,11 +1,19 @@
 const { DEFAULT_MARKET_MODERATION_PROMPT } = require('./persistent-state');
 const { scriptFilename } = require('./script-filename');
 const { normalizeSupportedDevices, storedSupportedDevices } = require('./market-devices');
+const { resolveClientCompatibility } = require('./client-compatibility');
 
 function createMarketService(state) {
   const { ctx, marketScripts, reviews, reports, json, wantsJson, currentUser, hash, checksum, log, consume, sourceFromBody, validJavaScript, getPositiveInteger, MAX_SOURCE } = state;
   const downloads = ctx.db.table('market_downloads');
   const likes = ctx.db.table('market_likes');
+  const reviewControllers = new Set();
+  let closed = false;
+  const close = () => {
+    closed = true;
+    for (const controller of reviewControllers) controller.abort();
+    reviewControllers.clear();
+  };
   const marketEngagement = (id, user) => {
     const result = ctx.db.prepare(`SELECT
       COALESCE((SELECT download_count FROM ${downloads} WHERE script_id=?),0) AS downloadCount,
@@ -88,6 +96,7 @@ function createMarketService(state) {
     return ctx.db.prepare(`SELECT status,pending_status FROM ${marketScripts} WHERE id=?`).get(marketId);
   })();
   const llmReview = async (scriptId) => {
+    if (closed) return null;
     const url = String(ctx.config.get('llmApiUrl') || ''); const key = String(ctx.config.get('llmApiKey') || ''); const model = String(ctx.config.get('llmModel') || '');
     const moderationPrompt = String(ctx.config.get('llmModerationPrompt') || DEFAULT_MARKET_MODERATION_PROMPT).trim() || DEFAULT_MARKET_MODERATION_PROMPT;
     if (!url || !key || !model || typeof fetch !== 'function') return null;
@@ -96,19 +105,25 @@ function createMarketService(state) {
     const snapshot = marketSnapshot(stored);
     const row = { ...snapshot, source: stored.pending_status != null ? stored.pending_source : stored.source };
     let timeout = null;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
     try {
-      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      if (controller) reviewControllers.add(controller);
       timeout = controller ? setTimeout(() => controller.abort(), getPositiveInteger('llmRequestTimeoutMs', 90_000, 300_000)) : null;
       const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, signal: controller ? controller.signal : undefined, body: JSON.stringify({ model, temperature: 0, thinking: { type: 'disabled' }, messages: [{ role: 'system', content: `${moderationPrompt}\n\n当前所有 .js 脚本都具有 console、ui、dialog、script、system；文件名和旧执行类型不决定能力，合法混用日志与 UI 不属于模式错误。\n\n只返回 JSON，不要使用 Markdown：{"decision":"approve|reject","reason":"简短说明"}` }, { role: 'user', content: `Name: ${row.name}\nDescription: ${row.description}\nSource:\n${row.source}` }] }) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json(); const content = String(payload?.choices?.[0]?.message?.content || ''); const parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ''));
+      if (closed) return null;
       if (!sameMarketSnapshot(ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(scriptId), snapshot)) return null;
       if (parsed.decision !== 'approve' && parsed.decision !== 'reject') throw new Error('Invalid moderation decision');
       const decision = parsed.decision; const reason = String(parsed.reason || '').slice(0, 1000);
       ctx.db.prepare(`INSERT INTO ${reviews} (script_id,model,decision,reason,content_hash) VALUES (?, ?, ?, ?, ?)`).run(scriptId, model, decision, reason, reviewContentHash(snapshot));
       return { decision, reason, snapshot };
-    } catch (error) { ctx.logger.warn({ scriptId, error: error.message }, 'LLM moderation failed; leaving script pending'); return null; }
-    finally { if (timeout) clearTimeout(timeout); }
+    } catch (error) { if (!closed) ctx.logger.warn({ scriptId, error: error.message }, 'LLM moderation failed; leaving script pending'); return null; }
+    finally { if (timeout) clearTimeout(timeout); if (controller) reviewControllers.delete(controller); }
+  };
+  const reviewAndApply = async (scriptId) => {
+    const review = await llmReview(scriptId);
+    return !closed && review && applyMarketDecision(scriptId, review.decision, review.snapshot) ? review : null;
   };
   const submitMarket = async (req, res, user, browserForm = false) => {
     const llmModeration = ctx.config.get('marketModerationMode') === 'llm';
@@ -146,8 +161,14 @@ function createMarketService(state) {
     log(user.id, 'market.submit', String(submittedId));
     let review = null;
     if (llmModeration) {
-      review = await llmReview(submittedId);
-      if (review && !applyMarketDecision(submittedId, review.decision, review.snapshot)) review = null;
+      if (browserForm || resolveClientCompatibility(req.query?.jslabVersion).backgroundMarketReview) {
+        // llmReview captures this revision before its first await.
+        reviewAndApply(submittedId).catch(error => {
+          if (!closed) ctx.logger.warn({ scriptId: submittedId, error: error.message }, 'Background market moderation failed; leaving script pending');
+        });
+      } else {
+        review = await reviewAndApply(submittedId);
+      }
     }
     const current = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(submittedId);
     if (!current) return json(res, 404, { error: 'not_found' });
@@ -228,7 +249,34 @@ function createMarketService(state) {
     if (req.body?._csrf && !wantsJson(req)) return res.redirect(`/jslab-cloud/workspace/market/${row.id}`);
     return json(res, 200, { reported: true, message: '举报已提交。' });
   };
-  return { marketSnapshot, reviewContentHash, getMarketReview, marketState, marketEngagement, recordMarketDownload, downloadMarket, likeMarket, applyMarketDecision, submitMarket, listMarket, getMarketSource, deleteMarket, reportMarket };
+  // Report handling targets the published content, even when an update is awaiting review.
+  const reportSnapshot = row => hash(JSON.stringify([marketSnapshot(row), row.name, row.description, row.tags, row.hash, row.supported_devices]));
+  const resolveMarketReport = (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).send('未找到举报记录。');
+    const action = req.body?.action;
+    if (!['dismiss', 'takedown'].includes(action)) return res.status(400).send('请选择有效的举报处理方式。');
+    const admin = currentUser(req);
+    const result = ctx.db.transaction(() => {
+      const report = ctx.db.prepare(`SELECT * FROM ${reports} WHERE id=?`).get(id);
+      if (!report) return { status: 404, message: '未找到举报记录。' };
+      if (report.status !== 'pending') return { status: 409, message: '此举报已处理，请返回列表查看结果。' };
+      if (action === 'takedown') {
+        const row = ctx.db.prepare(`SELECT * FROM ${marketScripts} WHERE id=?`).get(report.script_id);
+        if (!row || row.status !== 'published' || req.body?.report_snapshot !== reportSnapshot(row)) {
+          return { status: 409, message: '脚本内容或状态已更新，请刷新页面后重新处理。' };
+        }
+        // Reject the publication and its candidate together; late AI results no longer match their snapshot.
+        ctx.db.prepare(`UPDATE ${marketScripts} SET status='rejected',pending_status=CASE WHEN pending_status IS NOT NULL THEN 'rejected' END,updated_at=datetime('now') WHERE id=?`).run(row.id);
+      }
+      ctx.db.prepare(`UPDATE ${reports} SET status=?,resolved_by=?,resolved_at=datetime('now') WHERE id=?`).run(action === 'takedown' ? 'taken_down' : 'dismissed', admin.id, id);
+      log(admin.id, 'market.report.resolve', `${id}:${action}:script=${report.script_id}`);
+      return null;
+    })();
+    if (result) return res.status(result.status).send(result.message);
+    return res.redirect('/admin/jslab-cloud#market-reports');
+  };
+  return { close, marketSnapshot, reviewContentHash, getMarketReview, marketState, marketEngagement, recordMarketDownload, downloadMarket, likeMarket, applyMarketDecision, submitMarket, listMarket, getMarketSource, deleteMarket, reportMarket, reportSnapshot, resolveMarketReport };
 }
 
 module.exports = { createMarketService };
